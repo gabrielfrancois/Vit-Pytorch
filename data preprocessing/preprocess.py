@@ -32,10 +32,10 @@ data_batch_5 = unpickle("/home/onyxia/work/Vit-Pytorch/data/data_batch_5")
 # labels -- a list of 10000 numbers in the range 0-9. The number at index i indicates the label of the i-th image in the array data.
 
 train_transform = T.Compose([
-    T.Resize((32, 32)),
-    T.RandomHorizontalFlip(),
-    T.RandAugment(num_ops=2, magnitude=6),
-    T.ToTensor()
+    T.Resize((32, 32)),# transforms each image in the batch to a fixed size of 32x32 pixels (obviously we loose information, and we can think over this 32x32 and maybe use 64x64...)
+    T.RandomHorizontalFlip(), # Applies a random horizontal flip to each image with probability 0.5 (default behavior) to increase data diversity
+    T.RandAugment(num_ops=2, magnitude=6), # add to each channel a random 2 noise of 6 deviation (Example: If an RGB pixel has value [255,0,126] --> [260, -4, 144])
+    T.ToTensor() # Converts the transformed image tensor into a PyTorch tensor 
 ])
 
 # Loading training data directly using ImageFolder
