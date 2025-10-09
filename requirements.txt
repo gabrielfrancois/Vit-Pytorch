@@ -1,0 +1,10 @@
+numpy
+tqdm
+torch
+torchinfo
+torchvision
+torchvision
+torchvision
+matplotlib
+Pillow
+typing
