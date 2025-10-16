@@ -39,5 +39,5 @@ train_transform = T.Compose([
 ])
 
 # Loading training data directly using ImageFolder
-train_dataloader = DataLoader(data_batch_1, batch_size=64, shuffle=True, num_workers=8)
+train_dataloader = DataLoader(data_batch_1, batch_size=64, shuffle=True, num_workers=8, transform=train_transform)
 print(train_dataloader)
