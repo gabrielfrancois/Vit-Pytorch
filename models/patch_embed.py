@@ -42,4 +42,4 @@ class PatchEmbedding(nn.Module):
 
 # If you want to try smth, you write bellow, and then, run the programmm will run whatever you want :)
 if __name__ == "__main__":
-    print("coucou")
+    print("hello world")
