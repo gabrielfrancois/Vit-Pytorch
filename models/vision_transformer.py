@@ -4,13 +4,14 @@ from torch import nn as nn
 from patch_embed import PatchEmbedding
 from positional_embeeding import PositionalEmbeeding
 from transformer_encoder import TransformerEncoder
+from ..helper_function.print import *
 
 class VisionTransformer(nn.Module):
     def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers):
         super().__init__()
 
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
-        assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though"
 
         self.d_model = d_model # Dimensionality of model
         self.n_classes = n_classes # Number of classes
