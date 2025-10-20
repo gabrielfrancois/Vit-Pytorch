@@ -2,7 +2,7 @@
 
 Implement a visual recognition with vision transformers (Vit) using CIFAR-10 dataset (https://www.cs.toronto.edu/~kriz/cifar.html).
 The CIFAR-10 dataset consists of 60000 32x32 colour images in 10 classes, with 6000 images per class. There are 50000 training images and 10000 test images.
-Here are the classes in the dataset, as well as 10 random images from each:
+Here are the classes in the dataset, as well as 10 random images from each:\\
     - airplaine
     - automobile
     - bird
