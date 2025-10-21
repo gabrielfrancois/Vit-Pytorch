@@ -1,6 +1,6 @@
 import torch 
 from torch import nn as nn
-from attention_head  import AttentionHead
+from .attention_head  import AttentionHead
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, n_heads):

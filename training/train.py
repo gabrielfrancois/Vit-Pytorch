@@ -6,6 +6,8 @@ from ..models.vision_transformer import VisionTransformer
 from torch.optim import Adam
 from ..configs.train_cifar10 import *
 
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device: ", device, f"({torch.cuda.get_device_name(device)})" if torch.cuda.is_available() else "")
 

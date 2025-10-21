@@ -1,9 +1,9 @@
 import torch
 from torch import nn as nn 
 
-from patch_embed import PatchEmbedding
-from positional_embeeding import PositionalEmbeeding
-from transformer_encoder import TransformerEncoder
+from .patch_embed import PatchEmbedding
+from .positional_embeeding import PositionalEmbeeding
+from .transformer_encoder import TransformerEncoder
 from ..helper_function.print import *
 
 class VisionTransformer(nn.Module):
