@@ -96,3 +96,6 @@ def load_CIFAR10_data(data_dir: str) -> Tuple[DataLoader, DataLoader, DataLoader
 if __name__ == '__main__':
     data_dir = "/home/onyxia/work/Vit-Pytorch/data"
     train_loader, val_loader, test_loader = load_CIFAR10_data(data_dir)
+
+
+    #TODO: add visualisation
