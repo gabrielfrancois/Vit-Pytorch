@@ -68,7 +68,8 @@ def validate_one_epoch(model, loader, criterion, device):
     total = 0
 
     with torch.no_grad():
-        for imgs, labels in loader:
+        loop = tqdm(loader, desc='Validation')
+        for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
             outputs = model(imgs)
             loss = criterion(outputs, labels)
@@ -77,7 +78,9 @@ def validate_one_epoch(model, loader, criterion, device):
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-
+            
+            loop.set_postfix(loss=loss.item())
+    
     avg_loss = running_loss / len(loader.dataset)
     accuracy = 100*correct/total
 
