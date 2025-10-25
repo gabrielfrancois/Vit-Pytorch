@@ -11,7 +11,7 @@ from models.vision_transformer import VisionTransformer
 from data.load_data_leo import load_CIFAR10_data
 from configs.train_cifar10 import * #contains some constants
 
-# TODO: make connection to config files + use torch.compile(model)
+# TODO: make connection to config files + use torch.compile(model) + add custom name to distinguish different experiments
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

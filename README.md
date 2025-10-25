@@ -29,6 +29,6 @@ The classes are completely mutually exclusive. There is no overlap between autom
 The goal is to implement a tiny ViT running on small devices (laptop, smartphone...) with small computational capacities. 
 
 
-The first step is to implement a tiny ViT and use LoRA to finetune it on COCO dataset. Then, if time allows, we would like to adapt this model to make it Bayesien and compare the performances.
+The first step is to implement a tiny ViT and use LoRA to finetune it on COCO dataset. Then, if time allows, we would like to adapt this model to make it Bayesian and compare the performances.
 
-** TODO **: add a python file with all constants (for example a dict with correspondances between labels number and names) inside helper_function folder + add config folder to test different configs for training
+** TODO **: add a python file with all constants (for example a dict with correspondances between labels number and names) inside helper_function folder + add regularizers!
