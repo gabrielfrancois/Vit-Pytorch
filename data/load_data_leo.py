@@ -5,6 +5,7 @@ import os
 import pickle 
 import numpy as np 
 from typing import Tuple
+import matplotlib.pyplot as plt
 
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split #maybe we should avoid random split to make it more reproducible
@@ -93,9 +94,34 @@ def load_CIFAR10_data(data_dir: str) -> Tuple[DataLoader, DataLoader, DataLoader
 
     return train_loader, val_loader, test_loader
 
+
+def visualise(loader, output_dir='Vit-Pytorch/data/images'):
+    """ Visualise examples """
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    images, labels = next(iter(loader)) #take a batch of 64 images
+
+    # Here we take the first image but could be modify for more
+    img = images[0]
+    label = str(labels[0].item())
+
+    #convert to numpy for plotting
+    img_np = img.permute(1, 2, 0).cpu().numpy()
+    
+    # Plot
+    plt.figure(figsize=(3, 3))
+    plt.title(f"Label: {label}")
+    plt.imshow(img_np)
+    plt.axis("off")
+    output_path = os.path.join(output_dir, f"sample_{label}.png") #pdf for vectorised images
+    plt.savefig(output_path)
+    plt.close()
+    
+    print('finished')
+
+
 if __name__ == '__main__':
     data_dir = "/home/onyxia/work/Vit-Pytorch/data"
     train_loader, val_loader, test_loader = load_CIFAR10_data(data_dir)
-
-
-    #TODO: add visualisation
+    visualise(train_loader)
