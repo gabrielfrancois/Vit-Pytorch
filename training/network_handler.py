@@ -30,7 +30,7 @@ writer = SummaryWriter(log_dir)
 
 # checkpoints
 checkpoint_dir = "checkpoints"
-os.makedirs(checkpoint_dr, exist_ok=True)
+os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Training and Validation
 def train_one_epoch(model, loader, optimizer, criterion, device): #maybe remove some variables if fixed
@@ -49,7 +49,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device): #maybe remove 
         loss.backward()
         optimizer.step()
 
-        running_loss += loss.item() * inputs.size(0) #multiplication by batch size cancels out when divided by total nb of data
+        running_loss += loss.item() * imgs.size(0) #multiplication by batch size cancels out when divided by total nb of data
         _, predicted = torch.max(outputs, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
@@ -61,7 +61,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device): #maybe remove 
 
     return avg_loss, accuracy
 
-def valide_one_epoch(model, loader, criterion, device):
+def validate_one_epoch(model, loader, criterion, device):
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -73,7 +73,7 @@ def valide_one_epoch(model, loader, criterion, device):
             outputs = model(imgs)
             loss = criterion(outputs, labels)
 
-            running_loss += loss.item() * inputs.size(0) #multiplication by batch size cancels out when divided by total nb of data
+            running_loss += loss.item() * imgs.size(0) #multiplication by batch size cancels out when divided by total nb of data
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -83,9 +83,14 @@ def valide_one_epoch(model, loader, criterion, device):
 
     return avg_loss, accuracy
 
-# Training loop
+
+### Training loop
+
+data_dir = "/home/onyxia/work/Vit-Pytorch/data"
+train_loader, val_loader, _ = load_CIFAR10_data(data_dir)
 
 best_val_acc = 0.0
+
 for epoch in range(epochs):
     print(f"\nEpoch {epoch}/{epochs}")
 
