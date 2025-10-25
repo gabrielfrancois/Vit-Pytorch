@@ -4,7 +4,7 @@ from torch import nn as nn
 from .patch_embed import PatchEmbedding
 from .positional_embeeding import PositionalEmbeeding
 from .transformer_encoder import TransformerEncoder
-from ..helper_function.print import *
+from helper_function.print import *
 
 class VisionTransformer(nn.Module):
     def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers):
