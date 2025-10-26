@@ -13,6 +13,7 @@ class AttentionHead(nn.Module):
         self.value = nn.Linear(d_model, head_size)
 
     def forward(self, x):
+        # x = (batch_size, nb patch by images, d_model)
         # Obtaining Queries, Keys, and Values
         Q = self.query(x)
         K = self.key(x)

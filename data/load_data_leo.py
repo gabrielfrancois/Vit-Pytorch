@@ -14,39 +14,39 @@ from torchvision import transforms as T
 
 # main code to define the data objects
 
-class CIFAR10Datasets(Dataset): #inherit Dataset object properties from PyTorch
+class CIFAR10Datasets(Dataset): # inherit Dataset object properties from PyTorch
     """Custom dataset for CIFAR-10"""
 
     def __init__(self, X: np.ndarray, y: np.ndarray, transform=None):
         self.X = torch.tensor(X, dtype=torch.uint8)
-        self.y = torch.tensor(y, dtype=torch.long) #int
-        self.transform = transform #for modularity
+        self.y = torch.tensor(y, dtype=torch.long) # int
+        self.transform = transform # for modularity
 
     def __len__(self):
-        return len(self.y) #the smaller object for more efficient memory usage
+        return len(self.y) # the smaller object for more efficient memory usage
 
-    def __getitem__(self, idx): #for easy access
+    def __getitem__(self, idx): # for easy access
         img = self.X[idx]
         label = self.y[idx]
-        if self.transform: #if not None
+        if self.transform:
             img = self.transform(img)
         return img, label
     
 
 def unpickle(file_path: str) -> dict:
     """Utility function to unpickle CIFAR-10 data"""
-    with open(file_path, "rb") as f: #read binary
+    with open(file_path, "rb") as f: 
         return pickle.load(f, encoding="bytes")
     
 def load_CIFAR10_data(data_dir: str) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Loads CIFAR-10 data and returns train / validation / test datasets"""
 
-    #Train data
+    # Train data
     train_batches = [unpickle(os.path.join(data_dir, f"data_batch_{i}")) for i in range(1,5+1)]
     X_train = np.concatenate([b[b'data'] for b in train_batches]) 
     y_train = np.concatenate([b[b'labels'] for b in train_batches])
 
-    #Test data
+    # Test data
     test_batch = unpickle(os.path.join(data_dir, "test_batch"))
     X_test = test_batch[b'data']
     y_test = np.array(test_batch[b'labels'])
@@ -55,7 +55,7 @@ def load_CIFAR10_data(data_dir: str) -> Tuple[DataLoader, DataLoader, DataLoader
     X_train = X_train.reshape(-1, 3, 32, 32)
     X_test = X_test.reshape(-1, 3, 32, 32)
 
-    #define transforms according to Gabriel François
+    # Refine transforms according to Gabriel François
 
     train_transform  = T.Compose([
         T.ToPILImage(),
@@ -100,13 +100,13 @@ def visualise(loader, output_dir='Vit-Pytorch/data/images'):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    images, labels = next(iter(loader)) #take a batch of 64 images
+    images, labels = next(iter(loader)) # take a batch of 64 images
 
     # Here we take the first image but could be modify for more
     img = images[0]
     label = str(labels[0].item())
 
-    #convert to numpy for plotting
+    # convert to numpy for plotting
     img_np = img.permute(1, 2, 0).cpu().numpy()
     
     # Plot

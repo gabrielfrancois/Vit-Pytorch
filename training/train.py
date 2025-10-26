@@ -1,10 +1,10 @@
-from ..data.load_data import train_loader
+from data.load_data import train_loader
 
 import torch
 from torch import nn as nn
-from ..models.vision_transformer import VisionTransformer
+from models.vision_transformer import VisionTransformer
 from torch.optim import Adam
-from ..configs.train_cifar10 import *
+from configs.train_cifar10 import *
 
 
 
@@ -12,8 +12,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device: ", device, f"({torch.cuda.get_device_name(device)})" if torch.cuda.is_available() else "")
 
 transformer = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-
 optimizer = Adam(transformer.parameters(), lr=alpha)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
 
 for epoch in range(epochs):

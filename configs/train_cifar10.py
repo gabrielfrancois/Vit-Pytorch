@@ -8,5 +8,5 @@ n_channels = 3 #before it was 1
 n_heads = 3
 n_layers = 3
 batch_size = 128
-epochs = 100 
+epochs = 30 
 alpha = 0.005

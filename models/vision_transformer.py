@@ -11,7 +11,7 @@ class VisionTransformer(nn.Module):
         super().__init__()
 
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
-        assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though"
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though..."
 
         self.d_model = d_model # Dimensionality of model
         self.n_classes = n_classes # Number of classes
@@ -24,8 +24,8 @@ class VisionTransformer(nn.Module):
         self.max_seq_length = self.n_patches + 1
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
-        self.positional_encoding = PositionalEmbeeding( self.d_model, self.max_seq_length)
-        self.transformer_encoder = nn.Sequential(*[TransformerEncoder( self.d_model, self.n_heads) for _ in range(n_layers)]) # The vision transformer will also need to be able to have multiple encoder modules. This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
+        self.positional_encoding = PositionalEmbeeding(self.d_model, self.max_seq_length)
+        self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) # The vision transformer will also need to be able to have multiple encoder modules. This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
 
         # Classification MLP
         self.classifier = nn.Sequential(
