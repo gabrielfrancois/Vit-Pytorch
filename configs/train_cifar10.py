@@ -1,12 +1,12 @@
 # setting up the hyperparametters
 
-d_model = 9
+d_model = 18 # 18 seems to be the limit
 n_classes = 10
 img_size = (32,32)
-patch_size = (16,16)
-n_channels = 3 #before it was 1
+patch_size = (4,4)
+n_channels = 3 # before it was 1
 n_heads = 3
-n_layers = 3
-batch_size = 128
+n_layers = 6
+batch_size = 150
 epochs = 30 
 alpha = 0.005
