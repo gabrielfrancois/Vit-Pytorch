@@ -25,7 +25,11 @@ class VisionTransformer(nn.Module):
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
         self.positional_encoding = PositionalEmbeeding(self.d_model, self.max_seq_length)
-        self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) # The vision transformer will also need to be able to have multiple encoder modules. This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
+        self.dropout = nn.Dropout(0.1) #regularisation
+
+        self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) 
+        # The vision transformer will also need to be able to have multiple encoder modules. This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
+
 
         # Classification MLP
         self.classifier = nn.Sequential(
@@ -36,6 +40,7 @@ class VisionTransformer(nn.Module):
     def forward(self, images):
         x = self.patch_embedding(images)
         x = self.positional_encoding(x)
+        x = self.dropout(x)
         x = self.transformer_encoder(x)
         x = self.classifier(x[:,0])
         return x

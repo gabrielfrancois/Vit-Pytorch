@@ -26,9 +26,10 @@ print(f"Using device: {device}")
 
 # Constants of the training (model, optimizer, ...)
 model = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-optimizer = Adam(model.parameters(), lr=alpha)
+#optimizer = Adam(model.parameters(), lr=alpha)
+optimizer = torch.optim.AdamW(model.parameters(), lr=alpha, weight_decay=1e-4) # regularisation
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1) #regularisation
 
 # Tensorboard
 log_dir = "training/log/ViT_CIFAR10"
@@ -184,10 +185,22 @@ def test_model(name, loader, criterion, device):
             f.write(f"Loss: {avg_loss:.4f}\n")
             f.write(f"Accuracy: {accuracy:.2f}\n")
             f.write(f"Total time: {total_time:.2f}s\n")
-            f.write(f"Time per image: {time_per_image*1000:.2f} ms/image")
-            f.write("Classification report:\n")
+            f.write(f"Time per image: {time_per_image*1000:.2f} ms/image\n")
+            f.write("\nClassification report:\n")
             f.write(classification_report(all_labels, all_preds, digits=3))
-        
+            f.write("\n\nHyperparameters:\n")
+            f.write(f"d_model: {d_model}\n")
+            f.write(f"n_classes: {n_classes}\n")
+            f.write(f"img_size: {img_size}\n")
+            f.write(f"patch_size: {patch_size}\n")
+            f.write(f"n_channels: {n_channels}\n")
+            f.write(f"n_heads: {n_heads}\n")
+            f.write(f"n_layers: {n_layers}\n")
+            f.write(f"batch_size: {batch_size}\n")
+            f.write(f"alpha: {alpha}\n")
+            f.write(f"epochs: {epochs}\n")
+            
+            
         return {
             "loss": avg_loss,
             "acuracy": accuracy,
@@ -205,11 +218,11 @@ data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 train_loader, val_loader, test_loader = load_CIFAR10_data(data_dir)
 
 #name of the model
-name = "baseline_CIFAR10"
+name = "baseline_CIFAR10_reg"
 
 best_val_acc = 0.0
 
-train = True
+train = False
 if train:
 
     for epoch in range(1, epochs+1):
@@ -239,6 +252,7 @@ if train:
         # save checkpoint
         if val_acc > best_val_acc:
             best_val_acc = val_acc
+            cm_max = cm
             save_path = os.path.join(checkpoint_dir, f"{name}.pth")
             torch.save(model.state_dict(), save_path)
             print("New best model saved")
@@ -261,7 +275,7 @@ if train:
     plt.legend()
 
     plt.subplot(2, 2, 3)
-    sns.heatmap(cm, cmap="Blues")
+    sns.heatmap(cm_max, cmap="Blues")
     plt.xlabel("Predicted")
     plt.ylabel("Ground truth")
     plt.title("Validation confusion matrix")
