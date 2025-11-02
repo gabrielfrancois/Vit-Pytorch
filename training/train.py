@@ -107,7 +107,7 @@ def get_next_checkpoint_path(base_dir, base_name="best_model", extension=".pth")
 
     base_path = os.path.join(base_dir, base_name + extension)
 
-    # If the file dosn't exists, we just return the path
+    # If the file doesn't exists, we just return the path
     if not os.path.exists(base_path):
         print(red(f"{base_path}"))
         return base_path
@@ -126,7 +126,7 @@ def get_next_checkpoint_path(base_dir, base_name="best_model", extension=".pth")
 ### Training loop
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
-train_loader, val_loader, _ = load_CIFAR10_data(data_dir)
+train_loader, val_loader, test_loader = load_CIFAR10_data(data_dir)
 
 best_val_acc = 0.0
 
