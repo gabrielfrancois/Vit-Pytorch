@@ -83,6 +83,9 @@ def validate_one_epoch(model, loader, criterion, device):
     correct = 0
     total = 0
 
+    all_labels = []
+    all_preds = []
+
     with torch.no_grad():
         loop = tqdm(loader, desc='Validation')
         for imgs, labels in loop:
@@ -94,27 +97,22 @@ def validate_one_epoch(model, loader, criterion, device):
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
             
             loop.set_postfix(loss=loss.item())
     
     avg_loss = running_loss / len(loader.dataset)
     accuracy = 100*correct/total
+    cm = confusion_matrix(all_labels, all_preds)
 
-    return avg_loss, accuracy
+    return avg_loss, accuracy, cm
 
 def test_model(name, loader, criterion, device):
 
     # Define model
-    model = VisionTransformer(
-            d_model=d_model,
-            n_classes=n_classes,
-            img_size=img_size,
-            patch_size=patch_size,
-            n_channels=n_channels,
-            n_heads=n_heads,
-            n_layers=n_layers,
-        ).to(device)
-
+    model = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
     # Load model
     model_path = f"/home/onyxia/work/Vit-Pytorch/checkpoints/{name}.pth"
     state_dict = torch.load(model_path, map_location=device)
@@ -158,7 +156,7 @@ def test_model(name, loader, criterion, device):
         print(f"Device: {device}")
         print(f"Loss: {avg_loss:.4f}")
         print(f"Accuracy: {accuracy:.2f}")
-        print(f"Total time: {total_time}s")
+        print(f"Total time: {total_time:.2f}s")
         print(f"Time per image: {time_per_image*1000:.2f} ms/image")
 
         # confusion matrix
@@ -168,15 +166,28 @@ def test_model(name, loader, criterion, device):
         sns.heatmap(cm, cmap="Blues")
         plt.xlabel("Predicted")
         plt.ylabel("Ground truth")
-        plt.title("Confusion matrix")
+        plt.title(f"Test confusion matrix for {name}")
 
-        path_cm = os.path.join(plot_dir, "confusion_matrix.png")
+        path_cm = os.path.join(plot_dir, f"{name}_test_cm.png")
         plt.savefig(path_cm)
         plt.close()
 
-        report = classification_report(all_labels, all_preds, digits=3)
+        report = classification_report(all_labels, all_preds, zero_division=0, digits=3)
         print("Classficiation report: \n", report)
 
+    
+        # Create a text file to store the metrics simply
+        metrics_path = os.path.join(plot_dir, f"{name}_metrics.txt")
+
+        with open(metrics_path, "w") as f:
+            f.write(f"Device: {device}\n")
+            f.write(f"Loss: {avg_loss:.4f}\n")
+            f.write(f"Accuracy: {accuracy:.2f}\n")
+            f.write(f"Total time: {total_time:.2f}s\n")
+            f.write(f"Time per image: {time_per_image*1000:.2f} ms/image")
+            f.write("Classification report:\n")
+            f.write(classification_report(all_labels, all_preds, digits=3))
+        
         return {
             "loss": avg_loss,
             "acuracy": accuracy,
@@ -194,18 +205,18 @@ data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 train_loader, val_loader, test_loader = load_CIFAR10_data(data_dir)
 
 #name of the model
-name = "baseline"
+name = "baseline_CIFAR10"
 
 best_val_acc = 0.0
 
 train = True
 if train:
 
-    for epoch in range(epochs):
+    for epoch in range(1, epochs+1):
         print(f"\nEpoch {epoch}/{epochs}")
 
         train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, criterion, device)
-        val_loss, val_acc = validate_one_epoch(model, val_loader, criterion, device)
+        val_loss, val_acc, cm = validate_one_epoch(model, val_loader, criterion, device)
         scheduler.step() # based on validation performance
 
         print(f"Train Loss: {train_loss: .4f} | Train Acc: {train_acc: .2f}%")
@@ -228,39 +239,45 @@ if train:
         # save checkpoint
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_path = os.path.join(checkpoint_dir, name, ".pth")
+            save_path = os.path.join(checkpoint_dir, f"{name}.pth")
             torch.save(model.state_dict(), save_path)
             print("New best model saved")
     writer.close()
     print("Training complete")
 
     # save all figures in logs
-    plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(8, 8))
 
-    plt.subplot(1, 3, 1)
+    plt.subplot(2, 2, 1)
     plt.plot(train_losses, label='Train Loss')
     plt.plot(val_losses, label='Val Loss')
     plt.title(f'Loss: patch size={patch_size}')
     plt.legend()
 
-    plt.subplot(1, 3, 2)
+    plt.subplot(2, 2, 2)
     plt.plot(train_accs, label='Train Acc')
     plt.plot(val_accs, label='Val Acc')
-    plt.title(f'Accuracy: n_heads={n_heads} & {n_layers} layers')
+    plt.title(f'Accuracy: {n_heads} heads & {n_layers} layers')
     plt.legend()
 
-    plt.subplot(1, 3, 3)
+    plt.subplot(2, 2, 3)
+    sns.heatmap(cm, cmap="Blues")
+    plt.xlabel("Predicted")
+    plt.ylabel("Ground truth")
+    plt.title("Validation confusion matrix")
+
+    plt.subplot(2, 2, 4)
     plt.plot(lrs)
     plt.title(f'Learning Rate: lr = {alpha} & epoch = {epochs}')
 
     plt.tight_layout()
-    plt.savefig(get_next_checkpoint_path(base_dir=plot_dir, extension="", base_name=f"logs_train_dmodel={d_model}"))
+    plt.savefig(os.path.join(plot_dir, f"{name}_training.png"))
     plt.close()
 
 
     # run this in terminal: tensorboard --logdir runs
 
 
-test_model(name="best_model", loader=test_loader, criterion=criterion, device=device)
+test_model(name=name, loader=test_loader, criterion=criterion, device=device)
 
 
