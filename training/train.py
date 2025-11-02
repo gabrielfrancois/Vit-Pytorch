@@ -188,32 +188,6 @@ def test_model(name, loader, criterion, device):
 
 
 
-def get_next_checkpoint_path(base_dir, base_name="best_model", extension=".pth"):
-    """
-    Example :
-        best_model.pth → best_model_1.pth → best_model_2.pth → ...
-    """
-    if not os.path.exists(base_dir): 
-        os.makedirs(base_dir, exist_ok=True)
-
-    base_path = os.path.join(base_dir, base_name + extension)
-
-    # If the file doesn't exists, we just return the path
-    if not os.path.exists(base_path):
-        print(red(f"{base_path}"))
-        return base_path
-
-    # Elsewhere we just search the avalaible path
-    i = 1
-    while True:
-        new_path = os.path.join(base_dir, f"{base_name}_{i}")
-        if not os.path.exists(new_path):
-            return new_path
-        i += 1
-        if i >= 10_000:
-            return base_path
-
-
 ### Training loop
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
@@ -224,7 +198,7 @@ name = "baseline"
 
 best_val_acc = 0.0
 
-train = False
+train = True
 if train:
 
     for epoch in range(epochs):
