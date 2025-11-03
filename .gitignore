@@ -1,0 +1,4 @@
+# ignore CIFAR 100 data
+
+Vit-Pytorch/data/cifar-100-python.tar.gz 
+Vit-Pytorch/data/cifar-100-python/
