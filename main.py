@@ -15,18 +15,25 @@ from data.load_data import load_CIFAR
 from configs.train_cifar10 import * #contains some constants
 from training.train import *
 
-### Training loop
 
-data_dir = "/home/onyxia/work/Vit-Pytorch/data"
-train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
+### Training loop
 
 #name of the model
 name = "baseline_CIFAR100_reg"
 
-best_val_acc = 0.0
+data_dir = "/home/onyxia/work/Vit-Pytorch/data"
+
+
+train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
+
+
+
+
 
 train = True
 if train:
+    
+    best_val_acc = 0.0
 
     for epoch in range(1, epochs+1):
         print(f"\nEpoch {epoch}/{epochs}")
