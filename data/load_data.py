@@ -105,7 +105,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
 
     return train_loader, val_loader, test_loader
 
-def visualise(loader, output_dir='Vit-Pytorch/data/images'):
+def visualise(loader, output_dir='images'):
     """ Visualise examples """
 
     os.makedirs(output_dir, exist_ok=True)
