@@ -84,6 +84,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
     else: #CIFAR-100
         full_train_dataset = CIFAR100(root=data_dir, train=True, transform=train_transform, download=True)
         test_dataset = CIFAR100(root=data_dir, train=False, transform=test_transform, download=True)
+        print(data_dir)
 
     
     # split full_train_dataset into train and val datasets
