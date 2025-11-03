@@ -26,6 +26,7 @@ print(f"Using device: {device}")
 
 # Constants of the training (model, optimizer, ...)
 model = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
+model = torch.compile(model)
 #optimizer = Adam(model.parameters(), lr=alpha)
 optimizer = torch.optim.AdamW(model.parameters(), lr=alpha, weight_decay=1e-4) # regularisation
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
