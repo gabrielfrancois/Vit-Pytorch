@@ -9,3 +9,5 @@ matplotlib
 Pillow
 typing
 tensorboard
+seaborn
+scikit-learn

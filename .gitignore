@@ -1,4 +1,8 @@
 # ignore CIFAR 100 data
 
-/home/onyxia/work/Vit-Pytorch/data/cifar-100-python.tar.gz 
-/home/onyxia/work/Vit-Pytorch/data/cifar-100-python/
+
+*.gz 
+**/cifar-100-python
+__pycache__/
+*.pyc
+

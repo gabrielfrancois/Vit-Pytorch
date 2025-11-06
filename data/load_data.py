@@ -84,7 +84,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
     else: #CIFAR-100
         full_train_dataset = CIFAR100(root=data_dir, train=True, transform=train_transform, download=True)
         test_dataset = CIFAR100(root=data_dir, train=False, transform=test_transform, download=True)
-        print(data_dir)
+
 
     
     # split full_train_dataset into train and val datasets
@@ -106,7 +106,8 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
 
     return train_loader, val_loader, test_loader
 
-def visualise(loader, output_dir='Vit-Pytorch/data/images'):
+
+def visualise(loader, output_dir):
     """ Visualise examples """
 
     os.makedirs(output_dir, exist_ok=True)
@@ -116,6 +117,7 @@ def visualise(loader, output_dir='Vit-Pytorch/data/images'):
     # Here we take the first image but could be modify for more
     img = images[0]
     label = str(labels[0].item())
+    print(label)
 
     # convert to numpy for plotting
     img_np = img.permute(1, 2, 0).cpu().numpy()
@@ -125,7 +127,7 @@ def visualise(loader, output_dir='Vit-Pytorch/data/images'):
     plt.title(f"Label: {label}")
     plt.imshow(img_np)
     plt.axis("off")
-    output_path = os.path.join(output_dir, f"sample_{label}.png") #pdf for vectorised images
+    output_path = os.path.join(output_dir, 'images', f"sample_{label}.png") #pdf for vectorised images
     plt.savefig(output_path)
     plt.close()
     
@@ -140,4 +142,5 @@ if __name__ == '__main__':
     #visualise(train_loader_10)
 
     train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
-    visualise(train_loader_100)
+    visualise(train_loader_100, output_dir=data_dir)
+
