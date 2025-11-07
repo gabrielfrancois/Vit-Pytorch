@@ -11,3 +11,4 @@ typing
 tensorboard
 seaborn
 scikit-learn
+datasets[vision]
