@@ -47,7 +47,7 @@ train_losses, val_losses = [], []
 train_accs, val_accs = [], []
 lrs = []
 
-# save plots
+# save plots and metrics
 plot_dir = "training/log/plotsCIFAR100"
 os.makedirs(plot_dir, exist_ok=True)
 

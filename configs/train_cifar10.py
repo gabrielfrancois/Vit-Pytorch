@@ -1,11 +1,11 @@
 # setting up the hyperparametters
 
-d_model = 12 
+d_model = 32 #12 before
 n_classes = 100
 img_size = (32,32)
 patch_size = (4,4)
 n_channels = 3 # before it was 1
-n_heads = 3
+n_heads = 4
 n_layers = 12
 batch_size = 100
 epochs = 30
