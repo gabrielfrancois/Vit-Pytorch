@@ -11,7 +11,7 @@ class AttentionHead(nn.Module):
         self.query = nn.Linear(d_model, head_size)
         self.key = nn.Linear(d_model, head_size)
         self.value = nn.Linear(d_model, head_size)
-        #self.dropout = nn.Dropout(0.1) #regularisation
+        self.dropout = nn.Dropout(0.1) #regularisation
 
     def forward(self, x):
         # x = (batch_size, nb patch by images, d_model)
@@ -28,7 +28,7 @@ class AttentionHead(nn.Module):
 
         attention = torch.softmax(attention, dim=-1)
 
-        #attention = self.dropout(attention) #regularisation
+        attention = self.dropout(attention) #regularisation
 
         attention = attention @ V
 

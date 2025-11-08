@@ -16,7 +16,7 @@ class TransformerEncoder(nn.Module):
         self.mha = MultiHeadAttention(d_model, n_heads)
 
         # post-attention dropout
-        #self.dropout1 = nn.Dropout(0.1)
+        self.dropout1 = nn.Dropout(0.1)
 
         # Sub-Layer 2 Normalization
         self.ln2 = nn.LayerNorm(d_model)
@@ -25,15 +25,15 @@ class TransformerEncoder(nn.Module):
         self.mlp = nn.Sequential(
             nn.Linear(d_model, d_model*r_mlp), # expansion
             nn.GELU(),
-            #nn.Dropout(0.1), #regularisation
+            nn.Dropout(0.1), #regularisation
             nn.Linear(d_model*r_mlp, d_model), # compression to come back to d_model
-            #nn.Dropout(0.1)
+            nn.Dropout(0.1)
         )
 
     def forward(self, x):
         # Residual Connection After Sub-Layer 1
-        #out = x + self.dropout1(self.mha(self.ln1(x)))
-        out = x + self.mha(self.ln1(x))
+        out = x + self.dropout1(self.mha(self.ln1(x)))
+        #out = x + self.mha(self.ln1(x))
         # Residual Connection After Sub-Layer 2
         out = out + self.mlp(self.ln2(out))
         return out

@@ -19,7 +19,7 @@ from training.train import *
 ### Training loop
 
 #name of the model
-name = "baseline_CIFAR100_d32"
+name = "CIFAR100_d32_reg"
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
@@ -32,6 +32,8 @@ train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_d
 
 train = True
 if train:
+    
+    print(f" !! LAUNCHING TRAINING FOR {name} !! ")
     
     best_val_acc = 0.0
 
