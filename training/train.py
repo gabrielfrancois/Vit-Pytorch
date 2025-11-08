@@ -48,7 +48,7 @@ train_accs, val_accs = [], []
 lrs = []
 
 # save plots and metrics
-plot_dir = "training/log/plotsCIFAR100"
+plot_dir = f"training/log/plotsCIFAR100/{name}"
 os.makedirs(plot_dir, exist_ok=True)
 
 # Training, Validation, and test
