@@ -30,7 +30,7 @@ train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_d
 
 
 
-train = True
+train = False
 if train:
     
     best_val_acc = 0.0
@@ -100,6 +100,25 @@ if train:
 
 
     # run this in terminal: tensorboard --logdir runs
+
+
+model_path = "/home/onyxia/work/Vit-Pytorch/checkpoints/baseline_CIFAR100_reg.pth"
+ckpt = torch.load(model_path, map_location=device)
+print("TYPE of ckpt:", type(ckpt))
+if isinstance(ckpt, dict):
+    print("ckpt keys:", list(ckpt.keys()))
+# choose candidate state_dict objects
+candidates = []
+if isinstance(ckpt, dict):
+    for key in ("state_dict", "model_state_dict", "model", "net"):
+        if key in ckpt:
+            candidates.append((key, ckpt[key]))
+if not candidates:
+    candidates.append(("ckpt", ckpt))
+
+for name, sd in candidates:
+    print(f"--- Candidate: {name} | #keys = {len(sd)}")
+    print(list(sd.keys())[:20]) 
 
 
 test_model(name=name, loader=test_loader_100, criterion=criterion, device=device)
