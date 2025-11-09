@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 # Hyperparams à adapter à ImageNet ou à charger via un .py config
 batch_size = 32
 num_workers = 2
-epochs = 30
+epochs = 3
 name = "ViT_imagenet1k_128x128"
 checkpoint_dir = "checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
