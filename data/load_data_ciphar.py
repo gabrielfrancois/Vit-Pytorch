@@ -88,7 +88,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
 
     
     # split full_train_dataset into train and val datasets
-    val_ratio = 0.1 #10% of the data will be used for validation
+    val_ratio = 0.1            #10% of the data will be used for validation
     val_size = int(val_ratio * len(full_train_dataset))
     train_size = len(full_train_dataset) - val_size
     train_dataset, val_dataset = random_split(
