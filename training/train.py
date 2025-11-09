@@ -26,7 +26,8 @@ print(f"Using device: {device}")
 
 # Constants of the training (model, optimizer, ...)
 model = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-model = torch.compile(model) #one train epoch = 36s without, about 30s with it but takes some time to launch
+#model = torch.compile(model) #one train epoch = 36s without, about 30s with it but takes some time to launch
+#removed for now because it created problem with the loading od the model later for test
 #optimizer = Adam(model.parameters(), lr=alpha)
 optimizer = torch.optim.AdamW(model.parameters(), lr=alpha, weight_decay=1e-4) # regularisation
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -46,8 +47,8 @@ train_losses, val_losses = [], []
 train_accs, val_accs = [], []
 lrs = []
 
-# save plots
-plot_dir = "training/log/plotsCIFAR100"
+# save plots and metrics
+plot_dir = f"training/log/plotsCIFAR100"
 os.makedirs(plot_dir, exist_ok=True)
 
 # Training, Validation, and test

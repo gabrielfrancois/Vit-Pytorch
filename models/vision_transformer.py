@@ -19,6 +19,7 @@ class VisionTransformer(nn.Module):
         self.patch_size = patch_size # Patch size
         self.n_channels = n_channels # Number of channels
         self.n_heads = n_heads # Number of attention heads
+        
 
         self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
         self.max_seq_length = self.n_patches + 1
@@ -34,7 +35,7 @@ class VisionTransformer(nn.Module):
         # Classification MLP
         self.classifier = nn.Sequential(
             nn.Linear(self.d_model, self.n_classes),
-            nn.Softmax(dim=-1)
+            #nn.Softmax(dim=-1) #you should not add softmax inside a cross-entropy because it already applies log_softmax internally
         )
 
     def forward(self, images):
