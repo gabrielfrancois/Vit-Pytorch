@@ -1,194 +1,147 @@
 import os
+import logging
 import torch
-from torch import nn
-from torch.optim import AdamW
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
+from training.trainer import ViTTrainer
 
-from models.vision_transformer import VisionTransformer
-from data.imagenet_loader import load_imagenet1k
-from configs.train_imagenet1k import *
+# ============================================================
+# LOGGER
+# ============================================================
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler("logs/train_vit.log", mode="w"),
+        logging.StreamHandler()
+    ]
+)
+log = logging.getLogger("ViT_Trainer")
 
-# -------------------
-# Paramètres
-# -------------------
-name = "Imagenet1k_reg"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-checkpoint_dir = "checkpoints"
-plot_dir = "plotsImagenet1k"
-os.makedirs(checkpoint_dir, exist_ok=True)
-os.makedirs(plot_dir, exist_ok=True)
+# ============================================================
+# DATASET
+# ============================================================
+dataset_name = "imagenet"  # ou "CIFAR100_d32_reg"
+data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
-# -------------------
-# Data
-# -------------------
-train_loader, val_loader, test_loader = load_imagenet1k(batch_size=batch_size)
+if dataset_name == "CIFAR100_d32_reg":
+    from configs.train_cifar10 import * 
+    from data.load_data import load_CIFAR
+    train_loader, val_loader, test_loader = load_CIFAR(CIFAR=10, data_dir=data_dir)
+elif dataset_name == "imagenet":
+    from configs.train_imagenet1k import *
+    from data.imagenet_loader import load_imagenet1k
+    train_loader, val_loader, test_loader = load_imagenet1k(
+        batch_size=4, max_items_train=None, max_items_val=None
+    )
+else:
+    raise ValueError(f"Dataset inconnu: {dataset_name}")
 
-# -------------------
-# Model
-# -------------------
-model = VisionTransformer(
-    d_model=d_model,
-    n_classes=n_classes,
-    img_size=img_size,
-    patch_size=patch_size,
-    n_channels=n_channels,
-    n_heads=n_heads,
-    n_layers=n_layers
-).to(device)
-model = torch.compile(model)
+log.info(f"Dataset chargé: {dataset_name.upper()}")
+log.info(f"Train: {len(train_loader.dataset)} | Val: {len(val_loader.dataset)} | Test: {len(test_loader.dataset)}")
 
-# -------------------
-# Loss, optimizer, scheduler
-# -------------------
-criterion = nn.CrossEntropyLoss()
-optimizer = AdamW(model.parameters(), lr=alpha, weight_decay=weight_decay)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+# ============================================================
+# MODEL PARAMS
+# ============================================================
+model_params = {
+    "d_model": d_model,
+    "n_classes": n_classes,
+    "img_size": img_size,
+    "patch_size": patch_size,
+    "n_channels": n_channels,
+    "n_heads": n_heads,
+    "n_layers": n_layers
+}
 
-# -------------------
-# AMP
-# -------------------
-from torch.amp import autocast, GradScaler
-scaler = GradScaler()  # pas de device_type
+train_params = {
+    "lr": alpha,
+    "weight_decay": weight_decay,
+    "epochs": epochs,
+    "label_smoothing": 0.1,
+    "log_dir": f"runs/{dataset_name}_ViT"
+}
 
-# -------------------
-# TensorBoard
-# -------------------
-writer = SummaryWriter(log_dir=f"runs/{name}")
+# ============================================================
+# INIT TRAINER
+# ============================================================
+trainer = ViTTrainer(
+    model_params=model_params,
+    train_params=train_params,
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    checkpoint_dir="checkpoints",
+    plot_dir="plots"
+)
 
-# -------------------
-# Métriques
-# -------------------
-train_losses, val_losses = [], []
-train_accs, val_accs = [], []
-lrs = []
+name = f"{dataset_name}_ViT_d{d_model}_p{patch_size}"
 best_val_acc = 0.0
+cm_max = None
 
-# -------------------
-# Training loop
-# -------------------
+# ============================================================
+# TRAINING LOOP
+# ============================================================
 for epoch in range(1, epochs + 1):
-    print(f"\nEpoch {epoch}/{epochs}")
-    model.train()
-    running_loss, running_corrects = 0.0, 0
-    for images, labels in tqdm(train_loader, desc="Training"):
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
+    log.info(f"\nEpoch {epoch}/{epochs}")
+    
+    train_loss, train_acc = trainer.train_one_epoch(train_loader)
+    val_loss, val_acc, cm = trainer.validate_one_epoch(val_loader)
+    lr = trainer.step_scheduler()
 
-        # AMP forward + backward
-        with autocast(device_type='cuda', dtype=torch.float16):
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+    log.info(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
+    log.info(f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}% | LR: {lr:.6f}")
 
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+    # TensorBoard
+    trainer.writer.add_scalar("Loss/train", train_loss, epoch)
+    trainer.writer.add_scalar("Loss/val", val_loss, epoch)
+    trainer.writer.add_scalar("Accuracy/train", train_acc, epoch)
+    trainer.writer.add_scalar("Accuracy/val", val_acc, epoch)
+    trainer.writer.add_scalar("LR", lr, epoch)
 
-        running_loss += loss.item() * images.size(0)
-        running_corrects += (outputs.argmax(1) == labels).sum().item()
-
-    train_loss = running_loss / len(train_loader.dataset)
-    train_acc = 100 * running_corrects / len(train_loader.dataset)
-
-    # ---- Validation ----
-    model.eval()
-    val_loss, val_corrects = 0.0, 0
-    all_preds, all_labels = [], []
-
-    with torch.no_grad():
-        for images, labels in tqdm(val_loader, desc="Validation"):
-            images, labels = images.to(device), labels.to(device)
-            with autocast(dtype=torch.float16):
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-
-            val_loss += loss.item() * images.size(0)
-            val_corrects += (outputs.argmax(1) == labels).sum().item()
-            all_preds.append(outputs.argmax(1).cpu())
-            all_labels.append(labels.cpu())
-
-    val_loss /= len(val_loader.dataset)
-    val_acc = 100 * val_corrects / len(val_loader.dataset)
-    cm = confusion_matrix(torch.cat(all_labels), torch.cat(all_preds))
-
-    print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
-    print(f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%")
-
-    scheduler.step()
-    lrs.append(optimizer.param_groups[0]["lr"])
-
-    # Logging
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    train_accs.append(train_acc)
-    val_accs.append(val_acc)
-    writer.add_scalar("Loss/train", train_loss, epoch)
-    writer.add_scalar("Loss/val", val_loss, epoch)
-    writer.add_scalar("Accuracy/train", train_acc, epoch)
-    writer.add_scalar("Accuracy/val", val_acc, epoch)
-    writer.add_scalar("LR", optimizer.param_groups[0]["lr"], epoch)
-
-    # Save best model
+    # Checkpoint
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         cm_max = cm
-        torch.save(model.state_dict(), os.path.join(checkpoint_dir, f"{name}.pth"))
-        print("New best model saved")
+        trainer.save_checkpoint(f"{name}_best")
+        log.info(f"Nouveau meilleur modèle sauvegardé ({val_acc:.2f}%)")
 
-writer.close()
+trainer.writer.close()
+log.info("Entraînement terminé avec succès.")
 
-# -------------------
+# ============================================================
 # PLOTS
-# -------------------
+# ============================================================
 plt.figure(figsize=(8, 8))
+
 plt.subplot(2, 2, 1)
-plt.plot(train_losses, label='Train Loss')
-plt.plot(val_losses, label='Val Loss')
-plt.title(f'Loss: patch size={patch_size}')
+plt.plot(trainer.train_losses, label='Train Loss')
+plt.plot(trainer.val_losses, label='Val Loss')
+plt.title(f'Loss (patch size={patch_size})')
 plt.legend()
 
 plt.subplot(2, 2, 2)
-plt.plot(train_accs, label='Train Acc')
-plt.plot(val_accs, label='Val Acc')
-plt.title(f'Accuracy: {n_heads} heads & {n_layers} layers')
+plt.plot(trainer.train_accs, label='Train Acc')
+plt.plot(trainer.val_accs, label='Val Acc')
+plt.title(f'Accuracy ({n_heads} heads, {n_layers} layers)')
 plt.legend()
 
 plt.subplot(2, 2, 3)
-sns.heatmap(cm_max, cmap="Blues")
-plt.xlabel("Predicted")
-plt.ylabel("Ground truth")
-plt.title("Validation confusion matrix")
+if cm_max is not None:
+    sns.heatmap(cm_max, cmap="Blues")
+    plt.xlabel("Predicted")
+    plt.ylabel("Ground truth")
+    plt.title("Validation Confusion Matrix")
 
 plt.subplot(2, 2, 4)
-plt.plot(lrs)
-plt.title(f'Learning Rate: lr = {alpha} & epoch = {epochs}')
+plt.plot(trainer.lrs)
+plt.title(f'Learning Rate: lr={alpha}, epochs={epochs}')
 
 plt.tight_layout()
-plt.savefig(os.path.join(plot_dir, f"{name}_training.png"))
+plt.savefig(f"plots/{name}_training.png")
 plt.close()
+log.info("Figures enregistrées dans le dossier plots/")
 
-# -------------------
-# TEST
-# -------------------
-model.load_state_dict(torch.load(os.path.join(checkpoint_dir, f"{name}.pth")))
-model.eval()
-test_loss, test_corrects = 0.0, 0
-all_preds, all_labels = [], []
-
-with torch.no_grad():
-    for images, labels in tqdm(test_loader, desc="Testing"):
-        images, labels = images.to(device), labels.to(device)
-        with autocast(dtype=torch.float16):
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-        test_loss += loss.item() * images.size(0)
-        test_corrects += (outputs.argmax(1) == labels).sum().item()
-        all_preds.append(outputs.argmax(1).cpu())
-        all_labels.append(labels.cpu())
-
-test_loss /= len(test_loader.dataset)
-test_acc = 100 * test_corrects / len(test_loader.dataset)
-print(f"Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.2f}%")
+# ============================================================
+# TEST FINAL
+# ============================================================
+trainer.test_model(test_loader, f"{name}_best")
+log.info("Test terminé.")
