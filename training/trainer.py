@@ -9,7 +9,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
-
+from torch.amp import autocast, GradScaler
 from models.vision_transformer import VisionTransformer
 
 class ViTTrainer:
@@ -34,19 +34,22 @@ class ViTTrainer:
         self.train_losses, self.val_losses = [], []
         self.train_accs, self.val_accs = [], []
         self.lrs = []
+        self.scaler = GradScaler()
 
     def train_one_epoch(self, loader):
         self.model.train()
         running_loss, correct, total = 0.0, 0, 0
         loop = tqdm(loader, desc="Training")
         for imgs, labels in loop:
-            imgs, labels = imgs.to(self.device), labels.to(self.device)
+            imgs = imgs.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
             self.optimizer.zero_grad()
-            outputs = self.model(imgs)
-            loss = self.criterion(outputs, labels)
-            loss.backward()
-            self.optimizer.step()
-
+            with autocast(device_type='cuda'):
+                outputs = self.model(imgs)
+                loss = self.criterion(outputs, labels)
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             running_loss += loss.item() * imgs.size(0)
             _, predicted = torch.max(outputs, 1)
             correct += (predicted == labels).sum().item()
@@ -86,7 +89,7 @@ class ViTTrainer:
 
         self.val_losses.append(avg_loss)
         self.val_accs.append(accuracy)
-
+        torch.cuda.empty_cache()
         return avg_loss, accuracy, cm
 
     def step_scheduler(self):
@@ -105,6 +108,7 @@ class ViTTrainer:
         state_dict = torch.load(path, map_location=self.device)
         self.model.load_state_dict(state_dict)
         self.model.to(self.device)
+        self.model = torch.compile(self.model, mode="max-autotune", fullgraph=True)
         self.model.eval()
 
         running_loss, correct, total = 0.0, 0, 0
@@ -145,4 +149,5 @@ class ViTTrainer:
         report = classification_report(all_labels, all_preds, zero_division=0, digits=3)
         with open(os.path.join(self.plot_dir, f"{checkpoint_name}_metrics.txt"), "w") as f:
             f.write(report)
+        torch.cuda.empty_cache()
         return avg_loss, accuracy, cm, report

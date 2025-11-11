@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from training.trainer import ViTTrainer
 
+torch.backends.cudnn.benchmark = True # apparemment optimise le tout 
 # ============================================================
 # LOGGER
 # ============================================================
@@ -33,7 +34,7 @@ elif dataset_name == "imagenet":
     from configs.train_imagenet1k import *
     from data.imagenet_loader import load_imagenet1k
     train_loader, val_loader, test_loader = load_imagenet1k(
-        batch_size=4, max_items_train=None, max_items_val=None
+        batch_size=256, max_items_train=None, max_items_val=None
     )
 else:
     raise ValueError(f"Dataset inconnu: {dataset_name}")
@@ -82,7 +83,8 @@ cm_max = None
 # ============================================================
 for epoch in range(1, epochs + 1):
     log.info(f"\nEpoch {epoch}/{epochs}")
-    
+    log.info(f"Epoch {epoch}: device={torch.device("cuda" if torch.cuda.is_available() else "cpu")}, cuda available={torch.cuda.is_available()}, GPU memory={torch.cuda.memory_allocated() / 1e6:.1f} MB")
+
     train_loss, train_acc = trainer.train_one_epoch(train_loader)
     val_loss, val_acc, cm = trainer.validate_one_epoch(val_loader)
     lr = trainer.step_scheduler()
@@ -103,6 +105,8 @@ for epoch in range(1, epochs + 1):
         cm_max = cm
         trainer.save_checkpoint(f"{name}_best")
         log.info(f"Nouveau meilleur modèle sauvegardé ({val_acc:.2f}%)")
+    # log.info(f"Epoch {epoch}: device={trainer.device}, cuda available={torch.cuda.is_available()}, GPU memory={torch.cuda.memory_allocated() / 1e6:.1f} MB")
+
 
 trainer.writer.close()
 log.info("Entraînement terminé avec succès.")
