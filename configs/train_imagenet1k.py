@@ -7,6 +7,6 @@ n_channels = 3
 n_heads = 8
 n_layers = 7 
 batch_size = 256          
-epochs = 1
+epochs = 50
 alpha = 0.0005
 weight_decay = 1e-4

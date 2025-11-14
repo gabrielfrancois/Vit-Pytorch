@@ -11,6 +11,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 from torch.amp import autocast, GradScaler
 from models.vision_transformer import VisionTransformer
+import glob
 
 class ViTTrainer:
     def __init__(self, model_params, train_params, device=None, checkpoint_dir="checkpoints", plot_dir="plots"):
@@ -98,15 +99,69 @@ class ViTTrainer:
         self.lrs.append(lr)
         return lr
 
-    def save_checkpoint(self, name):
-        path = os.path.join(self.checkpoint_dir, f"{name}.pth")
-        torch.save(self.model.state_dict(), path)
+
+
+    def save_checkpoint(self, name, epoch, is_best=False, keep_last=3):
+        """
+        Sauvegarde un checkpoint et garde les N derniers.
+        """
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        # Nom du fichier
+        if is_best:
+            filename = f"{name}_best.pth"
+        else:
+            filename = f"{name}_epoch{epoch}.pth"
+
+        path = os.path.join(self.checkpoint_dir, filename)
+        torch.save({
+            "epoch": epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "scheduler_state_dict": self.scheduler.state_dict(),
+        }, path)
         print(f"[Checkpoint saved] {path}")
+
+        # Nettoyage automatique : garder seulement les N derniers
+        if not is_best:
+            pattern = os.path.join(self.checkpoint_dir, f"{name}_epoch*.pth")
+            all_ckpts = sorted(glob.glob(pattern), key=os.path.getmtime)
+            if len(all_ckpts) > keep_last:
+                for ckpt in all_ckpts[:-keep_last]:
+                    os.remove(ckpt)
+                    print(f"[Checkpoint deleted] {ckpt}")
+
+
+    def load_checkpoint(self, name, best=False):
+        """
+        Charge le dernier checkpoint sauvegardé (ou le meilleur si best=True).
+        """
+        if best:
+            path = os.path.join(self.checkpoint_dir, f"{name}_best.pth")
+        else:
+            # On récupère le dernier epoch sauvegardé
+            ckpts = sorted(
+                glob.glob(os.path.join(self.checkpoint_dir, f"{name}_epoch*.pth")),
+                key=os.path.getmtime
+            )
+            if not ckpts:
+                print("[No checkpoint found]")
+                return None, 0
+            path = ckpts[-1]
+
+        checkpoint = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        epoch = checkpoint.get("epoch", 0)
+        print(f"[Checkpoint loaded] {path} (epoch {epoch})")
+        return checkpoint, epoch
+
 
     def test_model(self, loader, checkpoint_name):
         path = os.path.join(self.checkpoint_dir, f"{checkpoint_name}.pth")
-        state_dict = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(state_dict)
+        checkpoint = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
         self.model.to(self.device)
         self.model = torch.compile(self.model, mode="max-autotune", fullgraph=True)
         self.model.eval()
@@ -114,7 +169,6 @@ class ViTTrainer:
         running_loss, correct, total = 0.0, 0, 0
         all_labels, all_preds = [], []
 
-        start_time = time.time()
         with torch.no_grad():
             loop = tqdm(loader, desc="Testing")
             for imgs, labels in loop:

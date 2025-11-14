@@ -3,11 +3,8 @@ tqdm
 torch
 torchinfo
 torchvision
-torchvision
-torchvision
 matplotlib
 Pillow
-typing
 tensorboard
 seaborn
 scikit-learn

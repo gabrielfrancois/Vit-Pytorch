@@ -4,6 +4,8 @@ import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 from training.trainer import ViTTrainer
+import glob
+
 
 torch.backends.cudnn.benchmark = True # apparemment optimise le tout 
 # ============================================================
@@ -78,10 +80,22 @@ name = f"{dataset_name}_ViT_d{d_model}_p{patch_size}"
 best_val_acc = 0.0
 cm_max = None
 
+resume = True  # permet de recommancer de 0 si besoin
+
+if resume:
+    checkpoint, start_epoch = trainer.load_checkpoint(name)
+    if checkpoint:
+        log.info(f"Reprise depuis l'époque {start_epoch + 1}")
+    else:
+        start_epoch = 0
+else:
+    start_epoch = 0  
+
+
 # ============================================================
 # TRAINING LOOP
 # ============================================================
-for epoch in range(1, epochs + 1):
+for epoch in range(start_epoch +1, epochs + 1):
     log.info(f"\nEpoch {epoch}/{epochs}")
     log.info(f"Epoch {epoch}: device={torch.device("cuda" if torch.cuda.is_available() else "cpu")}, cuda available={torch.cuda.is_available()}, GPU memory={torch.cuda.memory_allocated() / 1e6:.1f} MB")
 
@@ -100,10 +114,11 @@ for epoch in range(1, epochs + 1):
     trainer.writer.add_scalar("LR", lr, epoch)
 
     # Checkpoint
+    trainer.save_checkpoint(name, epoch)
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         cm_max = cm
-        trainer.save_checkpoint(f"{name}_best")
+        trainer.save_checkpoint(name, epoch, is_best=True)
         log.info(f"Nouveau meilleur modèle sauvegardé ({val_acc:.2f}%)")
     # log.info(f"Epoch {epoch}: device={trainer.device}, cuda available={torch.cuda.is_available()}, GPU memory={torch.cuda.memory_allocated() / 1e6:.1f} MB")
 
