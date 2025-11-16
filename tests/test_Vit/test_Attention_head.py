@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-from attention_head import AttentionHead
+from models.attention_head import AttentionHead
 
 
 def test_attention_head_output_shape() -> None:

@@ -19,9 +19,7 @@ dependencies = [
     "pylint",
 ]
 
-[tool.uv]
-groups = { dev = ["pytest", "black", "isort", "pylint"] }
-python = ">=3.11,<3.12"
+
 
 [scripts]
 test = "pytest"
