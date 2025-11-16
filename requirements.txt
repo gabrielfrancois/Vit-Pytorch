@@ -9,3 +9,4 @@ tensorboard
 seaborn
 scikit-learn
 datasets[vision]
+pytest

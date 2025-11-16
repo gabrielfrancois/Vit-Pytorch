@@ -1,0 +1,29 @@
+[project]
+name = "Vit_Pytorch"
+version = "0.1.0"
+description = "Mise en place d'un Vision transformer"
+dependencies = [
+    "numpy",
+    "tqdm",
+    "torch",
+    "torchinfo",
+    "torchvision",
+    "matplotlib",
+    "Pillow",
+    "tensorboard",
+    "seaborn",
+    "scikit-learn",
+    "datasets[vision]",
+    "pytest",
+    "black",
+    "pylint",
+]
+
+[tool.uv]
+groups = { dev = ["pytest", "black", "isort", "pylint"] }
+python = ">=3.11,<3.12"
+
+[scripts]
+test = "pytest"
+format = "black . && isort ."
+lint = "pylint app"

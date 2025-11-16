@@ -25,8 +25,8 @@ log = logging.getLogger("ViT_Trainer")
 # ============================================================
 # DATASET
 # ============================================================
-dataset_name = "imagenet"  # ou "CIFAR100_d32_reg"
-data_dir = "/home/onyxia/work/Vit-Pytorch/data"
+
+dataset_name = "imagenet"
 
 if dataset_name == "CIFAR100_d32_reg":
     from configs.train_cifar10 import * 
@@ -36,7 +36,7 @@ elif dataset_name == "imagenet":
     from configs.train_imagenet1k import *
     from data.imagenet_loader import load_imagenet1k
     train_loader, val_loader, test_loader = load_imagenet1k(
-        batch_size=256, max_items_train=None, max_items_val=None
+        batch_size=256, max_items_train=5000, max_items_val=1000
     )
 else:
     raise ValueError(f"Dataset inconnu: {dataset_name}")
@@ -72,15 +72,14 @@ trainer = ViTTrainer(
     model_params=model_params,
     train_params=train_params,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    checkpoint_dir="checkpoints",
-    plot_dir="plots"
+    checkpoint_dir="checkpoints/",
+    plot_dir=plot_dir
 )
 
-name = f"{dataset_name}_ViT_d{d_model}_p{patch_size}"
+name = f"{dataset_name}_test_ViT_d{d_model}_p{patch_size}"
 best_val_acc = 0.0
-cm_max = None
+cm_max =trainer.cm_max
 
-resume = True  # permet de recommancer de 0 si besoin
 
 if resume:
     checkpoint, start_epoch = trainer.load_checkpoint(name)
@@ -115,20 +114,26 @@ for epoch in range(start_epoch +1, epochs + 1):
 
     # Checkpoint
     trainer.save_checkpoint(name, epoch)
+    cm_max = trainer.cm_max
     if val_acc > best_val_acc:
         best_val_acc = val_acc
-        cm_max = cm
+        
         trainer.save_checkpoint(name, epoch, is_best=True)
         log.info(f"Nouveau meilleur modèle sauvegardé ({val_acc:.2f}%)")
     # log.info(f"Epoch {epoch}: device={trainer.device}, cuda available={torch.cuda.is_available()}, GPU memory={torch.cuda.memory_allocated() / 1e6:.1f} MB")
 
 
 trainer.writer.close()
+if cm_max is None: # Test de la matrice de confusion car le rendu est bizarre
+    log.warning("Aucune matrice de confusion n'a été sauvée. Le modèle n'a pas validé ?")
+
 log.info("Entraînement terminé avec succès.")
 
 # ============================================================
 # PLOTS
 # ============================================================
+
+
 plt.figure(figsize=(8, 8))
 
 plt.subplot(2, 2, 1)
@@ -155,9 +160,9 @@ plt.plot(trainer.lrs)
 plt.title(f'Learning Rate: lr={alpha}, epochs={epochs}')
 
 plt.tight_layout()
-plt.savefig(f"plots/{name}_training.png")
+plt.savefig(f"{plot_dir}/{name}_training.png")
 plt.close()
-log.info("Figures enregistrées dans le dossier plots/")
+log.info(f"Figures enregistrées dans le dossier {plot_dir}/")
 
 # ============================================================
 # TEST FINAL

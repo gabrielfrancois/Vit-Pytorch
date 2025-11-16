@@ -31,6 +31,7 @@ class ViTTrainer:
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.plot_dir = plot_dir
         os.makedirs(self.plot_dir, exist_ok=True)
+        self.cm_max = None
 
         self.train_losses, self.val_losses = [], []
         self.train_accs, self.val_accs = [], []
@@ -87,6 +88,8 @@ class ViTTrainer:
         avg_loss = running_loss / total
         accuracy = 100 * correct / total
         cm = confusion_matrix(all_labels, all_preds)
+        if self.cm_max is None or accuracy > (self.val_accs[-1] if self.val_accs else 0):
+            self.cm_max = cm
 
         self.val_losses.append(avg_loss)
         self.val_accs.append(accuracy)
@@ -119,6 +122,11 @@ class ViTTrainer:
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
+            "train_losses": self.train_losses,
+            "val_losses": self.val_losses,
+            "train_accs": self.train_accs,
+            "val_accs": self.val_accs,
+            "lrs": self.lrs,
         }, path)
         print(f"[Checkpoint saved] {path}")
 
@@ -153,6 +161,12 @@ class ViTTrainer:
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        self.train_losses = checkpoint.get("train_losses", [])
+        self.val_losses = checkpoint.get("val_losses", [])
+        self.train_accs = checkpoint.get("train_accs", [])
+        self.val_accs = checkpoint.get("val_accs", [])
+        self.lrs = checkpoint.get("lrs", [])
+        self.cm_max = checkpoint.get("cm_max", None)
         epoch = checkpoint.get("epoch", 0)
         print(f"[Checkpoint loaded] {path} (epoch {epoch})")
         return checkpoint, epoch
@@ -188,9 +202,10 @@ class ViTTrainer:
         avg_loss = running_loss / total
         accuracy = 100 * correct / total
         cm = confusion_matrix(all_labels, all_preds)
+        self.cm_max =cm
         print(f"[Test] Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
-        # save confusion matrix
+        # save confusion matrix (ne marche pas sur des données réduites de tests imagenet mais ce n'est pas grave)
         plt.figure(figsize=(6,6))
         sns.heatmap(cm, cmap="Blues")
         plt.xlabel("Predicted")

@@ -10,3 +10,16 @@ n_layers = 12
 batch_size = 100
 epochs = 30
 alpha = 0.005
+
+# dataset
+
+
+data_dir = "/home/onyxia/work/Vit-Pytorch/data"
+
+# plots etc.
+
+plot_dir = "plots_CIFAR"
+
+#other
+
+resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0
