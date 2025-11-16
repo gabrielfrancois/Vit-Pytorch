@@ -4,7 +4,6 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from training.trainer import ViTTrainer
-from typing import Tuple, Any
 
 
 @pytest.fixture
@@ -83,7 +82,11 @@ def test_training_loop(trainer_fixture: ViTTrainer, small_dataset: DataLoader) -
     assert lr == trainer_fixture.scheduler.get_last_lr()[0]
 
 
-def test_checkpoint_and_test(trainer_fixture: ViTTrainer, small_dataset: DataLoader, tmp_path: Path) -> None:
+def test_checkpoint_and_test(
+        trainer_fixture: ViTTrainer,
+        small_dataset: DataLoader,
+        tmp_path: Path) -> None:
+
     """
     Tests saving/loading checkpoints and running test_model.
 
