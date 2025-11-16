@@ -15,9 +15,13 @@ weight_decay = 1e-4
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
-# plots etc.
+# checkpoints and plots directories.
 
-plot_dir = "plots_test"
+plot_dir = "plots/plots_test"
+
+checkpoint_dir = "checkpoints/checkpoint_test"
+
+
 
 #other
 

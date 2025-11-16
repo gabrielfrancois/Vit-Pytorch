@@ -1,24 +1,53 @@
-2025-11-16 19:17:20,151 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
-2025-11-16 19:17:20,159 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/benjamin-paine/imagenet-1k-128x128/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/README.md "HTTP/1.1 200 OK"
-2025-11-16 19:17:20,270 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:20,590 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/benjamin-paine/imagenet-1k-128x128/benjamin-paine/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:20,781 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/revision/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b "HTTP/1.1 200 OK"
-2025-11-16 19:17:20,890 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/.huggingface.yaml "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:21,028 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=benjamin-paine/imagenet-1k-128x128 "HTTP/1.1 200 OK"
-2025-11-16 19:17:21,166 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/tree/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/data?recursive=true&expand=false "HTTP/1.1 200 OK"
-2025-11-16 19:17:21,286 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/tree/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b?recursive=false&expand=false "HTTP/1.1 200 OK"
-2025-11-16 19:17:21,402 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/dataset_infos.json "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:21,605 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
-2025-11-16 19:17:21,610 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/benjamin-paine/imagenet-1k-128x128/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/README.md "HTTP/1.1 200 OK"
-2025-11-16 19:17:21,815 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:21,911 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/benjamin-paine/imagenet-1k-128x128/benjamin-paine/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:22,102 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/.huggingface.yaml "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:22,222 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=benjamin-paine/imagenet-1k-128x128 "HTTP/1.1 200 OK"
-2025-11-16 19:17:22,326 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/dataset_infos.json "HTTP/1.1 404 Not Found"
-2025-11-16 19:17:22,365 | INFO | Dataset chargé: IMAGENET
-2025-11-16 19:17:22,365 | INFO | Train: 4500 | Val: 500 | Test: 1000
-2025-11-16 19:17:23,133 | INFO | Reprise depuis l'époque 7
-2025-11-16 19:17:23,133 | WARNING | Aucune matrice de confusion n'a été sauvée. Le modèle n'a pas validé ?
-2025-11-16 19:17:23,133 | INFO | Entraînement terminé avec succès.
-2025-11-16 19:17:23,695 | INFO | Figures enregistrées dans le dossier plots/
-2025-11-16 19:17:42,852 | INFO | Test terminé.
+2025-11-16 23:18:33,972 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2025-11-16 23:18:33,979 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/benjamin-paine/imagenet-1k-128x128/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/README.md "HTTP/1.1 200 OK"
+2025-11-16 23:18:34,185 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:34,453 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/benjamin-paine/imagenet-1k-128x128/benjamin-paine/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:34,673 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/revision/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b "HTTP/1.1 200 OK"
+2025-11-16 23:18:34,783 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:34,934 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=benjamin-paine/imagenet-1k-128x128 "HTTP/1.1 200 OK"
+2025-11-16 23:18:35,040 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/tree/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/data?recursive=true&expand=false "HTTP/1.1 200 OK"
+2025-11-16 23:18:35,143 | INFO | HTTP Request: GET https://huggingface.co/api/datasets/benjamin-paine/imagenet-1k-128x128/tree/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b?recursive=false&expand=false "HTTP/1.1 200 OK"
+2025-11-16 23:18:35,252 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/dataset_infos.json "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:35,422 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+2025-11-16 23:18:35,428 | INFO | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/benjamin-paine/imagenet-1k-128x128/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/README.md "HTTP/1.1 200 OK"
+2025-11-16 23:18:35,532 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:35,619 | INFO | HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/benjamin-paine/imagenet-1k-128x128/benjamin-paine/imagenet-1k-128x128.py "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:35,825 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/.huggingface.yaml "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:35,956 | INFO | HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=benjamin-paine/imagenet-1k-128x128 "HTTP/1.1 200 OK"
+2025-11-16 23:18:36,082 | INFO | HTTP Request: HEAD https://huggingface.co/datasets/benjamin-paine/imagenet-1k-128x128/resolve/dd3adfd6ecfb3ef3ae26205733bf5d9d5410643b/dataset_infos.json "HTTP/1.1 404 Not Found"
+2025-11-16 23:18:36,118 | INFO | Dataset chargé: IMAGENET
+2025-11-16 23:18:36,118 | INFO | Train: 270 | Val: 30 | Test: 200
+2025-11-16 23:18:36,647 | INFO | 
+Epoch 1/6
+2025-11-16 23:18:36,647 | INFO | Epoch 1: device=cuda, cuda available=True, GPU memory=3.4 MB
+2025-11-16 23:18:38,949 | INFO | Train Loss: 7.3942 | Train Acc: 0.00%
+2025-11-16 23:18:38,950 | INFO | Val Loss: 7.3754 | Val Acc: 0.00% | LR: 0.000500
+2025-11-16 23:18:38,989 | INFO | 
+Epoch 2/6
+2025-11-16 23:18:38,990 | INFO | Epoch 2: device=cuda, cuda available=True, GPU memory=24.8 MB
+2025-11-16 23:18:40,248 | INFO | Train Loss: 7.2724 | Train Acc: 2.22%
+2025-11-16 23:18:40,249 | INFO | Val Loss: 2.7864 | Val Acc: 100.00% | LR: 0.000500
+2025-11-16 23:18:40,493 | INFO | Nouveau meilleur modèle sauvegardé (100.00%)
+2025-11-16 23:18:40,493 | INFO | 
+Epoch 3/6
+2025-11-16 23:18:40,493 | INFO | Epoch 3: device=cuda, cuda available=True, GPU memory=31.4 MB
+2025-11-16 23:18:41,557 | INFO | Train Loss: 2.8983 | Train Acc: 99.26%
+2025-11-16 23:18:41,557 | INFO | Val Loss: 1.0930 | Val Acc: 100.00% | LR: 0.000500
+2025-11-16 23:18:41,671 | INFO | 
+Epoch 4/6
+2025-11-16 23:18:41,672 | INFO | Epoch 4: device=cuda, cuda available=True, GPU memory=31.4 MB
+2025-11-16 23:18:42,661 | INFO | Train Loss: 1.1063 | Train Acc: 100.00%
+2025-11-16 23:18:42,661 | INFO | Val Loss: 1.3440 | Val Acc: 100.00% | LR: 0.000500
+2025-11-16 23:18:42,752 | INFO | 
+Epoch 5/6
+2025-11-16 23:18:42,753 | INFO | Epoch 5: device=cuda, cuda available=True, GPU memory=31.4 MB
+2025-11-16 23:18:43,709 | INFO | Train Loss: 1.2932 | Train Acc: 100.00%
+2025-11-16 23:18:43,710 | INFO | Val Loss: 1.4879 | Val Acc: 100.00% | LR: 0.000500
+2025-11-16 23:18:43,808 | INFO | 
+Epoch 6/6
+2025-11-16 23:18:43,808 | INFO | Epoch 6: device=cuda, cuda available=True, GPU memory=31.4 MB
+2025-11-16 23:18:44,841 | INFO | Train Loss: 1.4233 | Train Acc: 100.00%
+2025-11-16 23:18:44,842 | INFO | Val Loss: 1.4754 | Val Acc: 100.00% | LR: 0.000500
+2025-11-16 23:18:44,924 | INFO | Entraînement terminé avec succès.
+2025-11-16 23:18:45,531 | INFO | Figures enregistrées dans le dossier plots/plots_test/
+2025-11-16 23:19:05,924 | INFO | Test terminé.

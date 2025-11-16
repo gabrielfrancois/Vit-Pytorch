@@ -36,7 +36,7 @@ elif dataset_name == "imagenet":
     from configs.train_imagenet1k import *
     from data.imagenet_loader import load_imagenet1k
     train_loader, val_loader, test_loader = load_imagenet1k(
-        batch_size=256, max_items_train=5000, max_items_val=1000
+        batch_size=256, max_items_train=300, max_items_val=200
     )
 else:
     raise ValueError(f"Dataset inconnu: {dataset_name}")
@@ -72,7 +72,7 @@ trainer = ViTTrainer(
     model_params=model_params,
     train_params=train_params,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    checkpoint_dir="checkpoints/",
+    checkpoint_dir=checkpoint_dir,
     plot_dir=plot_dir
 )
 

@@ -3,7 +3,7 @@ from torch import nn as nn
 import numpy as np
 
 
-class PositionalEmbeeding(nn.Module):
+class PositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_seq_length):
         super().__init__()
 
@@ -31,5 +31,5 @@ class PositionalEmbeeding(nn.Module):
         return x
 
 if __name__ == "__main__":
-    test = PositionalEmbeeding(d_model = 4, max_seq_length = 5)
+    test = PositionalEmbedding(d_model = 4, max_seq_length = 5)
     print(test.cls_token)

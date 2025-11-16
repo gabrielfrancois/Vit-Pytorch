@@ -19,6 +19,13 @@ dependencies = [
     "pylint",
 ]
 
+[dependency-groups]
+dev = [
+  "pytest",
+  "black",
+  "isort",
+  "pylint"
+]
 
 
 [scripts]
