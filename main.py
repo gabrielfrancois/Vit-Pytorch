@@ -26,13 +26,8 @@ data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
 train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
 
-
-
-
-
 train = True
 if train:
-    
     print(f" !! LAUNCHING TRAINING FOR {name} !! ")
     
     best_val_acc = 0.0
@@ -99,11 +94,7 @@ if train:
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, f"{name}_training.png"))
     plt.close()
-
-
     # run this in terminal: tensorboard --logdir runs
-
-
 
 test_model(name=name, loader=test_loader_100, criterion=criterion, device=device)
 

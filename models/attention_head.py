@@ -1,19 +1,16 @@
 import torch 
-from torch import nn as nn
-
-
+from torch import nn as nn 
 
 class AttentionHead(nn.Module):
     def __init__(self, d_model, head_size):
         super().__init__()
         self.head_size = head_size
-
         self.query = nn.Linear(d_model, head_size)
         self.key = nn.Linear(d_model, head_size)
         self.value = nn.Linear(d_model, head_size)
-        self.dropout = nn.Dropout(0.1) #regularisation
+        self.dropout = nn.Dropout(0.1) # regularisation
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         # x = (batch_size, nb patch by images, d_model)
         # Obtaining Queries, Keys, and Values
         Q = self.query(x)
@@ -26,13 +23,23 @@ class AttentionHead(nn.Module):
         # Scaling
         attention = attention / (self.head_size ** 0.5)
 
+        # Apply attention masking if provided
+        if mask is not None:
+            # mask shape: (B, N) (Batch_size, nb_of patch token before pruning)
+            # 0 means 'kept', 1 means 'pruned'
+            # We need to expand mask to (B, N, N) to match attention scores.
+            # A token is pruned by blocking its attention *to* all other tokens.
+            # So, for a pruned token at position i, all attention scores A[:, i, :] should be -inf.
+            # The paper describes blocking interactions, which implies both.
+            # Let's implement blocking a token's influence on others (masking rows).
+            # mask: (B, N) -> (B, 1, N) -> (B, N, N) by broadcasting
+            mask = mask.unsqueeze(1)  # (B, 1, N)
+            # Assuming mask is 0 for pruned tokens and 1 for kept tokens.
+            # We want to set scores to -inf where mask is 0.
+            attention = attention.masked_fill(mask == 0, -float('inf'))
+
         attention = torch.softmax(attention, dim=-1)
-
-        attention = self.dropout(attention) #regularisation
-
-        attention = attention @ V
+        attention = self.dropout(attention)
+        attention = attention @ V  # (B, N, head_size)
 
         return attention
-
-
-

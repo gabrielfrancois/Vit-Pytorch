@@ -8,7 +8,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split #maybe we should avoid random split to make it more reproducible
+from torch.utils.data import Dataset, DataLoader, random_split # maybe we should avoid random split to make it more reproducible
 from torchvision import transforms as T
 from torchvision.datasets import CIFAR100, CIFAR10
 
@@ -93,7 +93,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
     train_size = len(full_train_dataset) - val_size
     train_dataset, val_dataset = random_split(
         full_train_dataset, [train_size, val_size],
-        generator = torch.Generator().manual_seed(42) # reproducibility
+        generator = torch.Generator().manual_seed(50) #reproducibility
     )
 
     # Create loaders

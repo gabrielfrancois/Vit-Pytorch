@@ -39,7 +39,7 @@ class VisionTransformer(nn.Module):
         )
 
     def forward(self, images):
-        x = self.patch_embedding(images)
+        x = self.patch_embedding(images) 
         x = self.positional_encoding(x)
         x = self.dropout(x)
         x = self.transformer_encoder(x)
