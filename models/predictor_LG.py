@@ -1,0 +1,66 @@
+"""
+predictor_LG compute the importance score of any tokens, the model select then the top_k most important tokens to keep. 
+predictor_LG return the rules to afford the mask computation (we call it policy)!
+We state C = d_model (embeed_dim) here, (recall B = batch_size, N = nb of patch) 
+The input tokens are first procced in a sequence of layer norm and linear layer + MLP
+layer norm apply for a specific token vector x of size d_model = C the formula here: https://docs.pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html
+This formula is computed on accross the last dimension C.  The input tokens x come from previous Transformer blocks. 
+Depending on the depth of the network, the magnitude of the values in x could vary significantly.
+After, we split the output of in_conv (for input convolutional block) into 2 blocks: local and global.
+Local : 
+    - keep (arbitrarly) C//2 first tokens for it 
+    - just apply an MLP on it  (done in "in_conv")
+Global:
+    - more complicated function : Agg(MLP(x), policy) 
+and return the new policy to compute the net mask.
+"""
+
+import torch
+from torch import nn as nn
+
+class PredictorLG(nn.Module):
+    """ Lightweight module to predict token importance scores. """
+    def __init__(self, embed_dim=32):
+        super().__init__()
+        # Local modeling: a small MLP to process token features
+        self.in_conv = nn.Sequential(
+            nn.LayerNorm(embed_dim),
+            nn.Linear(embed_dim, embed_dim),
+            nn.GELU()
+        )
+        # Output layer: predicts a 2D vector (drop/keep probabilities) for each token
+        self.out_conv = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim // 2),
+            nn.GELU(),
+            nn.Linear(embed_dim // 2, embed_dim // 4),
+            nn.GELU(),
+            nn.Linear(embed_dim // 4, 2), # 2 outputs for (drop, keep)
+            nn.LogSoftmax(dim=-1)
+        )
+
+    def forward(self, x, policy):
+        """
+        input : 
+            - x : (B, N, C) input tokens
+            - policy: (B, N) current mask, 1 for kept tokens, 0 for pruned
+        output : 
+            -  new policy: D : (B, N, 2)
+        """
+
+        x = self.in_conv(x)  # (B, N, C)
+        B, N, C = x.size()
+        # Split features into local and global parts
+        local_x = x[:, :, :C//2]  # (B, N, C//2) for local info
+
+        # Global pooling over kept tokens only, using the policy mask
+        # This provides a global context vector
+        # (x[:, :, C//2:] * policy.unsqueeze(-1)).sum(dim=1) / policy.sum(dim=1, keepdim=True)
+        # To avoid division by zero if all tokens are pruned, add a small epsilon
+        epsilon = 1e-6 # Could change
+        policy_sum = torch.sum(policy, dim=1, keepdim=True) + epsilon
+        global_x = (x[:, :, C//2:] * policy.unsqueeze(-1)).sum(dim=1, keepdim=True) / policy_sum  # (B, 1, C//2) 
+
+        # Concatenate local and global features
+        x = torch.cat([local_x, global_x.expand(B, N, C//2)], dim=-1)  # (B, N, C)
+
+        return self.out_conv(x)  # (B, N, 2)
