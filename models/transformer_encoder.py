@@ -4,7 +4,7 @@ from .multi_head_attention import MultiHeadAttention
 # r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, d_model, n_heads, r_mlp=4):
+    def __init__(self, d_model, n_heads, r_mlp=4, has_predictor=False):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -29,6 +29,9 @@ class TransformerEncoder(nn.Module):
             nn.Linear(d_model*r_mlp, d_model), # compression to come back to d_model
             nn.Dropout(0.1)
         )
+
+        # True ==> pruning
+        self.has_predictor = has_predictor
 
     def forward(self, x):
         # Residual Connection After Sub-Layer 1 

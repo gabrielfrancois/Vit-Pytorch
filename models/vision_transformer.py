@@ -35,7 +35,6 @@ class VisionTransformer(nn.Module):
         # Classification MLP
         self.classifier = nn.Sequential(
             nn.Linear(self.d_model, self.n_classes),
-            #nn.Softmax(dim=-1) #you should not add softmax inside a cross-entropy because it already applies log_softmax internally
         )
 
     def forward(self, images):

@@ -50,7 +50,7 @@ class PredictorLG(nn.Module):
         x = self.in_conv(x)  # (B, N, C)
         B, N, C = x.size()
         # Split features into local and global parts
-        local_x = x[:, :, :C//2]  # (B, N, C//2) for local info
+        local_x = x[:, :, :C//2]  # (B, N, C//2) for local info (C' = C//2)
 
         # Global pooling over kept tokens only, using the policy mask
         # This provides a global context vector
@@ -63,4 +63,5 @@ class PredictorLG(nn.Module):
         # Concatenate local and global features
         x = torch.cat([local_x, global_x.expand(B, N, C//2)], dim=-1)  # (B, N, C)
 
-        return self.out_conv(x)  # (B, N, 2)
+        return self.out_conv(x)  # (B, N, 2) 
+        # These two dimensions correspond to the log-probabilities of the two possible actions for each token: dropping or keeping.
