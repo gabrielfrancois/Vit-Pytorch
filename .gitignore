@@ -4,3 +4,4 @@
 **/cifar-100-python
 __pycache__/
 *.pyc
+**/stl10_binary

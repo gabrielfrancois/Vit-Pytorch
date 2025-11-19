@@ -8,8 +8,8 @@ class AttentionHead(nn.Module):
         super().__init__()
         self.head_size = head_size
 
-        self.query = nn.Linear(d_model, head_size)
-        self.key = nn.Linear(d_model, head_size)
+        self.query = nn.Linear(d_model, head_size) 
+        self.key = nn.Linear(d_model, head_size) 
         self.value = nn.Linear(d_model, head_size)
         self.dropout = nn.Dropout(0.1) #regularisation
 
