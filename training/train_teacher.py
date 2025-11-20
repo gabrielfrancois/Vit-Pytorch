@@ -44,7 +44,6 @@ writer = SummaryWriter(log_dir)
 checkpoint_dir = "checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
-
 # Training Function
 def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
     model.train()
@@ -58,9 +57,10 @@ def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
         imgs, labels = imgs.to(device), labels.to(device)
 
         optimizer.zero_grad(set_to_none=True)
-        # We ignore 'feats' here (represented by _)
+        # We don't mind 'feats' here (represented by _)
         outputs, _ = model(imgs) 
         
+        # Backpropagation 
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -78,7 +78,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
     return avg_loss, accuracy
 
 # Validation Function
-def validate_one_epoch(model, loader, criterion, device):
+def validate_one_epoch(model, loader, criterion, device, desc='Validating'):
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -87,7 +87,7 @@ def validate_one_epoch(model, loader, criterion, device):
     all_labels = []
 
     with torch.no_grad():
-        loop = tqdm(loader, desc='Validating Teacher')
+        loop = tqdm(loader, desc=desc)
         for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
             
@@ -110,6 +110,58 @@ def validate_one_epoch(model, loader, criterion, device):
 
     return avg_loss, accuracy, cm
 
+def save_training_plots(train_losses, val_losses, train_accs, val_accs, lrs, confusion_mat, save_dir):
+    """
+    Generates and saves Loss, Accuracy, LR curves and Confusion Matrix heatmap.
+    """
+    print(blue(f"Saving training graphs to {save_dir}..."))
+    
+    # 1. Loss Curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, label='Train Loss', color='tab:blue')
+    plt.plot(val_losses, label='Validation Loss', color='tab:orange')
+    plt.title('Teacher Training & Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "loss_curve.png"))
+    plt.close()
+
+    # 2. Accuracy Curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_accs, label='Train Acc', color='tab:green')
+    plt.plot(val_accs, label='Validation Acc', color='tab:red')
+    plt.title('Teacher Training & Validation Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy (%)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "accuracy_curve.png"))
+    plt.close()
+
+    # 3. Learning Rate Curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(lrs, label='Learning Rate', color='purple')
+    plt.title('Learning Rate Schedule')
+    plt.xlabel('Epoch')
+    plt.ylabel('LR')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "lr_curve.png"))
+    plt.close()
+
+    # 4. Confusion Matrix Heatmap
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Blues')
+    plt.title('Final Test Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
+    plt.close()
+
+
+
 # Main Execution Loop
 if __name__ == "__main__":
     # Load Data
@@ -120,17 +172,33 @@ if __name__ == "__main__":
 
     print(yellow("Starting Teacher Training..."))
     best_val_acc = 0.0
+
+    # Lists to store metrics for plotting
+    history = {
+        'train_loss': [],
+        'val_loss': [],
+        'train_acc': [],
+        'val_acc': [],
+        'lrs': []
+    }
     
     for epoch in range(epochs):
         # Train on Training Set
         train_loss, train_acc = train_one_epoch(
             teacher, train_loader, optimizer, criterion, device, epoch
         )
-        
+        # Validate
         val_loss, val_acc, _ = validate_one_epoch(
             teacher, val_loader, criterion, device, desc='Validating Teacher'
         )
         
+        # Store Metrics
+        history['train_loss'].append(train_loss)
+        history['val_loss'].append(val_loss)
+        history['train_acc'].append(train_acc)
+        history['val_acc'].append(val_acc)
+        history['lrs'].append(optimizer.param_groups[0]['lr'])
+
         # Update Learning Rate
         scheduler.step()
         
@@ -160,5 +228,16 @@ if __name__ == "__main__":
     teacher.load_state_dict(torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth"))
     test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
     print(blue(f"Final Test Accuracy: {test_acc:.2f}%"))
+
+    # Generate and Save Graphs
+    save_training_plots(
+        history['train_loss'], 
+        history['val_loss'], 
+        history['train_acc'], 
+        history['val_acc'], 
+        history['lrs'], 
+        cm, 
+        graph_dir
+    )
     
     writer.close()
