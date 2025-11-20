@@ -28,18 +28,17 @@ class AttentionHead(nn.Module):
             # mask shape: (B, N) (Batch_size, nb_of patch token before pruning)
             # 0 means 'kept', 1 means 'pruned'
             # We need to expand mask to (B, N, N) to match attention scores.
-            # A token is pruned by blocking its attention *to* all other tokens.
+            # A token is pruned by blocking its attention TO ALL other tokens.
             # So, for a pruned token at position i, all attention scores A[:, i, :] should be -inf.
             # The paper describes blocking interactions, which implies both.
-            # Let's implement blocking a token's influence on others (masking rows).
             # mask: (B, N) -> (B, 1, N) -> (B, N, N) by broadcasting
             mask = mask.unsqueeze(1)  # (B, 1, N)
             # Assuming mask is 0 for pruned tokens and 1 for kept tokens.
             # We want to set scores to -inf where mask is 0.
-            attention = attention.masked_fill(mask == 0, -float('inf'))
+            attention = attention.masked_fill(mask == 0, -1e9) # avoir -inf because sometimes cause unexpected Nan...
 
         attention = torch.softmax(attention, dim=-1)
         attention = self.dropout(attention)
-        attention = attention @ V  # (B, N, head_size)
+        out = attention @ V  # (B, N, head_size)
 
-        return attention
+        return out

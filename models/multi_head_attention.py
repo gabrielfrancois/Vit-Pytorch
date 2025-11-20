@@ -11,9 +11,9 @@ class MultiHeadAttention(nn.Module):
 
         self.heads = nn.ModuleList([AttentionHead(d_model, self.head_size) for _ in range(n_heads)])
 
-    def forward(self, x):
+    def forward(self, x, mzsk=None):
         # Combine attention heads
-        out = torch.cat([head(x) for head in self.heads], dim=-1)
+        out = torch.cat([head(x, mask=mask) for head in self.heads], dim=-1)
         out = self.W_o(out)
         return out 
 

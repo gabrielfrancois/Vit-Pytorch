@@ -7,7 +7,7 @@ from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
 class VisionTransformer(nn.Module):
-    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers):
+    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, predictor_layer=None, keep_rates=None):
         super().__init__()
 
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
