@@ -46,19 +46,19 @@ class PredictorLG(nn.Module):
         output : 
             -  new policy: D : (B, N, 2)
         """
-
+        
         x = self.in_conv(x)  # (B, N, C)
         B, N, C = x.size()
         # Split features into local and global parts
         local_x = x[:, :, :C//2]  # (B, N, C//2) for local info (C' = C//2)
 
         # Global pooling over kept tokens only, using the policy mask
-        # This provides a global context vector
-        # (x[:, :, C//2:] * policy.unsqueeze(-1)).sum(dim=1) / policy.sum(dim=1, keepdim=True)
-        # To avoid division by zero if all tokens are pruned, add a small epsilon
         epsilon = 1e-6 # Could change
-        policy_sum = torch.sum(policy, dim=1, keepdim=True) + epsilon
-        global_x = (x[:, :, C//2:] * policy.unsqueeze(-1)).sum(dim=1, keepdim=True) / policy_sum  # (B, 1, C//2) 
+        policy_sum = torch.sum(policy, dim=1, keepdim=True) + epsilon # (B,1)
+        masked_x = x[:,:,C//2:]*policy.unsqueeze(-1) # (B, N, C//2)
+        sum_x = masked_x.sum(dim=1, keepdim=True) # (B,1,C//2)
+        policy_sum = torch.sum(policy, dim=1, keepdim=True) + epsilon # (B, 1)
+        global_x = sum_x/policy_sum.unsqueeze(-1)  # (B, 1, C//2) 
 
         # Concatenate local and global features
         x = torch.cat([local_x, global_x.expand(B, N, C//2)], dim=-1)  # (B, N, C)

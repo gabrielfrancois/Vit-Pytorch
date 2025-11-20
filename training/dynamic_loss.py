@@ -7,12 +7,12 @@ from configs.train_cifar10 import *
 
 
 class DynamicViTLoss(nn.Module):
-    def __init__(self, lambda_kl=0.5, lambda_ratio=2.0, target_keep_rate=0.7):
+    def __init__(self,target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
         super().__init__()
         self.lambda_kl = lambda_kl         # Weight for distilling teacher knowledge
         self.lambda_ratio = lambda_ratio   # Weight for enforcing sparsity
         self.lambda_distill = lambda_distill # weight for mimic the teacher model
-        self.target_keep_rate = target_ratios # Keep 70% of tokens
+        self.target_ratios = target_ratios # Keep 70% of tokens
 
         # Losses
         self.ce_loss = nn.CrossEntropyLoss()
@@ -39,14 +39,13 @@ class DynamicViTLoss(nn.Module):
             reduction='batchmean'
         )
 
-        # 3. Feature Distillation
         # Uses the FINAL mask (D at last stage)
         final_mask = all_masks[-1] 
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1) # Sum over D_model dim
         masked_diff = token_diff * final_mask
         loss_distill = masked_diff.sum() / (final_mask.sum() + 1e-6) # +1e-6 to avoid the cancel out of the behind the divison
 
-        # 4. Ratio Loss
+        # Ratio Loss
         loss_ratio = 0.0
         for i, mask_s in enumerate(all_masks):
             # mask_s = D^{b, s} of size (B, N)

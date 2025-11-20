@@ -151,14 +151,12 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
     
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
-
         # Get Teacher Output (Ground Truth for Distillation) 
         with torch.no_grad():
             teacher_logits, teacher_feats = teacher(imgs)
-
+        
         # Get Student Output 
         student_logits, student_feats, all_masks, all_scores = student(imgs)
-
         # Calculate Compound Loss 
         loss, metrics = criterion(
             student_logits=student_logits, 

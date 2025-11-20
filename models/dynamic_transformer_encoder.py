@@ -43,13 +43,14 @@ class DynamicTransformerEncoder(nn.Module):
         x: Input features (B, N, C)
         policy: Current binary mask (B, N) where 1=keep, 0=drop
         """
-        # 1. Standard Transformer Operations (Pass policy/mask to Attention)
+        # Standard Transformer Operations (Pass policy/mask to Attention)
         # Note: self.mha must accept the mask now
+        
         attn_out = self.mha(self.ln1(x), mask=policy) 
         x = x + self.dropout1(attn_out)
         x = x + self.mlp(self.ln2(x))
 
-        # 2. Dynamic Token Sparsification
+        # Dynamic Token Sparsification
         new_policy = policy
         pred_score = None
 
@@ -75,5 +76,4 @@ class DynamicTransformerEncoder(nn.Module):
             # If a token was kept (policy=1), it takes the new decision.
             # Formula: D_new = D_old * decision
             new_policy = policy * hard_keep_decision
-
         return x, new_policy, pred_score
