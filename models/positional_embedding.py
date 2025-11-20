@@ -30,7 +30,4 @@ class PositionalEmbedding(nn.Module):
         x = x + self.pe
         return x
 
-if __name__ == "__main__": 
-    test = PositionalEmbeeding(d_model = 4, max_seq_length = 5)
-    print(test.cls_token)
  

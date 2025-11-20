@@ -6,7 +6,7 @@ from .predictor_LG import PredictorLG
 
 # r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
 
-class TransformerEncoder(nn.Module):
+class DynamicTransformerEncoder(nn.Module):
     def __init__(self, d_model, n_heads, r_mlp=4, has_predictor=False):
         super().__init__()
         self.d_model = d_model

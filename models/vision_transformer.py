@@ -1,3 +1,7 @@
+"""
+This Vision transformer will be the 'teacher' model, he'll trained the dynamic ViT to fetch a faster model almost as effiscient as the teacher (as much as possible).
+"""
+
 import torch
 from torch import nn as nn 
 

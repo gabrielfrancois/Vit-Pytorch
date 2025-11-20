@@ -31,7 +31,3 @@ class PatchEmbedding(nn.Module):
         x = x.flatten(2) # (B, d_model, P_col, P_row) -> (B, d_model, P), P = (P_colxP_raw)
         x = x.transpose(1, 2) # (B, d_model, P) -> (B, P, d_model)
         return x
-
-# If you want to try smth, you write bellow, and then, run the programmm will run whatever you want :)
-if __name__ == "__main__":
-    print("hello world")

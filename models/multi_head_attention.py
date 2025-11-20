@@ -16,8 +16,3 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat([head(x, mask=mask) for head in self.heads], dim=-1)
         out = self.W_o(out)
         return out 
-
- 
-if __name__ == "__main__":
-    print("hi")
-
