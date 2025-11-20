@@ -28,7 +28,7 @@ class DynamicVisionTransformer(nn.Module):
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
         self.positional_encoding = PositionalEmbeeding(self.d_model, self.max_seq_length)
-        self.transformer_encoders = nn.ModuleList()
+        self.transformer_encoders = nn.ModuleList() # To get iterable (sequential isn't yet possible due to the masks).
         self.dropout = nn.Dropout(0.1) #regularisation
 
         # Classification MLP
@@ -37,7 +37,10 @@ class DynamicVisionTransformer(nn.Module):
         )
 
         for i in range(n_layers):
-            has_pred = i in pruning_index
+            if i in pruning_index:
+                has_pred = True
+            else:
+                has_pred = False
             self.transformer_encoders.append(
                 DynamicTransformerEncoder(self.d_model, self.n_heads, has_predictor=has_pred)
             )
@@ -60,7 +63,6 @@ class DynamicVisionTransformer(nn.Module):
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
                 # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
-                # 
                 current_policy[:, 0] = 1.0
 
         # CLS Token strategy:
