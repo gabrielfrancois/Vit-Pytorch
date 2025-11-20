@@ -12,6 +12,8 @@ class LORA(nn.Module):
         self.original_layer = original_layer
         in_dim = original_layer.in_features
         out_dim = original_layer.out_features
+
+        self.to(original_layer.weight.device) #very important to be on the same device!
         
         self.r = rank
         self.alpha = alpha
