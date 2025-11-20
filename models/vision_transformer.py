@@ -46,5 +46,10 @@ class VisionTransformer(nn.Module):
         x = self.positional_encoding(x)
         x = self.dropout(x)
         x = self.transformer_encoder(x)
-        x = self.classifier(x[:,0])
-        return x
+
+        # 1. Capture the features (t_i' in the paper) before classification
+        teacher_feats = x
+
+        # Ccalculate logits around the CLS token
+        logits = self.classifier(x[:,0])
+        return logits, teacher_feats

@@ -56,6 +56,7 @@ class DynamicVisionTransformer(nn.Module):
 
         # To store prediction scores for calculating the Sparsity Loss later
         all_pred_scores = []
+        all_masks = []       # binary decisions (D)
 
         # Manual Loop over layers
         for layer in self.transformer_encoders:
@@ -63,15 +64,15 @@ class DynamicVisionTransformer(nn.Module):
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
                 # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
+                # DynamicViT usually relies on the predictor learning to keep it, thus, we'll force it by: current_policy[:, 0] = 1
                 current_policy[:, 0] = 1.0
-
-        # CLS Token strategy:
-        # Usually, we force the CLS token (index 0) to always be kept.
-        # DynamicViT usually relies on the predictor learning to keep it, thus, we'll force it by: current_policy[:, 0] = 1
+                all_masks.append(current_policy)
 
         # Final Classifier (Only use the CLS token)
         cls_token = x[:, 0]
         logits = self.classifier(cls_token)
 
-        # Return logits AND the scores needed for the custom loss
-        return logits, all_pred_scores, current_policy
+        # Store the t_i's of the paper
+        student_feats = x
+
+        return logits, student_feats, all_masks, all_pred_scores
