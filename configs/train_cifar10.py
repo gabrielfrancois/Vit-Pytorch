@@ -27,3 +27,6 @@ checkpoint_dir = "checkpoints/checkpoint_CIFAR"
 resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0
 
 pruning_index = [4,7,10]
+lambda_kl = 1/2
+lambda_ratio = 2
+lambda_distill = 1/2
