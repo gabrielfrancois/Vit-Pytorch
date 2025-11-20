@@ -65,6 +65,7 @@ new_student_dict = {}
 
 for k, v in teacher_dict.items():
     # Map 'transformer_encoder' -> 'transformer_encoders'
+    # Indeed, the keys name changed since we use ModuleList instrad of Sequential, thus, we've to make it match.
     new_key = k.replace('transformer_encoder', 'transformer_encoders')
     if new_key in student_dict:
         new_student_dict[new_key] = v
@@ -73,7 +74,7 @@ for k, v in teacher_dict.items():
         pass
 
 # Update student with available matching weights (Backbone + Classifier)
-# strict=False because Student has extra 'predictor' layers that Teacher doesn't have
+# strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
 student.load_state_dict(new_student_dict, strict=False) 
 
 
@@ -81,7 +82,7 @@ student.load_state_dict(new_student_dict, strict=False)
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-# Dynamic Loss Setup
+# Dynamic loss setup, pho is replaceable
 target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
 criterion = DynamicViTLoss(
     lambda_kl=lambda_kl, 
@@ -295,6 +296,6 @@ if __name__ == "__main__":
 
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(blue('Time Taken:', time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds)))))
     
     writer.close()
