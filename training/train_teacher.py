@@ -43,6 +43,8 @@ os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 checkpoint_dir = "checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
+graph_dir = "training/log/Teacher_ViT_CIFAR10-graphs"
+os.makedirs(graph_dir, exist_ok=True)
 
 # Training Function
 def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
@@ -60,7 +62,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
         # We don't mind 'feats' here (represented by _)
         outputs, _ = model(imgs) 
         
-        # Backpropagation 
+        # Backprop
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -164,6 +166,8 @@ def save_training_plots(train_losses, val_losses, train_accs, val_accs, lrs, con
 
 # Main Execution Loop
 if __name__ == "__main__":
+    # look at the time
+    start_time = time.time()
     # Load Data
     print(blue("Loading Data..."))
     # Adjust path if running from root or training folder
@@ -240,4 +244,8 @@ if __name__ == "__main__":
         graph_dir
     )
     
+    # Display the time taken by the student (expected to be much lower)
+    seconds = time.time() - start_time
+    print(blue('Time Taken:', time.strftime("%H:%M:%S",time.gmtime(seconds))))
+
     writer.close()
