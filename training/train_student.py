@@ -296,6 +296,6 @@ if __name__ == "__main__":
 
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds)))))
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     
     writer.close()
