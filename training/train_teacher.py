@@ -1,0 +1,164 @@
+import os
+import time
+import torch
+from torch import nn
+from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
+
+from helper_function.print import *
+from models.vision_transformer import VisionTransformer
+from models.dynamicViT import DynamicVisionTransformer
+from .dynamic_loss import DynamicViTLoss
+from data.load_data import load_CIFAR
+from configs.train_cifar10 import * 
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# Initialize Teacher Model
+print("Initializing Teacher ViT...")
+teacher = VisionTransformer(
+    d_model=d_model, 
+    n_classes=n_classes, 
+    img_size=img_size, 
+    patch_size=patch_size, 
+    n_channels=n_channels, 
+    n_heads=n_heads, 
+    n_layers=n_layers
+).to(device)
+
+# Optimizer & Loss
+optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+criterion = nn.CrossEntropyLoss()
+
+# Logging and checkpoints
+log_dir = "training/log/Teacher_ViT_CIFAR10"
+os.makedirs(log_dir, exist_ok=True)
+writer = SummaryWriter(log_dir)
+checkpoint_dir = "checkpoints"
+os.makedirs(checkpoint_dir, exist_ok=True)
+
+
+# Training Function
+def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
+    model.train()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+
+    loop = tqdm(loader, desc=f'Training Teacher Epoch {epoch_index}')
+    
+    for imgs, labels in loop:
+        imgs, labels = imgs.to(device), labels.to(device)
+
+        optimizer.zero_grad(set_to_none=True)
+        # We ignore 'feats' here (represented by _)
+        outputs, _ = model(imgs) 
+        
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+
+        running_loss += loss.item() * imgs.size(0)
+        _, predicted = torch.max(outputs, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+        loop.set_postfix(loss=loss.item())
+    
+    avg_loss = running_loss / len(loader.dataset)
+    accuracy = 100 * correct / total
+
+    return avg_loss, accuracy
+
+# Validation Function
+def validate_one_epoch(model, loader, criterion, device):
+    model.eval()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        loop = tqdm(loader, desc='Validating Teacher')
+        for imgs, labels in loop:
+            imgs, labels = imgs.to(device), labels.to(device)
+            
+            # Unpack tuple here as well
+            outputs, _ = model(imgs)
+            
+            loss = criterion(outputs, labels)
+
+            running_loss += loss.item() * imgs.size(0)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+            
+    avg_loss = running_loss / len(loader.dataset)
+    accuracy = 100 * correct / total
+    cm = confusion_matrix(all_labels, all_preds)
+
+    return avg_loss, accuracy, cm
+
+# Main Execution Loop
+if __name__ == "__main__":
+    # Load Data
+    print(blue("Loading Data..."))
+    # Adjust path if running from root or training folder
+    data_path = "/home/onyxia/work/Vit-Pytorch/data" 
+    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
+
+    print(yellow("Starting Teacher Training..."))
+    best_val_acc = 0.0
+    
+    for epoch in range(epochs):
+        # Train on Training Set
+        train_loss, train_acc = train_one_epoch(
+            teacher, train_loader, optimizer, criterion, device, epoch
+        )
+        
+        val_loss, val_acc, _ = validate_one_epoch(
+            teacher, val_loader, criterion, device, desc='Validating Teacher'
+        )
+        
+        # Update Learning Rate
+        scheduler.step()
+        
+        # Logging
+        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        
+        writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
+        writer.add_scalar('Teacher/Loss/val', val_loss, epoch)
+        writer.add_scalar('Teacher/Accuracy/train', train_acc, epoch)
+        writer.add_scalar('Teacher/Accuracy/val', val_acc, epoch)
+        writer.add_scalar('Teacher/LearningRate', optimizer.param_groups[0]['lr'], epoch)
+
+        # Save Best Model based on Validation Accuracy
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            save_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
+            torch.save(teacher.state_dict(), save_path)
+            print(purple(f"--> New Best Teacher Model saved at {save_path}"))
+
+        # Save Periodic Checkpoint
+        if (epoch + 1) % 5 == 0:
+            torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
+
+    # Final Test on Test Set
+    # After training is complete, check performance on the hold-out test set using the best model
+    print(yellow("\nTraining Complete. Loading best model for final testing..."))
+    teacher.load_state_dict(torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth"))
+    test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
+    print(blue(f"Final Test Accuracy: {test_acc:.2f}%"))
+    
+    writer.close()
