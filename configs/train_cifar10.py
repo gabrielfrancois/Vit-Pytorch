@@ -8,7 +8,7 @@ n_channels = 3 # before it was 1
 n_heads = 4 
 n_layers = 12
 batch_size = 100
-epochs = 3 
+epochs = 30 
 alpha = 0.005
 
 # dataset
