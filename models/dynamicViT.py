@@ -8,7 +8,6 @@ from .positional_embeeding import PositionalEmbeeding
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
-
 class DynamicVisionTransformer(nn.Module):
     def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index):
         super().__init__()
@@ -46,6 +45,17 @@ class DynamicVisionTransformer(nn.Module):
             )
     
     def forward(self, images):
+        """
+        input :
+        ------------------
+            - images: (batch size, image channel, image height, image width)
+        output :
+        ------------------
+            - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
+            - student_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
+            - all_masks: list of mask = [(B,N), ..., (B,N)]
+            - all_pred_scores: list of proba of keeping each mask = [(B,N), ... , (B,N)]
+        """
         x = self.patch_embedding(images)
         x = self.positional_encoding(x)
         x = self.dropout(x)

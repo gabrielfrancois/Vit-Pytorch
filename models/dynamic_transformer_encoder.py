@@ -33,22 +33,28 @@ class DynamicTransformerEncoder(nn.Module):
             nn.Dropout(0.1)
         )
 
-        # True ==> pruning
+        # True ==> pruning 
         self.has_predictor = has_predictor
         if self.has_predictor:
             self.predictor = PredictorLG(embed_dim=d_model)
 
     def forward(self, x, policy):
         """
-        x: Input features (B, N, C)
-        policy: Current binary mask (B, N) where 1=keep, 0=drop
+        input:
+        ---------------
+            - x: Features (B, N, C)
+            - policy: Current binary policy (mask) (B, N) where 1=keep, 0=drop
+        output:
+        ---------------
+            - x: Features (B, N, C)
+            - policy: New binary policy (mask) (B, N)
+            - pred_score: new proba of keeping each patch: (B, N)
         """
         # Standard Transformer Operations (Pass policy/mask to Attention)
-        # Note: self.mha must accept the mask now
         
         attn_out = self.mha(self.ln1(x), mask=policy) 
         x = x + self.dropout1(attn_out)
-        x = x + self.mlp(self.ln2(x))
+        x = x + self.mlp(self.ln2(x)) 
 
         # Dynamic Token Sparsification
         new_policy = policy
@@ -56,16 +62,13 @@ class DynamicTransformerEncoder(nn.Module):
 
         if self.has_predictor:
             # Predict logits for dropping/keeping: Output (B, N, 2)
-            # prediction is log-softmax
             pred_logits = self.predictor(x, policy) 
             
-            # Extract "keep" probability (index 1) for the loss function
-            # pred_logits are log-probs, so exp() to get probs 
+            # Extract "keep" probability (index 1) for the loss function, pred_logits are log-probs, so exp() to get the probabilities 
             pred_score = pred_logits.exp()[:, :, 1] 
 
             if self.training: # automatically set by torch 
-                # TRAINING: Use Gumbel-Softmax to sample a binary mask differentiably
-                # This allows gradients to flow back into the predictor
+                # TRAINING: Use Gumbel-Softmax to sample a binary mask differentiably, this allows gradients to flow back into the predictor
                 hard_keep_decision = F.gumbel_softmax(pred_logits, tau=1, hard=True)[:, :, 1]
             else:
                 # INFERENCE: Simple argmax or thresholding
@@ -74,6 +77,5 @@ class DynamicTransformerEncoder(nn.Module):
             # Update the policy: 
             # If a token was already dropped (policy=0), it stays dropped.
             # If a token was kept (policy=1), it takes the new decision.
-            # Formula: D_new = D_old * decision
-            new_policy = policy * hard_keep_decision
+            new_policy = policy * hard_keep_decision # Formula: D_new = D_old * decision (Hadamard product)
         return x, new_policy, pred_score

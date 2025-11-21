@@ -42,6 +42,15 @@ class VisionTransformer(nn.Module):
         )
 
     def forward(self, images):
+        """
+        input :
+        ------------------
+            - images: (batch size (=B), image channel, image height, image width)
+        output :
+        ------------------
+            - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
+            - teacher_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
+        """
         x = self.patch_embedding(images) 
         x = self.positional_encoding(x)
         x = self.dropout(x)
