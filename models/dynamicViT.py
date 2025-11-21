@@ -4,7 +4,7 @@ from torch import nn as nn
 from .dynamic_transformer_encoder import DynamicTransformerEncoder
 from .predictor_LG import PredictorLG
 from .patch_embed import PatchEmbedding
-from .positional_embeeding import PositionalEmbeeding
+from .positional_embedding import PositionalEmbedding  
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
@@ -28,7 +28,7 @@ class DynamicVisionTransformer(nn.Module):
         self.max_seq_length = self.n_patches + 1
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
-        self.positional_encoding = PositionalEmbeeding(self.d_model, self.max_seq_length)
+        self.positional_encoding = PositionalEmbedding(self.d_model, self.max_seq_length)
         self.transformer_encoders = nn.ModuleList() # To get iterable (sequential isn't yet possible due to the masks).
         self.dropout = nn.Dropout(0.1) #regularisation
 
