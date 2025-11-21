@@ -94,7 +94,7 @@ class DynamicTransformerEncoder(nn.Module):
                 x = x[batch_indices, keep_indices] 
                 new_policy = policy[batch_indices, keep_indices]
 
-                # x is now (B, N', C). No mask needed.
+                # x is now (B, N', C) (with N' <= N). No mask needed.
                 attn_out = self.mha(self.ln1(x), mask=None)
                 x = x + self.dropout1(attn_out)
                 x = x + self.mlp(self.ln2(x))

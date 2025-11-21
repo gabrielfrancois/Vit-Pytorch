@@ -20,13 +20,15 @@ class DynamicViTLoss(nn.Module):
 
     def forward(self, student_logits, teacher_logits, labels, student_feats, teacher_feats, all_masks):
         """
-        student_logits: (B, n_classes) : Output from the DynamicViT
-        teacher_logits: (B, n_classes) : Output from the frozen Teacher ViT
-        labels: (B) : Ground truth labels
-        student_feats : (B, N, d_model)  : Feature vectors (t_i) of student after the last block
-        teacher_feats : (B, N, d_model) : Feature vectors (t_i')of teacher after the last block
-        all_masks: List of tensors [(B, N), ...]. Binary masks from each pruning stage.
-                       Thus, the last item in the list corresponds to D^{b, S} (final mask).
+        input:
+        -----------------
+            student_logits: (B, n_classes) : Output from the DynamicViT
+            teacher_logits: (B, n_classes) : Output from the frozen Teacher ViT
+            labels: (B) : Ground truth labels
+            student_feats : (B, N, d_model)  : Feature vectors (t_i) of student after the last block
+            teacher_feats : (B, N, d_model) : Feature vectors (t_i')of teacher after the last block
+            all_masks: List of tensors [(B, N), ...]. Binary masks from each pruning stage.
+                        Thus, the last item in the list corresponds to D^{b, S} (final mask).
         """
         
         # Classification Loss (Student vs Ground Truth)
@@ -41,7 +43,7 @@ class DynamicViTLoss(nn.Module):
 
         # Uses the FINAL mask (D at last stage)
         final_mask = all_masks[-1] 
-        token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1) # Sum over D_model dim
+        token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1) # Sum over D_model dim 
         masked_diff = token_diff * final_mask
         loss_distill = masked_diff.sum() / (final_mask.sum() + 1e-6) # +1e-6 to avoid the cancel out of the behind the divison
 

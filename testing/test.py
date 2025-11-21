@@ -19,8 +19,9 @@ from configs.train_cifar10 import *
 from helper_function.print import *
 
 # Setup
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+print(orange(f"Using device: {device}"))
 
 # Directories (best by default)
 checkpoint_dir = "checkpoints"
@@ -80,10 +81,10 @@ def evaluate_model(model, loader, device, model_name="Model"):
     total_time = end_time - start_time
     throughput = len(loader.dataset) / total_time # Images per second
     
-    print(green("-"*10+ f"\nResults for {model_name}:" + "-"*10))
-    print(f"  Accuracy: {accuracy:.2f}%")
-    print(f"  Loss: {avg_loss:.4f}")
-    print(f"  Throughput: {throughput:.2f} img/sec")
+    print(orange("-"*10+ f"\nResults for {model_name}:" + "-"*10))
+    print(bold(f"  Accuracy: {accuracy:.2f}%"))
+    print(bold(f"  Loss: {avg_loss:.4f}"))
+    print(bold(f"  Throughput: {throughput:.2f} img/sec"))
     
     return accuracy, avg_loss, throughput, all_preds, all_labels
 
@@ -169,15 +170,14 @@ if __name__ == "__main__":
     # We only need test_loader here
     _, test_loader, _ = load_CIFAR("/home/onyxia/work/Vit-Pytorch/data", CIFAR=10)
 
-    # Initialize & Load Teacher
+    # Load Teacher & student
     print(yellow("Loading Teacher Model..."))
     teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
     if os.path.exists(teacher_path):
         teacher.load_state_dict(torch.load(teacher_path, map_location=device))
     else:
         print(red("Teacher checkpoint not found! Running with random weights (Results will be meaningless)."))
-
-    # Initialize & Load Student
+        
     print(yellow("Loading Student Model..."))
     student = DynamicVisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index).to(device)
     if os.path.exists(student_path):
