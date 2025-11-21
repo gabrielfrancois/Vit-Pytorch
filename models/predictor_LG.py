@@ -1,5 +1,5 @@
 """
-predictor_LG compute the importance score of any tokens, the model select then the top_k most important tokens to keep. 
+predictor_LG (LG for Local-Global) compute the importance score of any tokens, the model select then the top_k most important tokens to keep. 
 predictor_LG return the policy of keeping or not each token which'll be computed by un grumberl softmax/argmax in the dynamic transformer encoder.
 We state for the sake of simplicity and for match with the paper C = d_model (embeed_dim) here, (recall B = batch_size, N = nb of patch) 
 The input tokens are first procced in a sequence of layer norm and linear layer + MLP
@@ -21,7 +21,6 @@ from torch import nn as nn
 class PredictorLG(nn.Module):
     """ 
     Lightweight module to predict token importance scores. 
-    LG = Local-Global
     """
     def __init__(self, embed_dim=32):
         super().__init__()

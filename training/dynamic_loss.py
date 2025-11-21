@@ -21,14 +21,19 @@ class DynamicViTLoss(nn.Module):
     def forward(self, student_logits, teacher_logits, labels, student_feats, teacher_feats, all_masks):
         """
         input:
-        -----------------
-            student_logits: (B, n_classes) : Output from the DynamicViT
-            teacher_logits: (B, n_classes) : Output from the frozen Teacher ViT
-            labels: (B) : Ground truth labels
-            student_feats : (B, N, d_model)  : Feature vectors (t_i) of student after the last block
-            teacher_feats : (B, N, d_model) : Feature vectors (t_i')of teacher after the last block
-            all_masks: List of tensors [(B, N), ...]. Binary masks from each pruning stage.
+        ----------------------------------
+            - student_logits: (B, n_classes) : Output from the DynamicViT
+            - teacher_logits: (B, n_classes) : Output from the frozen Teacher ViT
+            - labels: (B) : Ground truth labels 
+            - student_feats : (B, N, d_model)  : Feature vectors (t_i) of student after the last block
+            - teacher_feats : (B, N, d_model) : Feature vectors (t_i')of teacher after the last block
+            - all_masks: List of tensors [(B, N), ...]. Binary masks from each pruning stage.
                         Thus, the last item in the list corresponds to D^{b, S} (final mask).
+        output:
+            - total_loss: float
+            - dict with cross entropy loss, distill loss and ratio loss
+        ----------------------------------
+
         """
         
         # Classification Loss (Student vs Ground Truth)
@@ -64,4 +69,4 @@ class DynamicViTLoss(nn.Module):
                      (self.lambda_distill * loss_distill) + 
                      (self.lambda_ratio * loss_ratio)
         )
-        return total_loss, {"cls": loss_cls.item(), "distill": loss_distill.item(), "ratio": loss_ratio.item()}
+        return total_loss, {"cls": loss_cls.item(), "distill": loss_distill.item(), "ratio": loss_ratio.item(),"kl": loss_kl.item()}

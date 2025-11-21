@@ -51,7 +51,7 @@ for param in teacher.parameters():
     param.requires_grad = False # Freeze weights
 
 
-# Initialize 
+# Initialize student
 print(yellow("Initializing Student..."))
 student = DynamicVisionTransformer(
     d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index
@@ -61,6 +61,7 @@ student = DynamicVisionTransformer(
 print(blue("Copying backbone weights from Teacher to Student..."))
 teacher_dict = teacher.state_dict()
 student_dict = student.state_dict()
+
 new_student_dict = {}
 
 for k, v in teacher_dict.items():
@@ -77,7 +78,6 @@ for k, v in teacher_dict.items():
 # strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
 student.load_state_dict(new_student_dict, strict=False) 
 
-
 # Optimizer & Loss, note that we only optimize the STUDENT
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -92,7 +92,7 @@ criterion = DynamicViTLoss(
 )
 
 # Plotting Function
-def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, lrs, confusion_mat, save_dir):
+def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distill_loss, kl_loss, lrs, confusion_mat, save_dir):
     print(blue(f"Saving student training graphs to {save_dir}..."))
     
     # 1. Total Loss Curve
@@ -123,13 +123,35 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, lrs, c
     plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (Ratio Loss)')
     plt.xlabel('Epoch')
-    plt.ylabel('MSE Loss')
+    plt.ylabel('Ratio Loss')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(save_dir, "student_ratio_loss.png"))
     plt.close()
 
-    # 4. Confusion Matrix
+     # 4. Distill Loss Curve (Sparsity)
+    plt.figure(figsize=(10, 6))
+    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
+    plt.title('Sparsity Convergence (Distill Loss)')
+    plt.xlabel('Epoch')
+    plt.ylabel('distill Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "student_distill_loss.png"))
+    plt.close()
+
+     # 5. kl Loss Curve (Sparsity)
+    plt.figure(figsize=(10, 6))
+    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
+    plt.title('Sparsity Convergence (kl Loss)')
+    plt.xlabel('Epoch')
+    plt.ylabel('kl Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "student_kl_loss.png"))
+    plt.close()
+
+    # 6. Confusion Matrix
     plt.figure(figsize=(12, 10))
     sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Oranges')
     plt.title('Student Test Confusion Matrix')
@@ -145,6 +167,8 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
 
     running_loss = 0.0
     running_ratio_loss = 0.0
+    running_distill_loss = 0.0
+    running_kl_loss = 0.0
     correct = 0
     total = 0
 
@@ -169,13 +193,15 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
         )
 
         # Backprop
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        optimizer.zero_grad() # To prevent gradient accumulation, (refresh gradient to 0)
+        loss.backward() # Compute back propagation
+        optimizer.step() # Update weights
 
         # Metrics
         running_loss += loss.item() * imgs.size(0)
         running_ratio_loss += metrics['ratio'] * imgs.size(0)
+        running_distill_loss += metrics["distill"] * imgs.size(0)
+        running_kl_loss += metrics["kl"] * imgs.size(0)
         
         _, predicted = torch.max(student_logits, 1)
         total += labels.size(0)
@@ -185,9 +211,11 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
     
     avg_loss = running_loss / len(loader.dataset)
     avg_ratio_loss = running_ratio_loss / len(loader.dataset)
+    avg_distill_loss = running_distill_loss / len(loader.dataset)
+    avg_kl_loss = running_kl_loss / len(loader.dataset)
     accuracy = 100 * correct / total
 
-    return avg_loss, avg_ratio_loss, accuracy
+    return avg_loss, avg_ratio_loss, avg_distill_loss, avg_kl_loss, accuracy
 
 def validate_one_epoch(student, loader, device, desc="Validation"):
     student.eval()
@@ -201,9 +229,7 @@ def validate_one_epoch(student, loader, device, desc="Validation"):
         loop = tqdm(loader, desc=desc)
         for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
-            
-            # Student Inference (returns 4 items, we only need logits)
-            student_logits, _, _, _ = student(imgs)
+            student_logits, _, _, _ = student(imgs) # We only need logits here
             
             _, predicted = torch.max(student_logits, 1)
             total += labels.size(0)
@@ -232,6 +258,8 @@ if __name__ == "__main__":
     history = {
         'train_loss': [],
         'ratio_loss': [],
+        "distill_loss": [],
+        "kl_loss": [],
         'train_acc': [],
         'val_acc': [],
         'lrs': []
@@ -241,7 +269,7 @@ if __name__ == "__main__":
 
     for epoch in range(epochs):
         # Train
-        train_loss, ratio_loss, train_acc = train_one_epoch(
+        train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
             student, teacher, train_loader, optimizer, criterion, device, epoch
         )
         
@@ -254,15 +282,19 @@ if __name__ == "__main__":
         # Store History
         history['train_loss'].append(train_loss)
         history['ratio_loss'].append(ratio_loss)
+        history['distill_loss'].append(distill_loss)
+        history['kl_loss'].append(kl_loss)
         history['train_acc'].append(train_acc)
         history['val_acc'].append(val_acc)
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         # Logging
-        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Ratio Loss: {ratio_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Student/Loss/total', train_loss, epoch)
         writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
+        writer.add_scalar('Student/Loss/distill', distill_loss, epoch)
+        writer.add_scalar('Student/Loss/kl', kl_loss, epoch)
         writer.add_scalar('Student/Accuracy/train', train_acc, epoch)
         writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
@@ -289,6 +321,8 @@ if __name__ == "__main__":
         history['train_acc'],
         history['val_acc'],
         history['ratio_loss'],
+        history["distill_loss"], 
+        history['kl_loss'],
         history['lrs'],
         cm,
         graph_dir
