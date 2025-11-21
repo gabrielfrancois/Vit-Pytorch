@@ -45,16 +45,25 @@ class DynamicVisionTransformer(nn.Module):
         sorted_pruning_locs = sorted(pruning_index)
         
         for loc in sorted_pruning_locs:
-            current_cumulative_ratio *= base_keep_rate
+            current_cumulative_ratio *= base_keep_rate # exact rate of the paper
             layer_to_ratio[loc] = current_cumulative_ratio
 
+        # Build layers
         for i in range(n_layers):
             if i in pruning_index:
                 has_pred = True
+                 # Get the calculated ratio for this specific layer
+                ratio_for_this_layer = layer_to_ratio[i]
             else:
                 has_pred = False
+                ratio_for_this_layer = 1.0 # No pruning happens here anyway
             self.transformer_encoders.append(
-                DynamicTransformerEncoder(self.d_model, self.n_heads, has_predictor=has_pred)
+                DynamicTransformerEncoder(
+                    self.d_model, 
+                    self.n_heads, 
+                    has_predictor=has_pred, 
+                    keep_ratio=ratio_for_this_layer # Pass the specific ratio
+                )
             )
     
     def forward(self, images):
@@ -84,6 +93,7 @@ class DynamicVisionTransformer(nn.Module):
         # Manual Loop over layers
         for layer in self.transformer_encoders:
             x, current_policy, pred_score = layer(x, current_policy)
+            
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
                 # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token

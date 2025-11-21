@@ -19,7 +19,10 @@ import torch
 from torch import nn as nn
 
 class PredictorLG(nn.Module):
-    """ Lightweight module to predict token importance scores. """
+    """ 
+    Lightweight module to predict token importance scores. 
+    LG = Local-Global
+    """
     def __init__(self, embed_dim=32):
         super().__init__()
         # Local modeling: a small MLP to process token features

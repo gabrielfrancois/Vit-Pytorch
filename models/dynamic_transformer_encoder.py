@@ -83,13 +83,14 @@ class DynamicTransformerEncoder(nn.Module):
                 keep = int(N*self.keep_ratio)
                 if keep < 1:
                     keep = 1
-                # Force CLS score to infinity so it is ALWAYS selected in Top-K
-                pred_score[:, 0] = float('inf') 
+                # Force CLS score to infinity (1e9 to avoid nan) so it is ALWAYS selected in Top-K
+                pred_score[:, 0] = 1e9
                 _, keep_indices = torch.topk(pred_score, k=keep, dim=1) # dim = 1 to compute over N ! 
-                keep_indices, _ = torch.sort(keep_indices, dim=1) # Maintain order
+                # Sorted by position (0, 5, 12, 99) to maintain the sequence flow (top-left to bottom-right)
+                keep_indices, _ = torch.sort(keep_indices, dim=1)
 
                 # Physical pruning, actual speedup !
-                batch_indices = torch.arrange(B).unsqueeze(-1).expand(-1, keep).to(x.device)
+                batch_indices = torch.arange(B).unsqueeze(-1).expand(-1, keep).to(x.device)  # Create batch indices: [[0, 0...], [1, 1...]...]
                 x = x[batch_indices, keep_indices] 
                 new_policy = policy[batch_indices, keep_indices]
 
