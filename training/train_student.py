@@ -131,7 +131,7 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 
      # 4. Distill Loss Curve (Sparsity)
     plt.figure(figsize=(10, 6))
-    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
+    plt.plot(distill_loss, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (Distill Loss)')
     plt.xlabel('Epoch')
     plt.ylabel('distill Loss')
@@ -142,7 +142,7 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 
      # 5. kl Loss Curve (Sparsity)
     plt.figure(figsize=(10, 6))
-    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
+    plt.plot(kl_loss, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (kl Loss)')
     plt.xlabel('Epoch')
     plt.ylabel('kl Loss')
