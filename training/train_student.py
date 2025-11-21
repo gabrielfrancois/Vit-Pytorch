@@ -20,7 +20,7 @@ from configs.train_cifar10 import *
 import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
 checkpoint_dir = "checkpoints"
@@ -330,6 +330,6 @@ if __name__ == "__main__":
 
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     
     writer.close()

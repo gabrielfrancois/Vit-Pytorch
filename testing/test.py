@@ -21,7 +21,7 @@ from helper_function.print import *
 # Setup
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
-print(orange(f"Using device: {device}"))
+print(bold(f"Using device: {device}"))
 
 # Directories (best by default)
 checkpoint_dir = "checkpoints"
@@ -198,3 +198,7 @@ if __name__ == "__main__":
     plot_per_class_accuracy(t_cm, s_cm, class_names, results_dir)
     
     print(green(f"Evaluation Complete. All graphs saved in {results_dir}"))
+
+    # Compute the speed bonus
+    diff_speed = ((s_speed-t_speed)/t_speed)*100
+    print(bold(f"student increased by {diff_speed}% the number of images processed per second."))

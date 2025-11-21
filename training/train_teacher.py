@@ -18,7 +18,7 @@ from configs.train_cifar10 import *
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+print(bold(f"Using device: {device}"))
 
 # Initialize Teacher Model
 print("Initializing Teacher ViT...")
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # look at the time
     start_time = time.time()
     # Load Data
-    print(blue("Loading Data..."))
+    print(yellow("Loading Data..."))
     # Adjust path if running from root or training folder
     data_path = "/home/onyxia/work/Vit-Pytorch/data" 
     train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
@@ -228,10 +228,10 @@ if __name__ == "__main__":
 
     # Final Test on Test Set
     # After training is complete, check performance on the hold-out test set using the best model
-    print(yellow("\nTraining Complete. Loading best model for final testing..."))
+    print(green("\nTraining Complete. Loading best model for final testing..."))
     teacher.load_state_dict(torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth"))
     test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
-    print(blue(f"Final Test Accuracy: {test_acc:.2f}%"))
+    print(bold(f"Final Test Accuracy: {test_acc:.2f}%"))
 
     # Generate and Save Graphs
     save_training_plots(
@@ -246,6 +246,6 @@ if __name__ == "__main__":
     
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
 
     writer.close()
