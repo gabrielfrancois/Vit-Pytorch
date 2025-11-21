@@ -9,7 +9,7 @@ from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
 class DynamicVisionTransformer(nn.Module):
-    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index):
+    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, base_keep_rate=0.7):
         super().__init__()
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though..."
@@ -22,7 +22,9 @@ class DynamicVisionTransformer(nn.Module):
         self.n_heads = n_heads # Number of attention heads
         self.pruning_index = pruning_index # index where patch are prunned
 
-        self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
+        # Calculate number of patches
+        # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
+        self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) 
         self.max_seq_length = self.n_patches + 1
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
@@ -34,6 +36,17 @@ class DynamicVisionTransformer(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(self.d_model, self.n_classes),
         )
+
+        # Map layer index to the specific ratio it should enforce
+        layer_to_ratio = {}
+        current_cumulative_ratio = 1.0
+        
+        # Create a sorted list to iterate in order
+        sorted_pruning_locs = sorted(pruning_index)
+        
+        for loc in sorted_pruning_locs:
+            current_cumulative_ratio *= base_keep_rate
+            layer_to_ratio[loc] = current_cumulative_ratio
 
         for i in range(n_layers):
             if i in pruning_index:
