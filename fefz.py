@@ -1,5 +1,6 @@
-from data.imagenet_loader import load_imagenet1k
 import torch
+
+from data.imagenet_loader import load_imagenet1k
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

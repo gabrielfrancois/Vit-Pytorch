@@ -1,30 +1,46 @@
 # training/trainer.py
+import glob
 import os
 import time
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 import torch
+from sklearn.metrics import classification_report, confusion_matrix
 from torch import nn
+from torch.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
-from torch.amp import autocast, GradScaler
+
 from models.vision_transformer import VisionTransformer
-import glob
+
 
 class ViTTrainer:
-    def __init__(self, model_params, train_params, device=None, checkpoint_dir="checkpoints", plot_dir="plots"):
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(
+        self,
+        model_params,
+        train_params,
+        device=None,
+        checkpoint_dir="checkpoints",
+        plot_dir="plots",
+    ):
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.model = VisionTransformer(**model_params).to(self.device)
-        self.criterion = nn.CrossEntropyLoss(label_smoothing=train_params.get("label_smoothing", 0.0))
-        self.optimizer = AdamW(self.model.parameters(),
-                               lr=train_params.get("lr", 1e-3),
-                               weight_decay=train_params.get("weight_decay", 1e-4))
+        self.criterion = nn.CrossEntropyLoss(
+            label_smoothing=train_params.get("label_smoothing", 0.0)
+        )
+        self.optimizer = AdamW(
+            self.model.parameters(),
+            lr=train_params.get("lr", 1e-3),
+            weight_decay=train_params.get("weight_decay", 1e-4),
+        )
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimizer,
             step_size=train_params.get("step_size", 20),
-            gamma=train_params.get("gamma", 0.1)
+            gamma=train_params.get("gamma", 0.1),
         )
         self.writer = SummaryWriter(train_params.get("log_dir", "runs/ViTTrainer"))
         self.checkpoint_dir = checkpoint_dir
@@ -46,7 +62,7 @@ class ViTTrainer:
             imgs = imgs.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
             self.optimizer.zero_grad()
-            with autocast(device_type='cuda'):
+            with autocast(device_type="cuda"):
                 outputs = self.model(imgs)
                 loss = self.criterion(outputs, labels)
             self.scaler.scale(loss).backward()
@@ -88,7 +104,9 @@ class ViTTrainer:
         avg_loss = running_loss / total
         accuracy = 100 * correct / total
         cm = confusion_matrix(all_labels, all_preds)
-        if self.cm_max is None or accuracy > (self.val_accs[-1] if self.val_accs else 0):
+        if self.cm_max is None or accuracy > (
+            self.val_accs[-1] if self.val_accs else 0
+        ):
             self.cm_max = cm
 
         self.val_losses.append(avg_loss)
@@ -101,8 +119,6 @@ class ViTTrainer:
         lr = self.optimizer.param_groups[0]["lr"]
         self.lrs.append(lr)
         return lr
-
-
 
     def save_checkpoint(self, name, epoch, is_best=False, keep_last=3):
         """
@@ -117,17 +133,20 @@ class ViTTrainer:
             filename = f"{name}_epoch{epoch}.pth"
 
         path = os.path.join(self.checkpoint_dir, filename)
-        torch.save({
-            "epoch": epoch,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "scheduler_state_dict": self.scheduler.state_dict(),
-            "train_losses": self.train_losses,
-            "val_losses": self.val_losses,
-            "train_accs": self.train_accs,
-            "val_accs": self.val_accs,
-            "lrs": self.lrs,
-        }, path)
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "scheduler_state_dict": self.scheduler.state_dict(),
+                "train_losses": self.train_losses,
+                "val_losses": self.val_losses,
+                "train_accs": self.train_accs,
+                "val_accs": self.val_accs,
+                "lrs": self.lrs,
+            },
+            path,
+        )
         print(f"[Checkpoint saved] {path}")
 
         # Nettoyage automatique : garder seulement les N derniers
@@ -139,7 +158,6 @@ class ViTTrainer:
                     os.remove(ckpt)
                     print(f"[Checkpoint deleted] {ckpt}")
 
-
     def load_checkpoint(self, name, best=False):
         """
         Charge le dernier checkpoint sauvegardé (ou le meilleur si best=True).
@@ -150,7 +168,7 @@ class ViTTrainer:
             # On récupère le dernier epoch sauvegardé
             ckpts = sorted(
                 glob.glob(os.path.join(self.checkpoint_dir, f"{name}_epoch*.pth")),
-                key=os.path.getmtime
+                key=os.path.getmtime,
             )
             if not ckpts:
                 print("[No checkpoint found]")
@@ -170,7 +188,6 @@ class ViTTrainer:
         epoch = checkpoint.get("epoch", 0)
         print(f"[Checkpoint loaded] {path} (epoch {epoch})")
         return checkpoint, epoch
-
 
     def test_model(self, loader, checkpoint_name):
         path = os.path.join(self.checkpoint_dir, f"{checkpoint_name}.pth")
@@ -202,11 +219,11 @@ class ViTTrainer:
         avg_loss = running_loss / total
         accuracy = 100 * correct / total
         cm = confusion_matrix(all_labels, all_preds)
-        self.cm_max =cm
+        self.cm_max = cm
         print(f"[Test] Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
         # save confusion matrix (ne marche pas sur des données réduites de tests imagenet mais ce n'est pas grave)
-        plt.figure(figsize=(6,6))
+        plt.figure(figsize=(6, 6))
         sns.heatmap(cm, cmap="Blues")
         plt.xlabel("Predicted")
         plt.ylabel("Ground truth")
@@ -216,7 +233,9 @@ class ViTTrainer:
 
         # classification report
         report = classification_report(all_labels, all_preds, zero_division=0, digits=3)
-        with open(os.path.join(self.plot_dir, f"{checkpoint_name}_metrics.txt"), "w") as f:
+        with open(
+            os.path.join(self.plot_dir, f"{checkpoint_name}_metrics.txt"), "w"
+        ) as f:
             f.write(report)
         torch.cuda.empty_cache()
         return avg_loss, accuracy, cm, report

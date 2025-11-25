@@ -1,43 +1,47 @@
 import os
 import time
+import matplotlib.pyplot as plt
+import seaborn as sns
 import torch
+from sklearn.metrics import classification_report, confusion_matrix
 from torch import nn
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
-
+from configs.train_cifar10 import *  # contains some constants
+from data.load_data import load_CIFAR
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
-from data.load_data import load_CIFAR
-from configs.train_cifar10 import * #contains some constants
 from training.train import *
-
 
 ### Training loop
 
-#name of the model
+# name of the model
 name = "CIFAR100_d32_reg"
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
 
-train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
+train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(
+    CIFAR=100, data_dir=data_dir
+)
 
 train = True
 if train:
     print(f" !! LAUNCHING TRAINING FOR {name} !! ")
-    
+
     best_val_acc = 0.0
 
-    for epoch in range(1, epochs+1):
+    for epoch in range(1, epochs + 1):
         print(f"\nEpoch {epoch}/{epochs}")
 
-        train_loss, train_acc = train_one_epoch(model, train_loader_100, optimizer, criterion, device)
-        val_loss, val_acc, cm = validate_one_epoch(model, val_loader_100, criterion, device)
-        scheduler.step() # based on validation performance
+        train_loss, train_acc = train_one_epoch(
+            model, train_loader_100, optimizer, criterion, device
+        )
+        val_loss, val_acc, cm = validate_one_epoch(
+            model, val_loader_100, criterion, device
+        )
+        scheduler.step()  # based on validation performance
 
         print(f"Train Loss: {train_loss: .4f} | Train Acc: {train_acc: .2f}%")
         print(f"Val Loss: {val_loss: .4f} | Val Acc: {val_acc: .2f}%")
@@ -70,15 +74,15 @@ if train:
     plt.figure(figsize=(8, 8))
 
     plt.subplot(2, 2, 1)
-    plt.plot(train_losses, label='Train Loss')
-    plt.plot(val_losses, label='Val Loss')
-    plt.title(f'Loss: patch size={patch_size}')
+    plt.plot(train_losses, label="Train Loss")
+    plt.plot(val_losses, label="Val Loss")
+    plt.title(f"Loss: patch size={patch_size}")
     plt.legend()
 
     plt.subplot(2, 2, 2)
-    plt.plot(train_accs, label='Train Acc')
-    plt.plot(val_accs, label='Val Acc')
-    plt.title(f'Accuracy: {n_heads} heads & {n_layers} layers')
+    plt.plot(train_accs, label="Train Acc")
+    plt.plot(val_accs, label="Val Acc")
+    plt.title(f"Accuracy: {n_heads} heads & {n_layers} layers")
     plt.legend()
 
     plt.subplot(2, 2, 3)
@@ -89,7 +93,7 @@ if train:
 
     plt.subplot(2, 2, 4)
     plt.plot(lrs)
-    plt.title(f'Learning Rate: lr = {alpha} & epoch = {epochs}')
+    plt.title(f"Learning Rate: lr = {alpha} & epoch = {epochs}")
 
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, f"{name}_training.png"))
@@ -97,5 +101,3 @@ if train:
     # run this in terminal: tensorboard --logdir runs
 
 test_model(name=name, loader=test_loader_100, criterion=criterion, device=device)
-
-
