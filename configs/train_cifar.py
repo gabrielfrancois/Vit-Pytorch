@@ -10,3 +10,7 @@ n_layers = 12
 batch_size = 100
 epochs = 30 
 alpha = 0.005
+
+# finetuneing option
+finetuning = 'LORA' # Enter: False, 'LORA'
+rank = 4
