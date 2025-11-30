@@ -1,8 +1,10 @@
 # tests/test_main_script.py
 from pathlib import Path
+
 import pytest
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+
 from training.trainer import ViTTrainer
 
 
@@ -39,20 +41,20 @@ def trainer_fixture(tmp_path: Path) -> ViTTrainer:
         "patch_size": (8, 8),
         "n_channels": 3,
         "n_heads": 2,
-        "n_layers": 1
+        "n_layers": 1,
     }
     train_params = {
         "lr": 0.001,
         "weight_decay": 1e-4,
         "epochs": 1,
         "label_smoothing": 0.0,
-        "log_dir": str(tmp_path / "logs")
+        "log_dir": str(tmp_path / "logs"),
     }
     trainer = ViTTrainer(
         model_params=model_params,
         train_params=train_params,
         checkpoint_dir=str(tmp_path / "checkpoints"),
-        plot_dir=str(tmp_path / "plots")
+        plot_dir=str(tmp_path / "plots"),
     )
     return trainer
 
@@ -83,10 +85,8 @@ def test_training_loop(trainer_fixture: ViTTrainer, small_dataset: DataLoader) -
 
 
 def test_checkpoint_and_test(
-        trainer_fixture: ViTTrainer,
-        small_dataset: DataLoader,
-        tmp_path: Path) -> None:
-
+    trainer_fixture: ViTTrainer, small_dataset: DataLoader, tmp_path: Path
+) -> None:
     """
     Tests saving/loading checkpoints and running test_model.
 
@@ -109,7 +109,9 @@ def test_checkpoint_and_test(
     assert epoch == 0
 
     # Run test_model
-    avg_loss, acc, cm, report = trainer_fixture.test_model(small_dataset, "test_ckpt_epoch0")
+    avg_loss, acc, cm, report = trainer_fixture.test_model(
+        small_dataset, "test_ckpt_epoch0"
+    )
     assert isinstance(avg_loss, float)
     assert 0 <= acc <= 100
     assert cm.shape[0] == cm.shape[1]

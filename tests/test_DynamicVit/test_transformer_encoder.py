@@ -1,13 +1,12 @@
-# tests/test_transformer_encoder.py
 import torch
 from torch import Tensor
+
 from models.transformer_encoder import TransformerEncoder
 
 
 def test_transformer_encoder_output_shape() -> None:
     """
-    Test that TransformerEncoder produces the correct output shape:
-    (batch_size, seq_len, d_model)
+    Ensure TransformerEncoder outputs the correct shape (batch_size, seq_len, d_model).
     """
     batch_size = 2
     seq_len = 8
@@ -22,7 +21,9 @@ def test_transformer_encoder_output_shape() -> None:
 
 
 def test_transformer_encoder_forward_runs_without_error() -> None:
-    """Ensure forward pass executes without crashing."""
+    """
+    Ensure forward pass executes without crashing.
+    """
     x: Tensor = torch.randn(1, 10, 32)
     layer = TransformerEncoder(d_model=32, n_heads=4)
     _ = layer(x)
@@ -44,7 +45,7 @@ def test_transformer_encoder_example() -> None:
     # Shape check
     assert out.shape == (batch_size, seq_len, d_model)
 
-    # Output should not be identical to input due to MHA + MLP + residuals
+    # Output should differ from input due to MHA + MLP + residuals
     assert not torch.allclose(out, x)
 
     # No NaN or Inf values
