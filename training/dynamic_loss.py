@@ -7,7 +7,7 @@ from configs.train_cifar10 import *
 
 
 class DynamicViTLoss(nn.Module):
-    def __init__(self,target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
+    def __init__(self, target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
         super().__init__()
         self.lambda_kl = lambda_kl         # Weight for distilling teacher knowledge
         self.lambda_ratio = lambda_ratio   # Weight for enforcing sparsity

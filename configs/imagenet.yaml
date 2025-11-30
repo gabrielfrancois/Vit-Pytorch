@@ -1,0 +1,17 @@
+defaults:
+  - base
+
+model:
+  d_model: 128
+  n_classes: 1000
+  img_size: [128, 128]
+  patch_size: [16, 16]
+
+training:
+  batch_size: 100
+  epochs: 100
+  alpha: 0.005
+
+outputs:
+  plot_dir: "plots/plots_imagenet"
+  checkpoint_dir: "checkpoints/checkpoint_imagenet"

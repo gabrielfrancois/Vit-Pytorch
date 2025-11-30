@@ -78,7 +78,7 @@ python -m pytest -v tests/
 * Lancer un test précis par son nom :
 
 ```bash
-python -m pytest -v tests/ -k "test_attention_head"
+python -m pytest -v tests/test_Vit/test_attention_head.py
 ```
 
 
