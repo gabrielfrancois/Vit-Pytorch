@@ -1,0 +1,28 @@
+defaults:
+  - base
+
+model:
+  d_model: 32
+  n_classes: 100
+  img_size: [32, 32]
+  patch_size: [4, 4]
+
+training:
+  batch_size: 100
+  epochs: 100
+  alpha: 0.005
+
+outputs:
+  plot_dir: "plots/plots_cifar"
+
+student:
+  graph_dir: "training/log/Student_ViT_CIFAR10-graphs"
+  log_dir: "training/log/Student_ViT_CIFAR10"
+  teacher_checkpoint: "${outputs.checkpoint_dir}/teacher_checkpoint_best.pth"
+
+teacher:
+  log_dir: "training/log/Teacher_ViT_CIFAR10"
+  graph_dir: "training/log/Teacher_ViT_CIFAR10-graphs"
+  checkpoint_dir: "${outputs.checkpoint_dir}"
+  lr: 0.001
+  scheduler_type: "CosineAnnealingLR"

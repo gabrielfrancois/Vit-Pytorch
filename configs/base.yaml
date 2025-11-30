@@ -1,0 +1,21 @@
+model:
+  n_channels: 3
+  n_heads: 4
+  n_layers: 12
+
+training:
+  weight_decay: 1e-4
+  resume: true
+
+dataset:
+  data_dir: "/home/onyxia/work/Vit-Pytorch/data"
+
+outputs:
+  checkpoint_dir: "checkpoints"
+
+dynamicvit:
+  pruning_index: [4, 7, 10]
+  rho: 0.7
+  lambda_kl: 0.5
+  lambda_ratio: 2
+  lambda_distill: 0.5

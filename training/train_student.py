@@ -19,9 +19,13 @@ from models.dynamicViT import DynamicVisionTransformer
 from models.vision_transformer import VisionTransformer
 
 from .dynamic_loss import DynamicViTLoss
+from data.load_data import load_CIFAR
+from configs.train_cifar10 import * 
+import time
+import logging
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(bold(f"Using device: {device}"))
+(f"Using device: {device}")
 
 # Checkpoint paths
 checkpoint_dir = "checkpoints"
@@ -178,10 +182,10 @@ def save_training_plots(
 
     # 6. Confusion Matrix
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=True, fmt="d", cmap="Oranges")
-    plt.title("Student Test Confusion Matrix")
-    plt.ylabel("True Label")
-    plt.xlabel("Predicted Label")
+    sns.heatmap(confusion_mat, annot=True, fmt='.2f', cmap='Oranges')
+    plt.title('Student Test Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
     plt.savefig(os.path.join(save_dir, "student_confusion_matrix.png"))
     plt.close()
 
