@@ -1,7 +1,7 @@
 # setting up the hyperparametters
 
 d_model = 32  # 12 before
-n_classes = 100
+n_classes = 10
 img_size = (32, 32)
 patch_size = (4, 4)
 n_channels = 3  # before it was 1

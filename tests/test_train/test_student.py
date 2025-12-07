@@ -14,12 +14,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- Config YAML ---
-with open("configs/cifar.yaml", "r") as f:
+with open("configs/imagenet.yaml", "r") as f:
     cfg = yaml.safe_load(f)
 
 PRUNING_INDEX = cfg.get("dynamicvit", {}).get("pruning_index", [4,7,10])
 D_MODEL = cfg["model"]["d_model"]
-N_CLASSES = cfg["model"]["n_classes"]
+N_CLASSES = 5  # on teste uniquement sur 5 classes
 IMG_SHAPE = cfg["model"]["img_size"]
 BATCH_SIZE = cfg["training"]["batch_size"]
 
@@ -88,11 +88,11 @@ def test_save_training_plots(tmp_path):
         train_losses=[1.0,0.8],
         train_accs=[40,50],
         val_accs=[38,48],
-        ratio_losses=[0.1,0.08],
-        distill_loss=[0.2,0.15],
-        kl_loss=[0.05,0.04],
+        ratio_losses=[0.1, 0.08],
+        distill_loss=[0.2, 0.15],
+        kl_loss=[0.05, 0.04],
         lrs=[1e-3,9e-4],
-        confusion_mat=torch.zeros((N_CLASSES,N_CLASSES),dtype=torch.float),
+        confusion_mat=torch.zeros((N_CLASSES, N_CLASSES),dtype=torch.float),
         save_dir=tmp_path
     )
 

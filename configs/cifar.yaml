@@ -3,7 +3,7 @@ defaults:
 
 model:
   d_model: 32
-  n_classes: 100
+  n_classes: 10
   img_size: [32, 32]
   patch_size: [4, 4]
 
@@ -18,7 +18,8 @@ outputs:
 student:
   graph_dir: "training/log/Student_ViT_CIFAR10-graphs"
   log_dir: "training/log/Student_ViT_CIFAR10"
-  teacher_checkpoint: "${outputs.checkpoint_dir}/teacher_checkpoint_best.pth"
+  teacher_checkpoint: "${outputs.checkpoint_dir}/teacher_checkpoint_CIFAR10_best.pth"
+  student_checkpoint: "${outputs.checkpoint_dir}/student_checkpoint_CIFAR10_best.pth"
 
 teacher:
   log_dir: "training/log/Teacher_ViT_CIFAR10"
@@ -26,3 +27,6 @@ teacher:
   checkpoint_dir: "${outputs.checkpoint_dir}"
   lr: 0.001
   scheduler_type: "CosineAnnealingLR"
+
+result:
+  result_dir: "testing/log/Evaluation_Graphs_CIFAR_10"

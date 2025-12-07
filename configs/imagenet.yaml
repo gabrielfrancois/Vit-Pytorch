@@ -1,6 +1,17 @@
 defaults:
   - base
 
+dataset:
+  name: "imagenet1k"
+  hf_repo: "benjamin-paine/imagenet-1k-128x128"
+  img_size: 128
+  val_ratio: 0.1
+  batch_size: 128
+  num_workers: 4
+  seed: 50
+  max_items_train: null
+  max_items_val: null
+
 model:
   d_model: 128
   n_classes: 1000
@@ -12,6 +23,18 @@ training:
   epochs: 100
   alpha: 0.005
 
-outputs:
-  plot_dir: "plots/plots_imagenet"
-  checkpoint_dir: "checkpoints/checkpoint_imagenet"
+student:
+  graph_dir: "training/log/Student_ViT_Imagenet1k-graphs"
+  log_dir: "training/log/Student_ViT_Imagenet1k"
+  teacher_checkpoint: "${outputs.checkpoint_dir}/teacher_checkpoint_Imagenet1k_best.pth"
+  student_checkpoint: "${outputs.checkpoint_dir}/student_checkpoint_Imagenet1k_best.pth"
+
+teacher:
+  log_dir: "training/log/Teacher_ViT_Imagenet1k"
+  graph_dir: "training/log/Teacher_ViT_Imagenet1k-graphs"
+  checkpoint_dir: "${outputs.checkpoint_dir}"
+  lr: 0.001
+  scheduler_type: "CosineAnnealingLR"
+
+result:
+  result_dir: "testing/log/Evaluation_Graphs_Imagenet1k"

@@ -15,7 +15,7 @@ from omegaconf import DictConfig
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from training.dynamic_loss import DynamicViTLoss
-from data.load_data import load_CIFAR
+from data.imagenet_loader  import load_imagenet1k
 
 
 # ---------------------------------------------------------------------

@@ -6,7 +6,7 @@ from pathlib import Path
 from sklearn.metrics import confusion_matrix
 from omegaconf import OmegaConf
 
-cfg = OmegaConf.load("configs/cifar.yaml")
+cfg = OmegaConf.load("configs/imagenet.yaml")
 # Si tu veux voir les valeurs finales fusionnées
 cfg = OmegaConf.merge(OmegaConf.load("configs/base.yaml"), cfg)
 
@@ -18,7 +18,7 @@ def dummy_data() -> DataLoader:
     using the batch size defined in the config.
     """
     x = torch.randn(cfg.training.batch_size, 3, cfg.model.img_size[0], cfg.model.img_size[1])
-    y = torch.randint(0, cfg.model.n_classes, (cfg.training.batch_size,))
+    y = torch.randint(0, 5, (cfg.training.batch_size,))
     dataset = TensorDataset(x, y)
     return DataLoader(dataset, batch_size=cfg.training.batch_size)
 
@@ -28,7 +28,7 @@ def test_teacher_train_validate(dummy_data: DataLoader, tmp_path: Path) -> None:
     Tests Teacher ViT training, validation, and plot saving.
     Uses hyperparameters from configs/cifar.yaml
     """
-    from training.train_teacher import train_one_epoch, validate_one_epoch, save_training_plots
+    from training.train_teacher_test import train_one_epoch, validate_one_epoch, save_training_plots
     from models.vision_transformer import VisionTransformer
 
     device = "cpu"
@@ -36,7 +36,7 @@ def test_teacher_train_validate(dummy_data: DataLoader, tmp_path: Path) -> None:
     # Initialize model with hyperparameters
     model = VisionTransformer(
         d_model=cfg.model.d_model,
-        n_classes=cfg.model.n_classes,
+        n_classes=5,  # pour un test rapide
         img_size=cfg.model.img_size,
         patch_size=cfg.model.patch_size,
         n_channels=cfg.model.n_channels,

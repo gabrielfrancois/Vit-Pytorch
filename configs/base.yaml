@@ -19,3 +19,11 @@ dynamicvit:
   lambda_kl: 0.5
   lambda_ratio: 2
   lambda_distill: 0.5
+
+# finetuneing option
+finetuning:
+  finetuning: 'LORA'  # Enter: False, 'LORA'
+  rank: 4
+
+result:
+  result_dir: "testing/log/Evaluation_Graphs"
