@@ -1,11 +1,9 @@
 from torch import nn as nn
-
 from .multi_head_attention import MultiHeadAttention
 
 """
 r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
 """
-
 
 class TransformerEncoder(nn.Module):
     def __init__(self, d_model, n_heads, r_mlp=4):
@@ -27,11 +25,11 @@ class TransformerEncoder(nn.Module):
 
         # Multilayer Perception
         self.mlp = nn.Sequential(
-            nn.Linear(d_model, d_model * r_mlp),  # expansion
+            nn.Linear(d_model, d_model*r_mlp), # expansion
             nn.GELU(),
-            nn.Dropout(0.1),  # regularisation
-            nn.Linear(d_model * r_mlp, d_model),  # compression to come back to d_model
-            nn.Dropout(0.1),
+            nn.Dropout(0.1), #regularisation
+            nn.Linear(d_model*r_mlp, d_model), # compression to come back to d_model
+            nn.Dropout(0.1)
         )
 
     def forward(self, x):
@@ -42,7 +40,7 @@ class TransformerEncoder(nn.Module):
         ---------------
             - out: New features (B, N, d_model)
         """
-        # Residual Connection After Sub-Layer 1
+        # Residual Connection After Sub-Layer 1 
         out = x + self.dropout1(self.mha(self.ln1(x)))
         # Residual Connection After Sub-Layer 2
         out = out + self.mlp(self.ln2(out))

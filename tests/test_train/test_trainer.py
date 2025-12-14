@@ -1,19 +1,16 @@
 import os
-
 import pytest
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-
 from training.trainer import ViTTrainer
 
 # The fixture creates a small dummy dataset and DataLoader for testing.
 # Pytest automatically injects it into tests that include `dummy_data` as a parameter.
 
-
-@pytest.fixture
+@pytest.fixture 
 def dummy_data():
     """
-    Creates a small dummy dataset and DataLoader for testing purposes.
+    Creates a small dummy dataset and DataLoader for testing purposes. 
     Pytest automatically injects it into tests that include `dummy_data` as a parameter.
 
     Returns:
@@ -24,7 +21,6 @@ def dummy_data():
     dataset = TensorDataset(x, y)
     loader = DataLoader(dataset, batch_size=2)
     return loader
-
 
 @pytest.fixture
 def trainer(tmp_path):
@@ -39,12 +35,12 @@ def trainer(tmp_path):
     """
     model_params = {
         "d_model": 128,
-        "n_classes": 2,  # matches dummy dataset
+        "n_classes": 2,           # matches dummy dataset
         "img_size": (16, 16),
         "patch_size": (8, 8),
         "n_channels": 3,
         "n_heads": 4,
-        "n_layers": 2,
+        "n_layers": 2
     }
     train_params = {
         "lr": 0.001,
@@ -52,16 +48,12 @@ def trainer(tmp_path):
         "step_size": 5,
         "gamma": 0.5,
         "label_smoothing": 0.0,
-        "log_dir": str(tmp_path / "logs"),
+        "log_dir": str(tmp_path / "logs")
     }
-    trainer = ViTTrainer(
-        model_params,
-        train_params,
-        checkpoint_dir=str(tmp_path / "ckpts"),
-        plot_dir=str(tmp_path / "plots"),
-    )
+    trainer = ViTTrainer(model_params, train_params,
+                         checkpoint_dir=str(tmp_path / "ckpts"),
+                         plot_dir=str(tmp_path / "plots"))
     return trainer
-
 
 def test_train_one_epoch(trainer, dummy_data):
     """
@@ -78,7 +70,6 @@ def test_train_one_epoch(trainer, dummy_data):
     assert len(trainer.train_losses) == 1
     assert len(trainer.train_accs) == 1
 
-
 def test_validate_one_epoch(trainer, dummy_data):
     """
     Tests that validation for one epoch runs correctly.
@@ -93,7 +84,6 @@ def test_validate_one_epoch(trainer, dummy_data):
     assert 0 <= acc <= 100
     assert cm.shape[0] == cm.shape[1]
 
-
 def test_step_scheduler(trainer):
     """
     Tests that the learning rate scheduler step updates the optimizer's LR correctly.
@@ -101,7 +91,6 @@ def test_step_scheduler(trainer):
     lr_before = trainer.optimizer.param_groups[0]["lr"]
     lr_after = trainer.step_scheduler()
     assert lr_after == trainer.scheduler.get_last_lr()[0]
-
 
 def test_save_and_load_checkpoint(trainer, dummy_data, tmp_path):
     """
@@ -120,7 +109,6 @@ def test_save_and_load_checkpoint(trainer, dummy_data, tmp_path):
     checkpoint, epoch = trainer.load_checkpoint("dummy")
     assert epoch == 1
     assert "model_state_dict" in checkpoint
-
 
 def test_test_model(trainer, dummy_data, tmp_path):
     """

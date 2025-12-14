@@ -1,10 +1,8 @@
 # data/visualisation.py
 import os
-
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
-
 
 def visualise_sample(loader, output_dir="samples", name="sample"):
     os.makedirs(output_dir, exist_ok=True)
