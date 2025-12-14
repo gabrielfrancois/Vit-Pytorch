@@ -15,24 +15,24 @@ from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss import DynamicViTLoss
-from data.load_data import load_CIFAR
-from configs.train_cifar10 import * 
+from data.images import load_imagenet1k
+from configs.train_imagenet1k import * 
 import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
-checkpoint_dir = "checkpoints/imagenet1K"
+checkpoint_dir = "checkpoints"
 teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "training/log/Student_ViT_imagenet1K"
+log_dir = "training/log/Student_ViT_imagenet1k"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "training/log/Student_ViT_imagenet1K-graphs"
+graph_dir = "training/log/Student_ViT_imagenet1k-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 
@@ -250,7 +250,7 @@ if __name__ == "__main__":
     # Load Data
     print(blue("Loading Data..."))
     data_path = "/home/onyxia/work/Vit-Pytorch/data" 
-    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
+    train_loader, test_loader, val_loader = load_imagenet1k()
 
     print(yellow("Starting Student Training..."))
     

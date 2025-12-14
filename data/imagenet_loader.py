@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def load_imagenet1k(
-    batch_size: int = 128,
+    batch_size: int = 256,
     val_ratio: float = 0.1,
     num_workers: int = 4,
     seed: int = 50,

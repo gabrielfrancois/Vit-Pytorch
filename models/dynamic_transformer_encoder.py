@@ -99,10 +99,10 @@ class DynamicTransformerEncoder(nn.Module):
                 attn_out = self.mha(self.ln1(x), mask=None)
                 x = x + self.dropout1(attn_out)
                 x = x + self.mlp(self.ln2(x))
-                return x, new_policy, pred_score
+                return x, new_policy, pred_score, keep_indices
 
         else: # no predictor, process whatever x we received (could be full or already pruned)
             attn_out = self.mha(self.ln1(x), mask=None) # no mask 
             x = x + self.dropout1(attn_out)
             x = x + self.mlp(self.ln2(x)) 
-            return x, policy, None
+            return x, policy, None, None

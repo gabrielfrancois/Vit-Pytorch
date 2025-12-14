@@ -22,6 +22,7 @@ class DynamicVisionTransformer(nn.Module):
         self.n_heads = n_heads # Number of attention heads
         self.pruning_index = pruning_index # index where patch are prunned
 
+
         # Calculate number of patches
         # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
         self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) 
@@ -92,14 +93,25 @@ class DynamicVisionTransformer(nn.Module):
 
         # Manual Loop over layers
         for layer in self.transformer_encoders:
-            x, current_policy, pred_score = layer(x, current_policy)
+            x, current_policy, pred_score, keep_indices = layer(x, current_policy)
             
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
-                # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
-                # DynamicViT usually relies on the predictor learning to keep it, thus, we'll force it by: current_policy[:, 0] = 1
-                current_policy[:, 0] = 1.0
-                all_masks.append(current_policy)
+
+                # Reconstruction du masque COMPLET (avant pruning)
+                B = images.size(0)
+                full_mask = torch.zeros(B, self.max_seq_length, device=x.device)
+
+                if keep_indices is not None:
+                    full_mask.scatter_(1, keep_indices, 1.0)
+                else:
+                    full_mask[:] = current_policy  # cas training
+
+                # CLS toujours gardé
+                full_mask[:, 0] = 1.0
+
+                all_masks.append(full_mask.detach().cpu())
+
 
         # Final Classifier (Only use the CLS token)
         cls_token = x[:, 0]
