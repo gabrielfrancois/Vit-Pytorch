@@ -9,8 +9,8 @@ dataset:
   batch_size: 128
   num_workers: 4
   seed: 50
-  max_items_train: null
-  max_items_val: null
+  max_items_train: 16
+  max_items_val: 32
 
 model:
   d_model: 128
@@ -20,7 +20,7 @@ model:
 
 training:
   batch_size: 100
-  epochs: 100
+  epochs: 2
   alpha: 0.005
 
 student:

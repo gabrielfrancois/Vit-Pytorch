@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 from omegaconf import OmegaConf
 
-from data.load_data import load_CIFAR
+from data.imagenet_loader import load_imagenet1k
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from helper_function.print import bold, blue, orange, yellow, red, green
@@ -29,8 +29,8 @@ logger = logging.getLogger("Evaluation")
 
 # --- Load Configurations ---
 cfg_base = OmegaConf.load("configs/base.yaml")
-cfg_cifar = OmegaConf.load("configs/cifar.yaml")
-cfg = OmegaConf.merge(cfg_base, cfg_cifar)
+cfg_imagenet = OmegaConf.load("configs/imagenet.yaml")
+cfg = OmegaConf.merge(cfg_base, cfg_imagenet)
 
 # --- Device ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,8 +42,8 @@ results_dir = Path(cfg.result.result_dir)
 checkpoint_dir.mkdir(parents=True, exist_ok=True)
 results_dir.mkdir(parents=True, exist_ok=True)
 
-teacher_path = cfg.student.teacher_checkpoint
-student_path = cfg.student.student_checkpoint
+teacher_path = Path(cfg.student.teacher_checkpoint)
+student_path = Path(cfg.student.student_checkpoint)
 
 # --- Evaluation ---
 def evaluate_model(
@@ -172,7 +172,11 @@ def plot_per_class_accuracy(
 # --- Main Execution ---
 if __name__ == "__main__":
     logger.info("Loading test data...")
-    _, test_loader, _ = load_CIFAR(cfg.data.path, CIFAR=cfg.model.n_classes)
+    _, test_loader, _ = load_imagenet1k(
+        batch_size= cfg.dataset.batch_size,
+        max_items_train = cfg.dataset.max_items_train,
+        max_items_val = cfg.dataset.max_items_val,
+    )
 
     # Initialize models
     m_cfg = cfg.model
@@ -213,7 +217,8 @@ if __name__ == "__main__":
     s_acc, s_loss, s_speed, s_preds, s_labels = evaluate_model(student, test_loader, device, "Student")
 
     # Generate plots
-    class_names = [f"class_{i}" for i in range(cfg.model.n_classes)]
+    labels = sorted(set(t_labels + s_labels))
+    class_names = [f"class_{i}" for i in labels]
     plot_confusion_matrices(confusion_matrix(t_labels, t_preds), confusion_matrix(s_labels, s_preds), class_names, results_dir)
     plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, results_dir)
     plot_per_class_accuracy(confusion_matrix(t_labels, t_preds), confusion_matrix(s_labels, s_preds), class_names, results_dir)

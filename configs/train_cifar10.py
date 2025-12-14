@@ -20,7 +20,7 @@ data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
 plot_dir = "plots/plots_CIFAR"
 
-checkpoint_dir = "checkpoints/checkpoint_CIFAR"
+checkpoint_dir = "checkpoints"
 
 # other
 
