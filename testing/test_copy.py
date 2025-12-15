@@ -1,7 +1,3 @@
-# This file handles the evaluation of both Teacher and Student models on the Test Set.
-# It generates comparison graphs for Accuracy, Speed (Throughput), and Confusion Matrices.
-# python -m testing.test_copy
-
 import os
 import time
 import torch
@@ -12,7 +8,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
-# Imports
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from data.load_data import load_CIFAR
@@ -40,29 +35,22 @@ os.makedirs(pruning_vis_dir, exist_ok=True)
 def evaluate_model(model, loader, device, model_name="Model"):
     model.eval()
     criterion = nn.CrossEntropyLoss()
-
-    running_loss = 0.0
-    correct = 0
-    total = 0
-    all_preds = []
-    all_labels = []
+    running_loss, correct, total = 0.0, 0, 0
+    all_preds, all_labels = [], []
 
     start_time = time.time()
 
     with torch.no_grad():
-        loop = tqdm(loader, desc=f"Testing {model_name}")
-        for imgs, labels in loop:
-            imgs = imgs.to(device)
-            labels = labels.to(device)
+        for imgs, labels in tqdm(loader, desc=f"Testing {model_name}"):
+            imgs, labels = imgs.to(device), labels.to(device)
 
             outputs = model(imgs)
             logits = outputs[0] if isinstance(outputs, tuple) else outputs
 
             loss = criterion(logits, labels)
-
             running_loss += loss.item() * imgs.size(0)
-            _, predicted = torch.max(logits, 1)
 
+            _, predicted = torch.max(logits, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -86,30 +74,23 @@ def evaluate_model(model, loader, device, model_name="Model"):
 # ------------------------------------------------------------------
 def plot_confusion_matrices(teacher_cm, student_cm, class_names, save_dir):
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
-
     sns.heatmap(teacher_cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=class_names, yticklabels=class_names, ax=axes[0])
     axes[0].set_title("Teacher Confusion Matrix")
-
     sns.heatmap(student_cm, annot=True, fmt="d", cmap="Oranges",
                 xticklabels=class_names, yticklabels=class_names, ax=axes[1])
     axes[1].set_title("Student (DynamicViT) Confusion Matrix")
-
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_confusion_matrices.png"))
     plt.close()
 
 def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-
     models = ["Teacher", "Student"]
-
     axes[0].bar(models, [t_acc, s_acc])
     axes[0].set_title("Accuracy (%)")
-
     axes[1].bar(models, [t_speed, s_speed])
     axes[1].set_title("Throughput (img/sec)")
-
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_performance.png"))
     plt.close()
@@ -117,55 +98,56 @@ def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
 def plot_per_class_accuracy(t_cm, s_cm, class_names, save_dir):
     t_acc = t_cm.diagonal() / t_cm.sum(axis=1) * 100
     s_acc = s_cm.diagonal() / s_cm.sum(axis=1) * 100
-
     x = np.arange(len(class_names))
     width = 0.35
-
     fig, ax = plt.subplots(figsize=(14, 6))
     ax.bar(x - width / 2, t_acc, width, label="Teacher")
     ax.bar(x + width / 2, s_acc, width, label="Student")
-
     ax.set_xticks(x)
     ax.set_xticklabels(class_names)
     ax.set_ylabel("Accuracy (%)")
     ax.legend()
-
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_per_class_accuracy.png"))
     plt.close()
 
 # ------------------------------------------------------------------
-# Pruning Visualization 
+# Pruning Visualization
 # ------------------------------------------------------------------
-def visualize_pruning_on_images(student_model, loader, device,
-                                pruning_layers=[4, 7, 10], num_images=10):
 
+import torch.nn.functional as F
+
+def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4, 7, 10], num_images=10, pruned_color=(0.5, 0.5, 0.5)):
     student_model.eval()
-    pruned_layers = student_model.pruning_index
+    pruned_layers = list(student_model.pruning_index)
     images_done = 0
-
-    ph, pw = student_model.patch_size
-    H, W = student_model.img_size
-    n_h, n_w = H // ph, W // pw
 
     with torch.no_grad():
         for imgs, _ in loader:
             imgs = imgs.to(device)
+            B, C, H_img, W_img = imgs.shape
+            ph, pw = student_model.patch_size
+            n_h, n_w = H_img // ph, W_img // pw
+            num_patches = n_h * n_w
 
-            _, _, all_masks, _ = student_model(imgs)
+            outputs = student_model(imgs)
+            if not isinstance(outputs, tuple) or len(outputs) < 3:
+                print("Student model did not return masks, aborting pruning viz.")
+                return
+            _, _, all_masks, _ = outputs
 
-            for i in range(imgs.size(0)):
+            for i in range(B):
                 if images_done >= num_images:
                     return
 
-                # Image originale (dé-normalisée si besoin)
+                # Original image (normalize float [0,1])
                 img = imgs[i].cpu().numpy().transpose(1, 2, 0)
+                if img.dtype == np.uint8:
+                    img = img / 255.0
                 img = np.clip(img, 0, 1)
 
-                fig, axes = plt.subplots(
-                    1, len(pruning_layers) + 1,
-                    figsize=(3 * (len(pruning_layers) + 1), 3)
-                )
+                fig, axes = plt.subplots(1, len(pruning_layers) + 1,
+                                         figsize=(3 * (len(pruning_layers) + 1), 3))
 
                 axes[0].imshow(img)
                 axes[0].set_title("Original")
@@ -175,12 +157,9 @@ def visualize_pruning_on_images(student_model, loader, device,
                     if layer_id not in pruned_layers:
                         axes[j + 1].axis("off")
                         continue
-
                     real_idx = pruned_layers.index(layer_id)
-                    mask = all_masks[real_idx][i].cpu().numpy()
-                    mask_2d = mask[1:].reshape(n_h, n_w)
-
-                    # Copie de l’image
+                    mask = all_masks[real_idx][i].cpu().numpy()[1:1 + num_patches]
+                    mask_2d = mask.reshape(n_h, n_w)
                     pruned_img = img.copy()
 
                     for h in range(n_h):
@@ -188,41 +167,34 @@ def visualize_pruning_on_images(student_model, loader, device,
                             if mask_2d[h, w] == 0:
                                 y0, y1 = h * ph, (h + 1) * ph
                                 x0, x1 = w * pw, (w + 1) * pw
-                                pruned_img[y0:y1, x0:x1, :] *= 0.15  # assombrir
+                                pruned_img[y0:y1, x0:x1, :] = np.array(pruned_color)
 
-                    keep_ratio = mask_2d.mean()
-
-                    axes[j + 1].imshow(pruned_img)
-                    axes[j + 1].set_title(
-                        f"Layer {layer_id}\nKeep: {keep_ratio:.2f}"
-                    )
+                    keep_ratio = float(mask_2d.mean())
+                    axes[j + 1].imshow(np.clip(pruned_img, 0, 1))
+                    axes[j + 1].set_title(f"Layer {layer_id}\nKeep: {keep_ratio:.2f}")
                     axes[j + 1].axis("off")
 
                 plt.tight_layout()
-                plt.savefig(
-                    os.path.join(pruning_vis_dir, f"image_{images_done}.png")
-                )
+                plt.savefig(os.path.join(pruning_vis_dir, f"image_{images_done}.png"))
                 plt.close()
-
                 images_done += 1
+
 
 # ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
 if __name__ == "__main__":
-
     class_names = ['Plane', 'Car', 'Bird', 'Cat', 'Deer',
                    'Dog', 'Frog', 'Horse', 'Ship', 'Truck']
 
     print(yellow("Loading Test Data..."))
-    _, test_loader, _ = load_CIFAR("/home/onyxia/work/Vit-Pytorch/data", CIFAR=10)
+    _, _, test_loader = load_CIFAR("/home/onyxia/work/Vit-Pytorch/data", CIFAR=10)
 
     print(yellow("Loading Teacher Model..."))
     teacher = VisionTransformer(
         d_model, n_classes, img_size, patch_size,
         n_channels, n_heads, n_layers
     ).to(device)
-
     teacher.load_state_dict(torch.load(teacher_path, map_location=device))
 
     print(yellow("Loading Student Model..."))
@@ -231,9 +203,9 @@ if __name__ == "__main__":
         n_channels, n_heads, n_layers,
         pruning_index=pruning_index
     ).to(device)
-
     student.load_state_dict(torch.load(student_path, map_location=device))
 
+    # Evaluation
     t_acc, t_loss, t_speed, t_preds, t_labels = evaluate_model(
         teacher, test_loader, device, "Teacher"
     )

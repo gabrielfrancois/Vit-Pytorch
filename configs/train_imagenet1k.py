@@ -4,11 +4,16 @@ n_classes = 1000
 img_size = (128, 128)
 patch_size = (16, 16)
 n_channels = 3
-n_heads = 8
-n_layers = 7
+n_heads = 4
+n_layers = 12
 batch_size = 256
-epochs = 1
-alpha = 0.0005
+epochs = 100
+alpha = 0.005
+
+
+
+
+
 weight_decay = 1e-4
 
 # dataset
