@@ -115,22 +115,53 @@ def plot_per_class_accuracy(t_cm, s_cm, class_names, save_dir):
 # Pruning Visualization
 # ------------------------------------------------------------------
 
-import torch.nn.functional as F
-
-def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4, 7, 10], num_images=10, pruned_color=(0.5, 0.5, 0.5)):
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import torch
+mean_cifar = [0.4914, 0.4822, 0.4465]
+std_cifar  = [0.2023, 0.1994, 0.2010]
+def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4, 7, 10],
+                                num_images=10, pruned_color=(0.5, 0.5, 0.5),
+                                mean=mean_cifar, std=std_cifar, pruning_vis_dir="./pruning_vis"):
+    """
+    Visualise les effets du pruning sur les images. 
+    Images normalisées avant passage dans le modèle, puis dénormalisées pour affichage.
+    
+    Args:
+        student_model : modèle patch-based renvoyant les masques de pruning
+        loader : DataLoader
+        device : "cuda" ou "cpu"
+        pruning_layers : indices des couches à visualiser
+        num_images : nombre d’images à visualiser
+        pruned_color : couleur des patches supprimés
+        mean : liste/np.array des moyennes par canal pour la normalisation
+        std : liste/np.array des écarts-types par canal pour la normalisation
+        pruning_vis_dir : dossier de sauvegarde des images
+    """
+    os.makedirs(pruning_vis_dir, exist_ok=True)
     student_model.eval()
     pruned_layers = list(student_model.pruning_index)
     images_done = 0
 
+    mean = np.array(mean) if mean is not None else np.zeros(3)
+    std = np.array(std) if std is not None else np.ones(3)
+
     with torch.no_grad():
         for imgs, _ in loader:
             imgs = imgs.to(device)
-            B, C, H_img, W_img = imgs.shape
+            # Normalisation si pas déjà faite
+            mean_tensor = torch.tensor(mean, device=device, dtype=torch.float32).view(1, -1, 1, 1)
+            std_tensor = torch.tensor(std, device=device, dtype=torch.float32).view(1, -1, 1, 1)
+            imgs_norm = (imgs - mean_tensor) / std_tensor
+
+
+            B, C, H_img, W_img = imgs_norm.shape
             ph, pw = student_model.patch_size
             n_h, n_w = H_img // ph, W_img // pw
             num_patches = n_h * n_w
 
-            outputs = student_model(imgs)
+            outputs = student_model(imgs_norm)
             if not isinstance(outputs, tuple) or len(outputs) < 3:
                 print("Student model did not return masks, aborting pruning viz.")
                 return
@@ -140,16 +171,14 @@ def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4
                 if images_done >= num_images:
                     return
 
-                # Original image (normalize float [0,1])
-                img = imgs[i].cpu().numpy().transpose(1, 2, 0)
-                if img.dtype == np.uint8:
-                    img = img / 255.0
-                img = np.clip(img, 0, 1)
+                # Dénormalisation pour affichage
+                img_denorm = imgs_norm[i].cpu().numpy().transpose(1, 2, 0) * std + mean
+                img_denorm = np.clip(img_denorm, 0, 1)
 
                 fig, axes = plt.subplots(1, len(pruning_layers) + 1,
                                          figsize=(3 * (len(pruning_layers) + 1), 3))
 
-                axes[0].imshow(img)
+                axes[0].imshow(img_denorm)
                 axes[0].set_title("Original")
                 axes[0].axis("off")
 
@@ -160,7 +189,7 @@ def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4
                     real_idx = pruned_layers.index(layer_id)
                     mask = all_masks[real_idx][i].cpu().numpy()[1:1 + num_patches]
                     mask_2d = mask.reshape(n_h, n_w)
-                    pruned_img = img.copy()
+                    pruned_img = img_denorm.copy()
 
                     for h in range(n_h):
                         for w in range(n_w):

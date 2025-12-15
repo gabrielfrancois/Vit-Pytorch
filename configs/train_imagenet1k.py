@@ -1,18 +1,14 @@
 # train_imagenet1k.py
-d_model = 128
+d_model = 96
 n_classes = 1000
 img_size = (128, 128)
 patch_size = (16, 16)
 n_channels = 3
 n_heads = 4
-n_layers = 12
+n_layers = 9
 batch_size = 256
 epochs = 100
-alpha = 0.005
-
-
-
-
+alpha = 0.003
 
 weight_decay = 1e-4
 
@@ -30,7 +26,7 @@ checkpoint_dir = "checkpoints/checkpoint_test"
 
 resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0.
 
-pruning_index = [4,7,10]
+pruning_index = [3,5,7]
 rho = 0.7
 lambda_kl = 1/2
 lambda_ratio = 2
