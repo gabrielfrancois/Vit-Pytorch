@@ -1,11 +1,11 @@
 import torch
 from torch import nn as nn 
-
+from .transformer_encoder import TransformerEncoder
 from .dynamic_transformer_encoder import DynamicTransformerEncoder
 from .predictor_LG import PredictorLG
 from .patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding  
-from .transformer_encoder import TransformerEncoder
+
 from helper_function.print import *
 
 class DynamicVisionTransformer(nn.Module):

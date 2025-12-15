@@ -76,7 +76,7 @@ class DynamicTransformerEncoder(nn.Module):
                 x = x + self.dropout1(attn_out)
                 x = x + self.mlp(self.ln2(x))
 
-                return x, new_policy, pred_score
+                return x, new_policy, pred_score, None
 
             else: # INFERENCE, hard pruning
                 # Here, N will definitely reduce to N' <= N

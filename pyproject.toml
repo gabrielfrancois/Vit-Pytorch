@@ -17,8 +17,7 @@ dependencies = [
     "pytest",
     "black",
     "pylint",
-    "omegaconf",
-    "hydra"
+    "caffeinate",
 ]
 
 [dependency-groups]

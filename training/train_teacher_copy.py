@@ -155,7 +155,7 @@ def save_training_plots(train_losses, val_losses, train_accs, val_accs, lrs, con
 
     # 4. Confusion Matrix Heatmap
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Blues')
+    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Blues')
     plt.title('Final Test Confusion Matrix')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')

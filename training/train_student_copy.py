@@ -14,8 +14,8 @@ from sklearn.metrics import confusion_matrix, classification_report
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss import DynamicViTLoss
-from data.images import load_imagenet1k
+from .dynamic_loss_copy import DynamicViTLoss
+from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 import time
 
@@ -23,7 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
-checkpoint_dir = "checkpoints"
+checkpoint_dir = "checkpoints/imagenet1K"
 teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -53,7 +53,7 @@ for param in teacher.parameters():
 
 # Initialize student
 print(yellow("Initializing Student..."))
-student = DynamicVisionTransformer(
+student= DynamicVisionTransformer(
     d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index
 ).to(device)
 
@@ -151,14 +151,15 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
     plt.savefig(os.path.join(save_dir, "student_kl_loss.png"))
     plt.close()
 
-    # 6. Confusion Matrix
+    # 6. Confusion Matrix rapide
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Oranges')
+    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Oranges')  # désactive l'annotation pour 1000 classes
     plt.title('Student Test Confusion Matrix')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
     plt.savefig(os.path.join(save_dir, "student_confusion_matrix.png"))
     plt.close()
+
 
 # Core Functions
 def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index):
