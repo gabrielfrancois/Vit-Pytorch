@@ -13,7 +13,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
-from models.dynamicViT import DynamicVisionTransformer
+from models.dynamicViT_copy import DynamicVisionTransformer
 from .dynamic_loss_copy import DynamicViTLoss
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
@@ -54,7 +54,7 @@ for param in teacher.parameters():
 # Initialize student
 print(yellow("Initializing Student..."))
 student= DynamicVisionTransformer(
-    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index
+    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho
 ).to(device)
 
 # Load Teacher weights into Student Backbone, the student should start as a copy of the teacher, then learn to prune.
@@ -181,6 +181,14 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
         with torch.no_grad():
             teacher_logits, teacher_feats = teacher(imgs)
         
+                    # Get Student Output 
+            student_logits, student_feats, all_masks, all_scores = student(imgs)
+
+
+            print(student_feats.min(), student_feats.max())
+            print(teacher_feats.min(), teacher_feats.max())
+
+                    
         # Get Student Output 
         student_logits, student_feats, all_masks, all_scores = student(imgs)
         # Calculate Compound Loss 

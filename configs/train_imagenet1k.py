@@ -8,7 +8,7 @@ n_heads = 4
 n_layers = 12
 batch_size = 256
 epochs = 100
-alpha = 0.003
+alpha = 0.005
 
 weight_decay = 1e-4
 
@@ -27,7 +27,7 @@ checkpoint_dir = "checkpoints/checkpoint_test"
 resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0.
 
 pruning_index = [4,7,10]
-rho = 0.95
+rho = 0.9
 lambda_kl = 1/2
-lambda_ratio = 1/2
+lambda_ratio = 2
 lambda_distill = 1/2

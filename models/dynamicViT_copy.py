@@ -1,15 +1,15 @@
 import torch
 from torch import nn as nn 
-from .transformer_encoder import TransformerEncoder
+
 from .dynamic_transformer_encoder import DynamicTransformerEncoder
 from .predictor_LG import PredictorLG
 from .patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding  
-
+from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
 class DynamicVisionTransformer(nn.Module):
-    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, base_keep_rate):
+    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho):
         super().__init__()
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though..."
@@ -22,7 +22,6 @@ class DynamicVisionTransformer(nn.Module):
         self.n_heads = n_heads # Number of attention heads
         self.pruning_index = pruning_index # index where patch are prunned
         self.base_keep_rate = rho
-
 
         # Calculate number of patches
         # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
@@ -47,7 +46,7 @@ class DynamicVisionTransformer(nn.Module):
         sorted_pruning_locs = sorted(pruning_index)
         
         for loc in sorted_pruning_locs:
-            current_cumulative_ratio *= base_keep_rate # exact rate of the paper
+            current_cumulative_ratio *= self.base_keep_rate # exact rate of the paper
             layer_to_ratio[loc] = current_cumulative_ratio
 
         # Build layers
@@ -98,21 +97,10 @@ class DynamicVisionTransformer(nn.Module):
             
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
-
-                # Reconstruction du masque COMPLET (avant pruning)
-                B = images.size(0)
-                full_mask = torch.zeros(B, self.max_seq_length, device=x.device)
-
-                if keep_indices is not None:
-                    full_mask.scatter_(1, keep_indices, 1.0)
-                else:
-                    full_mask[:] = current_policy  # cas training
-
-                # CLS toujours gardé
-                full_mask[:, 0] = 1.0
-
-                all_masks.append(full_mask.detach().cpu())
-
+                # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
+                # DynamicViT usually relies on the predictor learning to keep it, thus, we'll force it by: current_policy[:, 0] = 1
+                current_policy[:, 0] = 1.0
+                all_masks.append(current_policy)
 
         # Final Classifier (Only use the CLS token)
         cls_token = x[:, 0]
