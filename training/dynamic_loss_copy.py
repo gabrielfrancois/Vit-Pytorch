@@ -8,8 +8,9 @@ from configs.train_imagenet1k import *
 
 
 class DynamicViTLoss(nn.Module):
-    def __init__(self,target_ratios, lambda_kl, lambda_ratio, lambda_distill):
+    def __init__(self,target_ratios, lambda_class, lambda_kl, lambda_ratio, lambda_distill):
         super().__init__()
+        self.lambda_class = lambda_class
         self.lambda_kl = lambda_kl         # Weight for distilling teacher knowledge
         self.lambda_ratio = lambda_ratio   # Weight for enforcing sparsity
         self.lambda_distill = lambda_distill # weight for mimic the teacher model
@@ -57,7 +58,7 @@ class DynamicViTLoss(nn.Module):
 
         # --- Loss totale ---
         total_loss = (
-            loss_cls +
+            self.lambda_class * loss_cls +
             self.lambda_kl * loss_kl +
             self.lambda_distill * loss_distill +
             self.lambda_ratio * loss_ratio

@@ -87,6 +87,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 # Dynamic loss setup, pho is replaceable
 target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
 criterion = DynamicViTLoss(
+    lambda_class = lambda_class,
     lambda_kl=lambda_kl, 
     lambda_distill=lambda_distill, 
     lambda_ratio=lambda_ratio, 

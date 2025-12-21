@@ -7,7 +7,7 @@ n_channels = 3
 n_heads = 4
 n_layers = 12
 batch_size = 256
-epochs = 1
+epochs = 50
 alpha = 0.005
 
 
@@ -27,6 +27,7 @@ resume = True  # permet soit de continuer à partir du checkpoint enregistré so
 
 pruning_index = [4,7,10]
 rho = 0.98
-lambda_kl = 1/2
-lambda_ratio = 2
-lambda_distill = 1/2
+lambda_class = 0.001
+lambda_kl = 1
+lambda_ratio = 1/2
+lambda_distill = 0.0001
