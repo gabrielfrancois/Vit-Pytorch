@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 def load_imagenet1k(
     batch_size: int = 256,
     val_ratio: float = 0.1,
-    num_workers: int = 4,
+    num_workers: int = 8,
     seed: int = 50,
     max_items_train: int = None,
     max_items_val: int = None,
@@ -70,9 +70,9 @@ def load_imagenet1k(
         generator=torch.Generator().manual_seed(seed)
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True,persistent_workers=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True,persistent_workers=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True,persistent_workers=True)
 
     print(f"ImageNet-1k chargé : train={len(train_dataset)}, val={len(val_dataset)}, test={len(test_dataset)}")
 

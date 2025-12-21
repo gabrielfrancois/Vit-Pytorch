@@ -18,6 +18,7 @@ from .dynamic_loss_copy import DynamicViTLoss
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 import time
+from torch.cuda.amp import autocast, GradScaler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
@@ -77,6 +78,7 @@ for k, v in teacher_dict.items():
 # Update student with available matching weights (Backbone + Classifier)
 # strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
 student.load_state_dict(new_student_dict, strict=False) 
+
 
 # Optimizer & Loss, note that we only optimize the STUDENT
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
@@ -165,6 +167,7 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index):
     student.train() 
     # Teacher is already eval/frozen
+    scaler = GradScaler()  
 
     running_loss = 0.0
     running_ratio_loss = 0.0
@@ -174,37 +177,34 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
     total = 0
 
     loop = tqdm(loader, desc=f'Training Student Epoch {epoch_index}')
-    
+    scaler = torch.cuda.amp.GradScaler()  # Initialise le scaler pour mixed precision
+
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
-        # Get Teacher Output (Ground Truth for Distillation) 
+
+        # --- Teacher ---
         with torch.no_grad():
             teacher_logits, teacher_feats = teacher(imgs)
-        
-                    # Get Student Output 
+            teacher_logits, teacher_feats = teacher_logits.detach(), teacher_feats.detach()
+
+        # --- Student en mixed precision ---
+        optimizer.zero_grad()  # reset grad
+
+        with autocast():  # forward en float16
             student_logits, student_feats, all_masks, all_scores = student(imgs)
+            loss, metrics = criterion(
+                student_logits=student_logits,
+                teacher_logits=teacher_logits,
+                labels=labels,
+                student_feats=student_feats,
+                teacher_feats=teacher_feats,
+                all_masks=all_masks
+            )
 
-
-            print(student_feats.min(), student_feats.max())
-            print(teacher_feats.min(), teacher_feats.max())
-
-                    
-        # Get Student Output 
-        student_logits, student_feats, all_masks, all_scores = student(imgs)
-        # Calculate Compound Loss 
-        loss, metrics = criterion(
-            student_logits=student_logits, 
-            teacher_logits=teacher_logits, 
-            labels=labels, 
-            student_feats=student_feats, 
-            teacher_feats=teacher_feats, 
-            all_masks=all_masks
-        )
-
-        # Backprop
-        optimizer.zero_grad() # To prevent gradient accumulation, (refresh gradient to 0)
-        loss.backward() # Compute back propagation
-        optimizer.step() # Update weights
+        # --- Backward avec scaler ---
+        scaler.scale(loss).backward()     # scale avant backward
+        scaler.step(optimizer)            # applique l'update
+        scaler.update()                   # met à jour le scaler pour le batch suivant
 
         # Metrics
         running_loss += loss.item() * imgs.size(0)
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     }
     
     best_val_acc = 0.0
-
+        
     for epoch in range(epochs):
         # Train
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(

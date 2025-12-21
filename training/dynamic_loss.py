@@ -35,6 +35,10 @@ class DynamicViTLoss(nn.Module):
         ----------------------------------
 
         """
+        device = student_feats.device
+
+        # S'assurer que tous les masques sont sur le bon device
+        all_masks = [mask.to(device) for mask in all_masks]
         
         # Classification Loss (Student vs Ground Truth)
         loss_cls = self.ce_loss(student_logits, labels)
@@ -46,7 +50,9 @@ class DynamicViTLoss(nn.Module):
             reduction='batchmean'
         )
 
+
         # Uses the FINAL mask (D at last stage)
+
         final_mask = all_masks[-1] 
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1) # Sum over D_model dim 
         masked_diff = token_diff * final_mask

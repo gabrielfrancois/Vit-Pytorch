@@ -6,6 +6,7 @@ from helper_function.print import *
 from configs.train_imagenet1k import *
 
 
+
 class DynamicViTLoss(nn.Module):
     def __init__(self,target_ratios, lambda_kl, lambda_ratio, lambda_distill):
         super().__init__()
@@ -32,23 +33,27 @@ class DynamicViTLoss(nn.Module):
         loss_cls = self.ce_loss(student_logits, labels)
 
         # --- KL Divergence avec le Teacher ---
+
+        # Petite optimisation (on utilise F.log_softmax et log _target= True vs F.softmax)
         loss_kl = F.kl_div(
             F.log_softmax(student_logits, dim=1),
-            F.softmax(teacher_logits, dim=1),
-            reduction='batchmean'
+            F.log_softmax(teacher_logits.detach(), dim=1),
+            reduction='batchmean',
+            log_target=True
         )
+
 
         # --- Distillation des features ---
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1)  # sum sur D_model
         masked_diff = token_diff * final_mask
         loss_distill = masked_diff.sum() / (final_mask.sum() + 1e-6)
 
-        # --- Ratio Loss pour chaque étape de pruning ---
-        loss_ratio = 0.0
-        for i, mask_s in enumerate(all_masks):
-            actual_ratio = mask_s.float().mean(dim=1)  # mean sur tokens, size=(B)
-            target = self.target_ratios[i]
-            loss_ratio += ((target - actual_ratio) ** 2).mean()  # mean sur batch
+        # --- Ratio Loss pour chaque étape de pruning (version vectorisée) ---
+        all_masks_tensor = torch.stack(all_masks, dim=0)  # (T, B, N)
+        actual_ratios = all_masks_tensor.float().mean(dim=-1)  # (T, B)
+        targets = torch.tensor(self.target_ratios, device=actual_ratios.device).unsqueeze(1)  # (T,1)
+        loss_ratio = ((targets - actual_ratios)**2).mean(dim=1).sum()
+
 
         # --- Loss totale ---
         total_loss = (

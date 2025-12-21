@@ -23,16 +23,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
-checkpoint_dir = "checkpoints"
-teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
+checkpoint_dir = "checkpoints/test"
+teacher_checkpoint = f"checkpoints/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "training/log/Student_ViT_CIFAR10"
+log_dir = "training/log/test/Student_ViT_CIFAR10"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "training/log/Student_ViT_CIFAR10-graphs"
+graph_dir = "training/log/test/Student_ViT_CIFAR10-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 
@@ -54,7 +54,7 @@ for param in teacher.parameters():
 # Initialize student
 print(yellow("Initializing Student..."))
 student = DynamicVisionTransformer(
-    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index
+    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho
 ).to(device)
 
 # Load Teacher weights into Student Backbone, the student should start as a copy of the teacher, then learn to prune.
@@ -182,6 +182,8 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
         
         # Get Student Output 
         student_logits, student_feats, all_masks, all_scores = student(imgs)
+
+
         # Calculate Compound Loss 
         loss, metrics = criterion(
             student_logits=student_logits, 
