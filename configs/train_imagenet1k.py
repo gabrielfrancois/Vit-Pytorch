@@ -11,19 +11,9 @@ epochs = 100
 alpha = 0.005
 
 
-# dataset
 
-data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
-# checkpoints and plots directories.
-
-plot_dir = "plots/plots_test"
-
-checkpoint_dir = "checkpoints/checkpoint_test"
-
-# other
-
-resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0.
+# dynamic_Vit parameters
 
 pruning_index = [4,7,10]
 final_rho = 0.7
@@ -34,7 +24,11 @@ lambda_ratio = 1/2
 lambda_distill = 0.0001
 
 
-# Paramètres Normalisation des images
+# Normalisation parameters
 
 mean_norm_imagenet = [0.485, 0.456, 0.406]
 std_norm_imagenet = [0.229, 0.224, 0.225]
+
+# finetuneing option
+finetuning = 'LORA' # Enter: False, 'LORA'
+rank = 4

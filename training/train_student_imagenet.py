@@ -1,5 +1,5 @@
 # This Python file gathers all the functions / classes needed to handle training, validation or inference from the ViT model
-# python -m training.train
+# python -m training.train_student_imagenet
 import os
 import time
 import torch
@@ -10,7 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
-
+import numpy as np
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT_imagenet import DynamicVisionTransformer
@@ -19,6 +19,8 @@ from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 import time
 import torch.amp
+from typing import List, Tuple, Dict, Any
+
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,7 +92,37 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
 
 # Plotting Function
-def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distill_loss, kl_loss, lrs, rho, confusion_mat, save_dir):
+def save_training_plots(
+    train_losses: List[float],
+    train_accs: List[float],
+    val_accs: List[float],
+    ratio_losses: List[float],
+    distill_loss: List[float],
+    kl_loss: List[float],
+    lrs: List[float],
+    rho: List[float],
+    confusion_mat: Any,
+    save_dir: str
+) -> None:
+    """
+    Save all training and validation plots for the student model.
+
+    This includes loss curves, accuracy curves, sparsity-related losses,
+    pruning ratio evolution, and the final confusion matrix.
+
+    Args:
+        train_losses: Total training loss per epoch.
+        train_accs: Training accuracy per epoch.
+        val_accs: Validation accuracy per epoch.
+        ratio_losses: Sparsity (ratio) loss per epoch.
+        distill_loss: Distillation loss per epoch.
+        kl_loss: KL divergence loss per epoch.
+        lrs: Learning rate per epoch.
+        rho: Pruning ratio (rho) per epoch.
+        confusion_mat: Confusion matrix computed on the test set.
+        save_dir: Directory where plots will be saved.
+    """
+
     print(blue(f"Saving student training graphs to {save_dir}..."))
     
     # 1. Total Loss Curve
@@ -159,9 +191,9 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
     plt.savefig(os.path.join(save_dir, "student_rho.png"))
     plt.close()
 
-    # 7. Confusion Matrix rapide
+    # 7. Confusion Matrix without annotation
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Oranges')  # désactive l'annotation pour 1000 classes
+    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Oranges')  
     plt.title('Student Test Confusion Matrix')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
@@ -170,7 +202,41 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 
 
 # Core Functions
-def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index,rho,scaler):
+def train_one_epoch(
+    student: nn.Module,
+    teacher: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+    epoch_index: int,
+    rho: float,
+    scaler: torch.amp.GradScaler
+) -> Tuple[float, float, float, float, float]:
+    """
+    Train the student model for one epoch using a frozen teacher.
+
+    The training uses mixed precision and a composite loss including
+    classification, distillation, KL divergence, and sparsity constraints.
+
+    Args:
+        student: Student Vision Transformer model.
+        teacher: Pre-trained teacher Vision Transformer (frozen).
+        loader: Training data loader.
+        optimizer: Optimizer used to update student parameters.
+        criterion: DynamicViT loss function.
+        device: Device used for training (CPU or CUDA).
+        epoch_index: Index of the current epoch.
+        rho: Current pruning ratio.
+        scaler: Gradient scaler for mixed precision training.
+
+    Returns:
+        avg_loss: Average total loss over the epoch.
+        avg_ratio_loss: Average sparsity (ratio) loss.
+        avg_distill_loss: Average distillation loss.
+        avg_kl_loss: Average KL divergence loss.
+        accuracy: Training accuracy in percentage.
+    """
     student.train() 
     # Teacher is already eval/frozen  
 
@@ -193,10 +259,10 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
             teacher_logits, teacher_feats = teacher(imgs)
             teacher_logits, teacher_feats = teacher_logits.detach(), teacher_feats.detach()
 
-        # --- Student en mixed precision ---
+        # --- Student in mixed precision ---
         optimizer.zero_grad()  # reset grad
 
-        with torch.amp.autocast("cuda"):  # forward en float16
+        with torch.amp.autocast("cuda"):  # forward in float16
             student_logits, student_feats, all_masks, all_scores = student(imgs)
             loss, metrics = criterion(
                 student_logits=student_logits,
@@ -207,10 +273,10 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
                 all_masks=all_masks,
             )
 
-        # --- Backward avec scaler ---
-        scaler.scale(loss).backward()     # scale avant backward
-        scaler.step(optimizer)            # applique l'update
-        scaler.update()                   # met à jour le scaler pour le batch suivant
+        # --- Backward with scaler ---
+        scaler.scale(loss).backward()     # scale before backward
+        scaler.step(optimizer)           
+        scaler.update()                   
 
         # Metrics
         running_loss += loss.item() * imgs.size(0)
@@ -232,7 +298,29 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
 
     return avg_loss, avg_ratio_loss, avg_distill_loss, avg_kl_loss, accuracy
 
-def validate_one_epoch(student, loader, device, desc="Validation"):
+def validate_one_epoch(
+    student: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    desc: str = "Validation"
+) -> Tuple[float, Any]:
+    """
+    Evaluate the student model on a validation or test dataset.
+
+    The model is run in evaluation mode with no gradient computation.
+    Only classification accuracy and confusion matrix are computed.
+
+    Args:
+        student: Student Vision Transformer model.
+        loader: Validation or test data loader.
+        device: Device used for evaluation.
+        desc: Description shown in the progress bar.
+
+    Returns:
+        accuracy: Classification accuracy in percentage.
+        cm: Confusion matrix over all classes.
+    """
+
     student.eval()
     
     correct = 0
@@ -258,16 +346,38 @@ def validate_one_epoch(student, loader, device, desc="Validation"):
 
     return accuracy, cm
 
-import numpy as np
 
-def rho_schedule(epoch, max_epoch, rho_init=1, rho_final=0.7, steepness=10):
 
-    "adaptation de rho douce au début et à la fin "
-    # Normaliser l'epoch entre 0 et 1
-    x = epoch/ (max_epoch-1) # La première epoch est 0 donc on prend max_epoch-1
-    # Sigmoïde centrée à 0.5
+def rho_schedule(
+    epoch: int,
+    max_epoch: int,
+    rho_init: float = 1.0,
+    rho_final: float = 0.7,
+    steepness: float = 10.0
+) -> float:
+    """
+    Compute a smooth pruning ratio schedule using a sigmoid function.
+
+    The schedule starts close to rho_init, transitions smoothly around
+    mid-training, and converges towards rho_final.
+
+    Args:
+        epoch: Current epoch index.
+        max_epoch: Total number of epochs.
+        rho_init: Initial pruning ratio.
+        rho_final: Final pruning ratio.
+        steepness: Controls how sharp the transition is.
+
+    Returns:
+        rho: Pruning ratio for the given epoch.
+    """
+
+
+    # Normalising the epoch between 0 and 1
+    x = epoch/ (max_epoch-1) # the first epoch 0 then we take max_epoch-1
+    # Centered Sigmoid à 0.5
     s = 1 / (1 + np.exp(-steepness * (x - 0.5)))
-    # Interpolation entre rho_init et rho_final
+    # Interpolation between rho_init and rho_final
     return rho_init + (rho_final - rho_init) * s
 
 
@@ -295,7 +405,7 @@ if __name__ == "__main__":
         'rho': []
     }
     checkpoint = {}
-    scaler = torch.amp.GradScaler()  # Initialise le scaler pour mixed precision
+    scaler = torch.amp.GradScaler()  # Initialize the scaler for mixed precision
     if os.path.exists(checkpoint_path):
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         last_epoch = ckpt['epoch']

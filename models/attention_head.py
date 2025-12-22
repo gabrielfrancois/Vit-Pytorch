@@ -38,9 +38,9 @@ class AttentionHead(nn.Module):
             mask = mask.unsqueeze(1)  # (B, 1, N)
             # Assuming mask is 0 for pruned tokens and 1 for kept token, we'd set scores to -inf where mask is 0.
             # Use -1e9 instead of -inf to avoid  unexpected Nan...
-            #Avner : I changed for -1e4 to use autocast and use float 16 number
+            # Changed for -1e4 to use autocast and use float 16 number
 
-            attention = attention.masked_fill(mask == 0, -1e4) # broadcasting --> (B, N, N)
+            attention = attention.masked_fill(mask == 0, -1e4)  # broadcasting --> (B, N, N)
         attention = torch.softmax(attention, dim=-1)
         attention = self.dropout(attention)
         out = attention @ V  # (B, N, head_size)

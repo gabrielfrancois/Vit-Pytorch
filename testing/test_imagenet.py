@@ -13,6 +13,8 @@ from models.dynamicViT_imagenet import DynamicVisionTransformer
 from data.load_data import load_imagenet1k
 from configs.train_imagenet1k import *
 from helper_function.print import *
+from typing import List, Tuple, Optional, Any
+
 
 # ------------------------------------------------------------------
 # Setup
@@ -32,7 +34,29 @@ os.makedirs(pruning_vis_dir, exist_ok=True)
 # ------------------------------------------------------------------
 # Evaluation
 # ------------------------------------------------------------------
-def evaluate_model(model, loader, device, model_name="Model"):
+def evaluate_model(
+    model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    model_name: str = "Model"
+) -> Tuple[float, float, float, List[int], List[int]]:
+    """
+    Evaluate a model on a dataset and compute loss, accuracy, throughput, and predictions.
+
+    Args:
+        model: PyTorch model to evaluate (teacher or student).
+        loader: DataLoader providing the evaluation dataset.
+        device: Device to run the evaluation on.
+        model_name: Name used for printing/logging purposes.
+
+    Returns:
+        accuracy: Classification accuracy in percentage.
+        avg_loss: Average cross-entropy loss.
+        throughput: Images processed per second.
+        all_preds: List of predicted class indices.
+        all_labels: List of ground-truth class indices.
+    """
+
     model.eval()
     criterion = nn.CrossEntropyLoss()
     running_loss, correct, total = 0.0, 0, 0
@@ -72,21 +96,37 @@ def evaluate_model(model, loader, device, model_name="Model"):
 # ------------------------------------------------------------------
 # Plotting
 # ------------------------------------------------------------------
-def plot_confusion_matrices(teacher_cm, student_cm, class_names=None, save_dir, top_k=10):
-    # Si pas de noms de classes, créer par défaut
+def plot_confusion_matrices(
+    teacher_cm: np.ndarray,
+    student_cm: np.ndarray,
+    class_names: Optional[List[str]],
+    save_dir: str,
+    top_k: int = 10
+) -> None:
+    """
+    Plot and save the top-k class confusion matrices for teacher and student models.
+
+    Args:
+        teacher_cm: Confusion matrix of the teacher model.
+        student_cm: Confusion matrix of the student model.
+        class_names: List of class names. If None, default names are generated.
+        save_dir: Directory where the plot will be saved.
+        top_k: Number of top classes to display based on frequency in teacher_cm.
+    """
+    # Create class names if there's not
     if class_names is None:
         num_classes = teacher_cm.shape[0]
         class_names = [f"Class {i}" for i in range(num_classes)]
-    # 1. Calculer la somme par classe pour déterminer les plus fréquentes
-    freq = np.sum(teacher_cm, axis=1)  # ou axis=0 selon ton besoin
-    top_indices = np.argsort(freq)[-top_k:][::-1]  # top_k indices triés décroissant
+   
+    freq = np.sum(teacher_cm, axis=1)  
+    top_indices = np.argsort(freq)[-top_k:][::-1]  # top-k indices sorted in descending order
 
-    # 2. Sous-échantillonner les matrices et noms de classes
+    # Subsample the matrices and class name
     teacher_cm_top = teacher_cm[np.ix_(top_indices, top_indices)]
     student_cm_top = student_cm[np.ix_(top_indices, top_indices)]
     class_names_top = [class_names[i] for i in top_indices]
 
-    # 3. Plot
+    #  Plot
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
     sns.heatmap(teacher_cm_top, annot=True, fmt="d", cmap="Blues",
                 xticklabels=class_names_top, yticklabels=class_names_top, ax=axes[0])
@@ -102,7 +142,24 @@ def plot_confusion_matrices(teacher_cm, student_cm, class_names=None, save_dir, 
     plt.close()
 
 
-def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
+def plot_performance_comparison(
+    t_acc: float,
+    s_acc: float,
+    t_speed: float,
+    s_speed: float,
+    save_dir: str
+) -> None:
+    """
+    Plot and save a bar chart comparing teacher and student performance.
+
+    Args:
+        t_acc: Teacher accuracy (%).
+        s_acc: Student accuracy (%).
+        t_speed: Teacher throughput (img/sec).
+        s_speed: Student throughput (img/sec).
+        save_dir: Directory where the plot will be saved.
+    """
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     models = ["Teacher", "Student"]
     axes[0].bar(models, [t_acc, s_acc])
@@ -113,8 +170,23 @@ def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
     plt.savefig(os.path.join(save_dir, "compare_performance.png"))
     plt.close()
 
-def plot_per_class_accuracy(t_cm, s_cm, class_names=None, save_dir):
-    # Si pas de noms de classes, créer par défaut
+def plot_per_class_accuracy(
+    t_cm: np.ndarray,
+    s_cm: np.ndarray,
+    class_names: Optional[List[str]],
+    save_dir: str
+) -> None:
+    """
+    Plot and save a per-class accuracy comparison for teacher and student models.
+
+    Args:
+        t_cm: Teacher confusion matrix.
+        s_cm: Student confusion matrix.
+        class_names: List of class names. If None, default names are generated.
+        save_dir: Directory where the plot will be saved.
+    """
+
+    # Create class names if it's necessary
     if class_names is None:
         num_classes = teacher_cm.shape[0]
         class_names = [f"Class {i}" for i in range(num_classes)]
@@ -140,15 +212,29 @@ def plot_per_class_accuracy(t_cm, s_cm, class_names=None, save_dir):
 
 
 def visualize_pruning_on_images(
-    student_model,
-    loader,
-    device,
-    num_images=8,
-    pruning_layers=pruning_index,
-    pruned_color=(0.5, 0.5, 0.5),
-    mean=mean_norm_imagenet,
-    std=std_norm_imagenet,
-):
+    student_model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    num_images: int = 8,
+    pruning_layers: List[int] = pruning_index,
+    pruned_color: Tuple[float, float, float] = (0.5, 0.5, 0.5),
+    mean: List[float] = mean_norm_imagenet,
+    std: List[float] = std_norm_imagenet,
+) -> None:
+    """
+    Visualize pruning masks applied by the student model on input images.
+
+    Args:
+        student_model: Student DynamicViT model.
+        loader: DataLoader providing the images.
+        device: Device to run the visualization on.
+        num_images: Maximum number of images to visualize.
+        pruning_layers: List of layer indices to visualize pruning.
+        pruned_color: RGB color used to mark pruned patches.
+        mean: Mean values for image de-normalization.
+        std: Standard deviation values for image de-normalization.
+    """
+
     os.makedirs(pruning_vis_dir, exist_ok=True)
     student_model.eval()
     images_done = 0

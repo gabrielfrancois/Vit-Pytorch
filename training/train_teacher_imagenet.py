@@ -15,6 +15,7 @@ from models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss_copy import DynamicViTLoss
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
+from typing import Tuple, List
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,7 +48,30 @@ graph_dir = "training/log/Teacher_ViT_imagenet1K-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 # Training Function
-def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
+def train_one_epoch(
+    model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+    epoch_index: int
+) -> Tuple[float, float]:
+    """
+    Train the model for one epoch.
+
+    Args:
+        model: PyTorch model to train.
+        loader: DataLoader for training data.
+        optimizer: Optimizer for model parameters.
+        criterion: Loss function.
+        device: Device to run computations on.
+        epoch_index: Current epoch index (for logging).
+
+    Returns:
+        avg_loss: Average loss over the epoch.
+        accuracy: Training accuracy in percentage.
+    """
+
     model.train()
     running_loss = 0.0
     correct = 0
@@ -80,7 +104,29 @@ def train_one_epoch(model, loader, optimizer, criterion, device, epoch_index):
     return avg_loss, accuracy
 
 # Validation Function
-def validate_one_epoch(model, loader, criterion, device, desc='Validating'):
+def validate_one_epoch(
+    model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    criterion: nn.Module,
+    device: torch.device,
+    desc: str = 'Validating'
+) -> Tuple[float, float, torch.Tensor]:
+    """
+    Validate the model on a dataset for one epoch.
+
+    Args:
+        model: PyTorch model to evaluate.
+        loader: DataLoader for validation or test data.
+        criterion: Loss function.
+        device: Device to run computations on.
+        desc: Description for tqdm progress bar.
+
+    Returns:
+        avg_loss: Average loss over the validation set.
+        accuracy: Validation accuracy in percentage.
+        cm: Confusion matrix of predictions.
+    """
+
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -112,10 +158,28 @@ def validate_one_epoch(model, loader, criterion, device, desc='Validating'):
 
     return avg_loss, accuracy, cm
 
-def save_training_plots(train_losses, val_losses, train_accs, val_accs, lrs, confusion_mat, save_dir):
+def save_training_plots(
+    train_losses: List[float],
+    val_losses: List[float],
+    train_accs: List[float],
+    val_accs: List[float],
+    lrs: List[float],
+    confusion_mat: torch.Tensor,
+    save_dir: str
+) -> None:
     """
-    Generates and saves Loss, Accuracy, LR curves and Confusion Matrix heatmap.
+    Generate and save training graphs: Loss, Accuracy, Learning Rate curves, and Confusion Matrix heatmap.
+
+    Args:
+        train_losses: List of training loss values per epoch.
+        val_losses: List of validation loss values per epoch.
+        train_accs: List of training accuracy values per epoch.
+        val_accs: List of validation accuracy values per epoch.
+        lrs: List of learning rates per epoch.
+        confusion_mat: Confusion matrix for the final evaluation.
+        save_dir: Directory to save plots.
     """
+
     print(blue(f"Saving training graphs to {save_dir}..."))
     
     # 1. Loss Curve

@@ -16,15 +16,7 @@ alpha = 0.005
 
 data_dir = "/home/onyxia/work/Vit-Pytorch/data"
 
-# plots etc.
 
-plot_dir = "plots/plots_CIFAR"
-
-checkpoint_dir = "checkpoints/checkpoint_CIFAR"
-
-# other
-
-resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0
 
 pruning_index = [4,7,10]
 rho_final = 0.7
@@ -33,3 +25,7 @@ lambda_class = 1
 lambda_kl = 1/2
 lambda_ratio = 2
 lambda_distill = 1/2
+
+# finetuneing option
+finetuning = 'LORA' # Enter: False, 'LORA'
+rank = 4
