@@ -260,11 +260,11 @@ def validate_one_epoch(student, loader, device, desc="Validation"):
 
 import numpy as np
 
-def rho_schedule(epoch, max_epoch, rho_init=1, rho_final=0.7, steepness=7):
+def rho_schedule(epoch, max_epoch, rho_init=1, rho_final=0.7, steepness=10):
 
     "adaptation de rho douce au début et à la fin "
     # Normaliser l'epoch entre 0 et 1
-    x = (epoch +1) / max_epoch # La première epoch est 0 donc on prend epoch +1
+    x = epoch/ (max_epoch-1) # La première epoch est 0 donc on prend max_epoch-1
     # Sigmoïde centrée à 0.5
     s = 1 / (1 + np.exp(-steepness * (x - 0.5)))
     # Interpolation entre rho_init et rho_final
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         # Logging
-        print(red(f"Epoch {epoch+1}/{epochs} | rho  {rho:.2f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(red(f"Epoch {epoch+1}/{epochs} | rho  {rho:.3f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Student/Loss/total', train_loss, epoch)
         writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
