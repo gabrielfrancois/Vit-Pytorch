@@ -8,7 +8,7 @@ n_channels = 3 # before it was 1
 n_heads = 4 
 n_layers = 12
 batch_size = 100
-epochs = 4
+epochs = 3
 alpha = 0.005
 
 # dataset
@@ -27,7 +27,8 @@ checkpoint_dir = "checkpoints/checkpoint_CIFAR"
 resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0
 
 pruning_index = [4,7,10]
-rho = 0.7
+rho_final = 0.7
+rho_init = 1
 lambda_class = 1
 lambda_kl = 1/2
 lambda_ratio = 2

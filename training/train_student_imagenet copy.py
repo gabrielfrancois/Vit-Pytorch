@@ -15,28 +15,27 @@ from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT_imagenet import DynamicVisionTransformer
 from .dynamic_loss_imagenet import DynamicViTLoss
-from data.imagenet_loader import load_imagenet1k
-from configs.train_imagenet1k import * 
+from data.load_data import load_CIFAR
+from configs.train_cifar10 import * 
 import time
-import torch.amp
-
+from torch.cuda.amp import autocast, GradScaler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
-checkpoint_dir = "checkpoints/imagenet1K"
+checkpoint_dir = "checkpoints/testtest"
 
 checkpoint_path = f"{checkpoint_dir}/student_checkpoint_last.pth"
-teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
+teacher_checkpoint = f"checkpoints/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "training/log/Imagenet/Student_ViT_imagenet1k"
+log_dir = "training/log/testtest/Student_ViT_imagenet1k"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "training/log/Imagenet/Student_ViT_imagenet1k-graphs"
+graph_dir = "training/log/testtest/Student_ViT_imagenet1k-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 
@@ -58,7 +57,7 @@ for param in teacher.parameters():
 # Initialize student
 print(yellow("Initializing Student..."))
 student= DynamicVisionTransformer(
-    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho_init
+    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho
 ).to(device)
 
 # Load Teacher weights into Student Backbone, the student should start as a copy of the teacher, then learn to prune.
@@ -87,7 +86,15 @@ student.load_state_dict(new_student_dict, strict=False)
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-
+# Dynamic loss setup, pho is replaceable
+target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
+criterion = DynamicViTLoss(
+    lambda_class = lambda_class,
+    lambda_kl=lambda_kl, 
+    lambda_distill=lambda_distill, 
+    lambda_ratio=lambda_ratio, 
+    target_ratios=target_ratios
+)
 
 # Plotting Function
 def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distill_loss, kl_loss, lrs, rho, confusion_mat, save_dir):
@@ -127,7 +134,7 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
     plt.savefig(os.path.join(save_dir, "student_ratio_loss.png"))
     plt.close()
 
-    # 4. Distill Loss Curve (Sparsity)
+     # 4. Distill Loss Curve (Sparsity)
     plt.figure(figsize=(10, 6))
     plt.plot(distill_loss, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (Distill Loss)')
@@ -170,7 +177,7 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 
 
 # Core Functions
-def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index,rho,scaler):
+def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index,scaler):
     student.train() 
     # Teacher is already eval/frozen  
 
@@ -196,7 +203,7 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
         # --- Student en mixed precision ---
         optimizer.zero_grad()  # reset grad
 
-        with torch.amp.autocast("cuda"):  # forward en float16
+        with autocast():  # forward en float16
             student_logits, student_feats, all_masks, all_scores = student(imgs)
             loss, metrics = criterion(
                 student_logits=student_logits,
@@ -204,7 +211,7 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
                 labels=labels,
                 student_feats=student_feats,
                 teacher_feats=teacher_feats,
-                all_masks=all_masks,
+                all_masks=all_masks
             )
 
         # --- Backward avec scaler ---
@@ -278,7 +285,7 @@ if __name__ == "__main__":
     # Load Data
     print(blue("Loading Data..."))
     data_path = "/home/onyxia/work/Vit-Pytorch/data" 
-    train_loader, test_loader, val_loader = load_imagenet1k() 
+    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
 
     print(yellow("Starting Student Training..."))
     
@@ -295,9 +302,9 @@ if __name__ == "__main__":
         'rho': []
     }
     checkpoint = {}
-    scaler = torch.amp.GradScaler()  # Initialise le scaler pour mixed precision
+    scaler = torch.cuda.amp.GradScaler()  # Initialise le scaler pour mixed precision
     if os.path.exists(checkpoint_path):
-        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        ckpt = torch.load(checkpoint_path, map_location=device)
         last_epoch = ckpt['epoch']
         ans = input(f"Checkpoint trouvé à l'epoch {last_epoch}. Voulez-vous reprendre l'entraînement depuis cet epoch ? [y/n] ")
         if ans.lower() == 'y':
@@ -313,19 +320,12 @@ if __name__ == "__main__":
     best_val_acc = 0.0
     rho = 1
     for epoch in range(start_epoch,epochs):
-        rho = rho_schedule(epoch, epochs)
-        # Dynamic loss setup, rho is replaceable
-        target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
-        criterion = DynamicViTLoss(
-            lambda_class = lambda_class,
-            lambda_kl=lambda_kl, 
-            lambda_distill=lambda_distill, 
-            lambda_ratio=lambda_ratio, 
-            target_ratios=target_ratios
-        )
+        rho =rho_schedule(start_epoch,epochs)
+
+        student.base_keep_rate = rho
         # Train
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
-            student, teacher, train_loader, optimizer, criterion, device, epoch, rho,scaler
+            student, teacher, train_loader, optimizer, criterion, device, epoch,scaler
         )
         
         # Validate
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         # Logging
-        print(red(f"Epoch {epoch+1}/{epochs} | rho  {rho:.2f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Student/Loss/total', train_loss, epoch)
         writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
@@ -356,13 +356,14 @@ if __name__ == "__main__":
         writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
 
+
         checkpoint = {
-            'epoch': epoch,
-            'student_state': student.state_dict(),
-            'optimizer_state': optimizer.state_dict(),
-            'scheduler_state': scheduler.state_dict(),
-            'scaler_state': scaler.state_dict(),
-            'history': history
+        'epoch': epoch,
+        'student_state': student.state_dict(),
+        'optimizer_state': optimizer.state_dict(),
+        'scheduler_state': scheduler.state_dict(),
+        'scaler_state': scaler.state_dict(),
+        'history': history
         }
 
         torch.save(checkpoint, checkpoint_path)
