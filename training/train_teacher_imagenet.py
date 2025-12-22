@@ -12,7 +12,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss import DynamicViTLoss
+from .dynamic_loss_copy import DynamicViTLoss
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 

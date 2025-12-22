@@ -26,8 +26,14 @@ checkpoint_dir = "checkpoints/checkpoint_test"
 resume = True  # permet soit de continuer à partir du checkpoint enregistré soit de repartir de 0.
 
 pruning_index = [4,7,10]
-rho = 0.98
+rho = 0.7
 lambda_class = 0.001
 lambda_kl = 1
 lambda_ratio = 1/2
 lambda_distill = 0.0001
+
+
+# Paramètres Normalisation des images
+
+mean_norm_imagenet = [0.485, 0.456, 0.406]
+std_norm_imagenet = [0.229, 0.224, 0.225]

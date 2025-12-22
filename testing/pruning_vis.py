@@ -96,7 +96,7 @@ def visualize_pruning_on_images(
     loader,
     device,
     num_images=8,
-    pruning_layers=[4, 7, 10],
+    pruning_layers=pruning_index,
     pruned_color=(0.5, 0.5, 0.5)
 ):
     os.makedirs(pruning_vis_dir, exist_ok=True)

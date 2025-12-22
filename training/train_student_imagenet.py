@@ -25,6 +25,8 @@ print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
 checkpoint_dir = "checkpoints/imagenet1K"
+
+checkpoint_path = f"{checkpoint_dir}/student_checkpoint_last.pth"
 teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -165,10 +167,9 @@ def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distil
 
 
 # Core Functions
-def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index):
+def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index,scaler):
     student.train() 
-    # Teacher is already eval/frozen
-    scaler = GradScaler()  
+    # Teacher is already eval/frozen  
 
     running_loss = 0.0
     running_ratio_loss = 0.0
@@ -178,7 +179,8 @@ def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoc
     total = 0
 
     loop = tqdm(loader, desc=f'Training Student Epoch {epoch_index}')
-    scaler = torch.cuda.amp.GradScaler()  # Initialise le scaler pour mixed precision
+
+
 
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
@@ -264,6 +266,7 @@ if __name__ == "__main__":
 
     print(yellow("Starting Student Training..."))
     
+    start_epoch = 0
     # Metric History
     history = {
         'train_loss': [],
@@ -274,13 +277,28 @@ if __name__ == "__main__":
         'val_acc': [],
         'lrs': []
     }
-    
+    checkpoint = {}
+    scaler = torch.cuda.amp.GradScaler()  # Initialise le scaler pour mixed precision
+    if os.path.exists(checkpoint_path):
+        ckpt = torch.load(checkpoint_path, map_location=device)
+        last_epoch = ckpt['epoch']
+        ans = input(f"Checkpoint trouvé à l'epoch {last_epoch}. Voulez-vous reprendre l'entraînement depuis cet epoch ? [y/n] ")
+        if ans.lower() == 'y':
+            print(f"--> Reprise depuis l'epoch {last_epoch+1}")
+            student.load_state_dict(ckpt['student_state'])
+            optimizer.load_state_dict(ckpt['optimizer_state'])
+            scheduler.load_state_dict(ckpt['scheduler_state'])
+            scaler.load_state_dict(ckpt['scaler_state'])
+            history = ckpt['history']
+            start_epoch = last_epoch + 1
+        else:
+            print("--> Nouveau départ, l'ancien checkpoint sera écrasé.")
     best_val_acc = 0.0
         
-    for epoch in range(epochs):
+    for epoch in range(start_epoch,epochs):
         # Train
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
-            student, teacher, train_loader, optimizer, criterion, device, epoch
+            student, teacher, train_loader, optimizer, criterion, device, epoch,scaler
         )
         
         # Validate
@@ -309,6 +327,17 @@ if __name__ == "__main__":
         writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
 
+
+        checkpoint = {
+        'epoch': epoch,
+        'student_state': student.state_dict(),
+        'optimizer_state': optimizer.state_dict(),
+        'scheduler_state': scheduler.state_dict(),
+        'scaler_state': scaler.state_dict(),
+        'history': history
+        }
+
+        torch.save(checkpoint, checkpoint_path)
         # Save Checkpoint
         if (epoch + 1) % 5 == 0:
             torch.save(student.state_dict(), f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")

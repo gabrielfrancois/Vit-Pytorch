@@ -9,9 +9,9 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 from models.vision_transformer import VisionTransformer
-from models.dynamicViT import DynamicVisionTransformer
-from data.load_data import load_CIFAR
-from configs.train_cifar10 import *
+from models.dynamicViT_imagenet import DynamicVisionTransformer
+from data.load_data import load_imagenet1k
+from configs.train_imagenet1k import *
 from helper_function.print import *
 
 # ------------------------------------------------------------------
@@ -72,17 +72,35 @@ def evaluate_model(model, loader, device, model_name="Model"):
 # ------------------------------------------------------------------
 # Plotting
 # ------------------------------------------------------------------
-def plot_confusion_matrices(teacher_cm, student_cm, class_names, save_dir):
+def plot_confusion_matrices(teacher_cm, student_cm, class_names=None, save_dir, top_k=10):
+    # Si pas de noms de classes, créer par défaut
+    if class_names is None:
+        num_classes = teacher_cm.shape[0]
+        class_names = [f"Class {i}" for i in range(num_classes)]
+    # 1. Calculer la somme par classe pour déterminer les plus fréquentes
+    freq = np.sum(teacher_cm, axis=1)  # ou axis=0 selon ton besoin
+    top_indices = np.argsort(freq)[-top_k:][::-1]  # top_k indices triés décroissant
+
+    # 2. Sous-échantillonner les matrices et noms de classes
+    teacher_cm_top = teacher_cm[np.ix_(top_indices, top_indices)]
+    student_cm_top = student_cm[np.ix_(top_indices, top_indices)]
+    class_names_top = [class_names[i] for i in top_indices]
+
+    # 3. Plot
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
-    sns.heatmap(teacher_cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=class_names, yticklabels=class_names, ax=axes[0])
-    axes[0].set_title("Teacher Confusion Matrix")
-    sns.heatmap(student_cm, annot=True, fmt="d", cmap="Oranges",
-                xticklabels=class_names, yticklabels=class_names, ax=axes[1])
-    axes[1].set_title("Student (DynamicViT) Confusion Matrix")
+    sns.heatmap(teacher_cm_top, annot=True, fmt="d", cmap="Blues",
+                xticklabels=class_names_top, yticklabels=class_names_top, ax=axes[0])
+    axes[0].set_title("Teacher Confusion Matrix (Top {})".format(top_k))
+
+    sns.heatmap(student_cm_top, annot=True, fmt="d", cmap="Oranges",
+                xticklabels=class_names_top, yticklabels=class_names_top, ax=axes[1])
+    axes[1].set_title("Student (DynamicViT) Confusion Matrix (Top {})".format(top_k))
+
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "compare_confusion_matrices.png"))
+    os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(os.path.join(save_dir, "compare_confusion_matrices_top{}.png".format(top_k)))
     plt.close()
+
 
 def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -95,7 +113,11 @@ def plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, save_dir):
     plt.savefig(os.path.join(save_dir, "compare_performance.png"))
     plt.close()
 
-def plot_per_class_accuracy(t_cm, s_cm, class_names, save_dir):
+def plot_per_class_accuracy(t_cm, s_cm, class_names=None, save_dir):
+    # Si pas de noms de classes, créer par défaut
+    if class_names is None:
+        num_classes = teacher_cm.shape[0]
+        class_names = [f"Class {i}" for i in range(num_classes)]
     t_acc = t_cm.diagonal() / t_cm.sum(axis=1) * 100
     s_acc = s_cm.diagonal() / s_cm.sum(axis=1) * 100
     x = np.arange(len(class_names))
@@ -115,96 +137,75 @@ def plot_per_class_accuracy(t_cm, s_cm, class_names, save_dir):
 # Pruning Visualization
 # ------------------------------------------------------------------
 
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import torch
-mean_cifar = [0.4914, 0.4822, 0.4465]
-std_cifar  = [0.2023, 0.1994, 0.2010]
-def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4, 7, 10],
-                                num_images=10, pruned_color=(0.5, 0.5, 0.5),
-                                mean=mean_cifar, std=std_cifar, pruning_vis_dir="./pruning_vis"):
-    """
-    Visualise les effets du pruning sur les images. 
-    Images normalisées avant passage dans le modèle, puis dénormalisées pour affichage.
-    
-    Args:
-        student_model : modèle patch-based renvoyant les masques de pruning
-        loader : DataLoader
-        device : "cuda" ou "cpu"
-        pruning_layers : indices des couches à visualiser
-        num_images : nombre d’images à visualiser
-        pruned_color : couleur des patches supprimés
-        mean : liste/np.array des moyennes par canal pour la normalisation
-        std : liste/np.array des écarts-types par canal pour la normalisation
-        pruning_vis_dir : dossier de sauvegarde des images
-    """
+
+
+def visualize_pruning_on_images(
+    student_model,
+    loader,
+    device,
+    num_images=8,
+    pruning_layers=pruning_index,
+    pruned_color=(0.5, 0.5, 0.5),
+    mean=mean_norm_imagenet,
+    std=std_norm_imagenet,
+):
     os.makedirs(pruning_vis_dir, exist_ok=True)
     student_model.eval()
-    pruned_layers = list(student_model.pruning_index)
     images_done = 0
 
-    mean = np.array(mean) if mean is not None else np.zeros(3)
-    std = np.array(std) if std is not None else np.ones(3)
+    mean = np.array(mean)
+    std = np.array(std)
 
     with torch.no_grad():
         for imgs, _ in loader:
             imgs = imgs.to(device)
-            # Normalisation si pas déjà faite
-            mean_tensor = torch.tensor(mean, device=device, dtype=torch.float32).view(1, -1, 1, 1)
-            std_tensor = torch.tensor(std, device=device, dtype=torch.float32).view(1, -1, 1, 1)
-            imgs_norm = (imgs - mean_tensor) / std_tensor
 
-
-            B, C, H_img, W_img = imgs_norm.shape
-            ph, pw = student_model.patch_size
-            n_h, n_w = H_img // ph, W_img // pw
-            num_patches = n_h * n_w
-
-            outputs = student_model(imgs_norm)
+            outputs = student_model(imgs)
             if not isinstance(outputs, tuple) or len(outputs) < 3:
-                print("Student model did not return masks, aborting pruning viz.")
+                print("Student model does not return pruning masks.")
                 return
+
             _, _, all_masks, _ = outputs
+
+            B, C, H, W = imgs.shape
+            ph, pw = student_model.patch_size
+            n_h, n_w = H // ph, W // pw
+            num_patches = n_h * n_w
 
             for i in range(B):
                 if images_done >= num_images:
                     return
 
-                # Dénormalisation pour affichage
-                img_denorm = imgs_norm[i].cpu().numpy().transpose(1, 2, 0) * std + mean
-                img_denorm = np.clip(img_denorm, 0, 1)
+                img = imgs[i].cpu().numpy().transpose(1, 2, 0)
+                img = img * std + mean
+                img = np.clip(img, 0, 1)
 
                 fig, axes = plt.subplots(1, len(pruning_layers) + 1,
                                          figsize=(3 * (len(pruning_layers) + 1), 3))
-
-                axes[0].imshow(img_denorm)
+                axes[0].imshow(img)
                 axes[0].set_title("Original")
                 axes[0].axis("off")
 
                 for j, layer_id in enumerate(pruning_layers):
-                    if layer_id not in pruned_layers:
-                        axes[j + 1].axis("off")
-                        continue
-                    real_idx = pruned_layers.index(layer_id)
+                    real_idx = student_model.pruning_index.index(layer_id)
                     mask = all_masks[real_idx][i].cpu().numpy()[1:1 + num_patches]
-                    mask_2d = mask.reshape(n_h, n_w)
-                    pruned_img = img_denorm.copy()
+                    mask = mask.reshape(n_h, n_w)
 
+                    pruned_img = img.copy()
                     for h in range(n_h):
                         for w in range(n_w):
-                            if mask_2d[h, w] == 0:
+                            if mask[h, w] == 0:
                                 y0, y1 = h * ph, (h + 1) * ph
                                 x0, x1 = w * pw, (w + 1) * pw
-                                pruned_img[y0:y1, x0:x1, :] = np.array(pruned_color)
+                                pruned_img[y0:y1, x0:x1, :] = pruned_color
 
-                    keep_ratio = float(mask_2d.mean())
-                    axes[j + 1].imshow(np.clip(pruned_img, 0, 1))
-                    axes[j + 1].set_title(f"Layer {layer_id}\nKeep: {keep_ratio:.2f}")
+                    keep_ratio = mask.mean()
+                    axes[j + 1].imshow(pruned_img)
+                    axes[j + 1].set_title(f"L{layer_id} | keep={keep_ratio:.2f}")
                     axes[j + 1].axis("off")
 
                 plt.tight_layout()
-                plt.savefig(os.path.join(pruning_vis_dir, f"image_{images_done}.png"))
+                plt.savefig(os.path.join(pruning_vis_dir, f"img_{images_done}.png"))
                 plt.close()
                 images_done += 1
 
@@ -213,11 +214,10 @@ def visualize_pruning_on_images(student_model, loader, device, pruning_layers=[4
 # Main
 # ------------------------------------------------------------------
 if __name__ == "__main__":
-    class_names = ['Plane', 'Car', 'Bird', 'Cat', 'Deer',
-                   'Dog', 'Frog', 'Horse', 'Ship', 'Truck']
+    class_names = None
 
     print(yellow("Loading Test Data..."))
-    _, _, test_loader = load_CIFAR("/home/onyxia/work/Vit-Pytorch/data", CIFAR=10)
+    _, _, test_loader = load_imagenet1k()
 
     print(yellow("Loading Teacher Model..."))
     teacher = VisionTransformer(

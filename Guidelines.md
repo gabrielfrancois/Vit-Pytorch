@@ -41,7 +41,7 @@ source .venv/bin/activate
 * Pour ImageNet : `configs/train_imagenet1k.py`
 * Pour CIFAR : `configs/train_cifar10.py`
 
-**⚠️ Attention :**  
+* Attention :**  
 Pour éviter d’écraser les plots déjà générés (qui ont pris 2 à 3 jours à créer), **modifiez impérativement le chemin `plot_dir`**. Il faut faire de même pour `checkpoint_dir`.
 
 - Pour les tests, utilisez un dossier temporaire comme `plots_test`.  
