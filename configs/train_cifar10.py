@@ -8,7 +8,7 @@ n_channels = 3 # before it was 1
 n_heads = 4 
 n_layers = 12
 batch_size = 100
-epochs = 100
+epochs = 4
 alpha = 0.005
 
 # dataset
@@ -28,6 +28,7 @@ resume = True  # permet soit de continuer à partir du checkpoint enregistré so
 
 pruning_index = [4,7,10]
 rho = 0.7
+lambda_class = 1
 lambda_kl = 1/2
 lambda_ratio = 2
 lambda_distill = 1/2

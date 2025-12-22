@@ -13,8 +13,8 @@ from sklearn.metrics import confusion_matrix, classification_report
 
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
-from models.dynamicViT_copy import DynamicVisionTransformer
-from .dynamic_loss_copy import DynamicViTLoss
+from models.dynamicViT_imagenet import DynamicVisionTransformer
+from .dynamic_loss_imagenet import DynamicViTLoss
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 import time
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     # Load Data
     print(blue("Loading Data..."))
     data_path = "/home/onyxia/work/Vit-Pytorch/data" 
-    train_loader, test_loader, val_loader = load_imagenet1k()
+    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
 
     print(yellow("Starting Student Training..."))
     
