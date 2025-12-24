@@ -7,10 +7,9 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT_imagenet import DynamicVisionTransformer
-from data.load_data import load_imagenet1k
+from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import *
 from helper_function.print import *
 from typing import List, Tuple, Optional, Any
@@ -22,12 +21,12 @@ from typing import List, Tuple, Optional, Any
 device = torch.device("cpu")
 print(bold(f"Using device: {device}"))
 
-checkpoint_dir = "checkpoints"
+checkpoint_dir = "checkpoints/imagenet1K"
 teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
 
-results_dir = "testing/log/Evaluation_Graphs_Test"
-pruning_vis_dir = "testing/log/Pruning_Images"
+results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
+pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
 os.makedirs(results_dir, exist_ok=True)
 os.makedirs(pruning_vis_dir, exist_ok=True)
 
@@ -188,7 +187,7 @@ def plot_per_class_accuracy(
 
     # Create class names if it's necessary
     if class_names is None:
-        num_classes = teacher_cm.shape[0]
+        num_classes = t_cm.shape[0]
         class_names = [f"Class {i}" for i in range(num_classes)]
     t_acc = t_cm.diagonal() / t_cm.sum(axis=1) * 100
     s_acc = s_cm.diagonal() / s_cm.sum(axis=1) * 100
@@ -316,7 +315,7 @@ if __name__ == "__main__":
     student = DynamicVisionTransformer(
         d_model, n_classes, img_size, patch_size,
         n_channels, n_heads, n_layers,
-        pruning_index=pruning_index
+        pruning_index=pruning_index,rho = 0.709
     ).to(device)
     student.load_state_dict(torch.load(student_path, map_location=device))
 
