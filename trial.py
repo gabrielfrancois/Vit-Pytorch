@@ -95,7 +95,7 @@ def propor_params(model):
     #return trainable # in case the freezing from finetune.py didnt work
 
 
-def train_one_epoch(model, loader, potimizer, criterion, device):
+def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
     running_loss = 0.0
     correct, total = 0, 0
@@ -106,7 +106,7 @@ def train_one_epoch(model, loader, potimizer, criterion, device):
         imgs, labels = imgs.to(device), labels.to(device)
         optimizer.zero_grad()
 
-        outputs = model(imgs)
+        outputs = model(imgs)[0] #to return only the logits and not the teacher features
         loss = criterion(outputs, labels)
 
         loss.backward()
@@ -151,8 +151,12 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(lora_params, lr=1e-4)
     criterion = nn.CrossEntropyLoss()
 
-    loss, acc = train_one_epoch(model, train_loader, optimizer, criterion, device)
-    print(loss, acc)
+    for epoch in range(epochs):
+
+        loss, acc = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        print(loss, acc)
 
 
     torch.save(model.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/CIFAR_finetune_STL.pth")
+
+
