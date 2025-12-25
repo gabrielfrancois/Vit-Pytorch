@@ -25,7 +25,7 @@ from configs.train_cifar10 import *
 
 
 transform = T.Compose([
-    T.Resize((32,32)), # CIFAR dimensions
+    T.Resize((32,32)), # CIFAR dimensions, STL is 96*96
     T.ToTensor()
 ])
 
