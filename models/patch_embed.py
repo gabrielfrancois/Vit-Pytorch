@@ -23,14 +23,6 @@ class PatchEmbedding(nn.Module):
     # W: Image Width
     # P_col: Patch Column
     # P_row: Patch Row
-    """
-    forward method (with typically :
-        def __call__(self, *args, **kwargs):
-            return self.forward(*args, **kwargs)
-            )
-    hidden here by "nn.Module", permits to launch "forward" function only in calling the class method 
-    (here, PatchEmbedding(x) will return this forward bellow)
-    """
     def forward(self, x):
         """
         return the good patch embeeding required
@@ -39,7 +31,3 @@ class PatchEmbedding(nn.Module):
         x = x.flatten(2) # (B, d_model, P_col, P_row) -> (B, d_model, P), P = (P_colxP_raw)
         x = x.transpose(1, 2) # (B, d_model, P) -> (B, P, d_model)
         return x
-
-# If you want to try smth, you write bellow, and then, run the programmm will run whatever you want :)
-if __name__ == "__main__":
-    print("hello world")

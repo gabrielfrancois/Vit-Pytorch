@@ -1,4 +1,4 @@
-# Data loading for CIFAR 10
+# Data loading for CIFAR 10/100
 
 # Requirements
 import os
@@ -8,9 +8,9 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split #maybe we should avoid random split to make it more reproducible
+from torch.utils.data import Dataset, DataLoader, random_split # maybe we should avoid random split to make it more reproducible
 from torchvision import transforms as T
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR100, CIFAR10
 
 from configs.train_cifar10 import *
 
@@ -36,7 +36,7 @@ class CIFAR_Datasets(Dataset): # inherit Dataset object properties from PyTorch
         return img, label
     
 
-#utility function
+# utility function
 def unpickle(file_path: str) -> dict:
     """Utility function to unpickle CIFAR-10 data"""
     with open(file_path, "rb") as f: 
@@ -75,24 +75,24 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
 
         # Refine transforms according to Gabriel François
 
-        #build datasets
+        # build datasets
         train_transform = T.Compose([T.ToPILImage(), train_transform]) #necessary for CIFAR 10
         test_transform = T.Compose([T.ToPILImage(), test_transform])
         full_train_dataset = CIFAR_Datasets(CIFAR = 10, X = X_train, y = y_train, transform=train_transform)
         test_dataset = CIFAR_Datasets(CIFAR = 10, X = X_test, y = y_test, transform=test_transform)
     
-    else: #CIFAR-100
+    else: # CIFAR-100
         full_train_dataset = CIFAR100(root=data_dir, train=True, transform=train_transform, download=True)
         test_dataset = CIFAR100(root=data_dir, train=False, transform=test_transform, download=True)
 
-    
+
     # split full_train_dataset into train and val datasets
-    val_ratio = 0.1 #10% of the data will be used for validation
+    val_ratio = 0.1 # 10% of the data will be used for validation
     val_size = int(val_ratio * len(full_train_dataset))
     train_size = len(full_train_dataset) - val_size
     train_dataset, val_dataset = random_split(
         full_train_dataset, [train_size, val_size],
-        generator = torch.Generator().manual_seed(42) #reproducibility
+        generator = torch.Generator().manual_seed(50) #reproducibility
     )
 
     # Create loaders
@@ -104,6 +104,7 @@ def load_CIFAR(data_dir: str, CIFAR: int) -> Tuple[DataLoader, DataLoader, DataL
     print(f"Train: {len(train_dataset)} | Validation: {len(val_dataset)} | Test: {len(test_dataset)}")
 
     return train_loader, val_loader, test_loader
+
 
 def visualise(loader, output_dir):
     """ Visualise examples """
@@ -136,8 +137,6 @@ def visualise(loader, output_dir):
 
 if __name__ == '__main__':
     data_dir = "/home/onyxia/work/Vit-Pytorch/data"
-    #train_loader_10, val_loader_10, test_loader_10 = load_CIFAR(CIFAR = 10, data_dir = data_dir)
-    #visualise(train_loader_10)
-
     train_loader_100, val_loader_100, test_loader_100 = load_CIFAR(CIFAR=100, data_dir = data_dir)
     visualise(train_loader_100, output_dir=data_dir)
+

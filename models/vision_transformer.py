@@ -1,8 +1,12 @@
+"""
+This Vision transformer will be the 'teacher' model, he'll trained the dynamic ViT to fetch a faster model almost as effiscient as the teacher (as much as possible).
+"""
+
 import torch
 from torch import nn as nn 
 
 from .patch_embed import PatchEmbedding
-from .positional_embeeding import PositionalEmbeeding
+from .positional_embedding import PositionalEmbedding
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
@@ -19,12 +23,13 @@ class VisionTransformer(nn.Module):
         self.patch_size = patch_size # Patch size
         self.n_channels = n_channels # Number of channels
         self.n_heads = n_heads # Number of attention heads
+        
 
         self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
         self.max_seq_length = self.n_patches + 1
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
-        self.positional_encoding = PositionalEmbeeding(self.d_model, self.max_seq_length)
+        self.positional_encoding = PositionalEmbedding(self.d_model, self.max_seq_length)
         self.dropout = nn.Dropout(0.1) #regularisation
 
         self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) 
@@ -34,13 +39,26 @@ class VisionTransformer(nn.Module):
         # Classification MLP
         self.classifier = nn.Sequential(
             nn.Linear(self.d_model, self.n_classes),
-            nn.Softmax(dim=-1)
         )
 
     def forward(self, images):
-        x = self.patch_embedding(images)
+        """
+        input :
+        ------------------
+            - images: (batch size (=B), image channel, image height, image width)
+        output :
+        ------------------
+            - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
+            - teacher_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
+        """
+        x = self.patch_embedding(images) 
         x = self.positional_encoding(x)
         x = self.dropout(x)
         x = self.transformer_encoder(x)
-        x = self.classifier(x[:,0])
-        return x
+
+        # 1. Capture the features (t_i' in the paper) before classification
+        teacher_feats = x
+
+        # Ccalculate logits around the CLS token
+        logits = self.classifier(x[:,0])
+        return logits, teacher_feats

@@ -1,7 +1,9 @@
 from torch import nn as nn
 from .multi_head_attention import MultiHeadAttention
 
-# r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
+"""
+r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
+"""
 
 class TransformerEncoder(nn.Module):
     def __init__(self, d_model, n_heads, r_mlp=4):
@@ -31,7 +33,14 @@ class TransformerEncoder(nn.Module):
         )
 
     def forward(self, x):
-        # Residual Connection After Sub-Layer 1
+        """
+        input:
+        ---------------
+            - x: Features (B, N, d_model)=(batch size, nb patch, d_model (+1 actually do the the add of cls token))
+        ---------------
+            - out: New features (B, N, d_model)
+        """
+        # Residual Connection After Sub-Layer 1 
         out = x + self.dropout1(self.mha(self.ln1(x)))
         # Residual Connection After Sub-Layer 2
         out = out + self.mlp(self.ln2(out))
