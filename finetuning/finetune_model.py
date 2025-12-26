@@ -13,6 +13,10 @@ from torchvision import transforms as T
 from torchvision.datasets import STL10
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import os
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 # ours
 from models.vision_transformer import VisionTransformer
@@ -62,10 +66,92 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     return avg_loss, accuracy 
 
 
+def validate_one_epoch(model, loader, criterion, device):
+    model.eval()
+    running_loss = 0.0
+    correct, total = 0, 0
+    all_preds = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for imgs, labels in loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            
+            outputs = model(imgs)[0]
+            loss = criterion(outputs, labels)
+            
+            running_loss += loss.item() * imgs.size(0)
+            _, pred = outputs.max(1)
+            
+            total += labels.size(0)
+            correct += (pred == labels).sum().item()
+    
+            all_preds.extend(pred.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+            
+    avg_loss = running_loss / total
+    accuracy = 100 * correct / total
+
+    cm = confusion_matrix(all_labels, all_preds)
+    
+    return avg_loss, accuracy, cm
+
+
+
+
+def save_finetune_plots(train_losses, val_losses, cm, train_accs, val_accs, save_dir):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+        
+    # 1. Loss Curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, label='Train Loss', color='blue')
+    plt.plot(val_losses, label='Val loss', color='orange')
+    plt.title(f'Fine-tuning cross entropy loss (LORA rank = {rank})')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "finetune_loss.png"))
+    plt.close()
+
+    # 2. Accuracy Curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_accs, label='Train Acc', color='blue')
+    plt.plot(val_accs, label='Val Acc', color='orange')
+    plt.title(f'Fine-tuning Accuracy (LORA rank = {rank})')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy (%)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(save_dir, "finetune_accuracy.png"))
+    plt.close()
+    print(f"Plots saved in {save_dir}")
+
+    # 3. Confusion matrix
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title(f'Validation Confusion Matrix (LORA rank = {rank})')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.savefig(os.path.join(save_dir, "finetune_confusion_matrix.png"))
+    plt.close()
+
+
 if __name__ == "__main__":
 
+    plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune"
+    checkpoint_dir = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune"
+    
+    history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
+    best_val_acc = 0.0
+
     # load data
-    train_loader = load_STL10(data_dir="./data", batch_size=batch_size)
+    data = load_STL10(data_dir="./data", batch_size=batch_size)
+    train_loader = data[0]
+    val_loader = data[1]
+    test_loader = data[2]
+
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -87,7 +173,7 @@ if __name__ == "__main__":
     #(classifier): Linear(in_features=96, out_features=10, bias=True)
 
     # Applying lora
-    student = inject_lora(student, rank=4, alpha=1)
+    student = inject_lora(student, rank, alpha=1)
     print("injected")
 
     # only train Lora params
@@ -98,18 +184,45 @@ if __name__ == "__main__":
 
     for epoch in range(epochs):
 
-        loss, acc = train_one_epoch(student, train_loader, optimizer, criterion, device)
-        print(loss, acc)
-
-
-    torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
-
-
-
-
-
-
-
-
-
+        train_loss, train_acc = train_one_epoch(student, train_loader, optimizer, criterion, device)
+        val_loss, val_acc, cm = validate_one_epoch(student, val_loader, criterion, device)
     
+        history['train_loss'].append(train_loss)
+        history['val_loss'].append(val_loss)
+        history['train_acc'].append(train_acc)
+        history['val_acc'].append(val_acc)
+        
+        print(f"Epoch {epoch+1}/{epochs} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%")
+
+        
+        # save most recent model every 5 epochs and delete the previous version
+        if (epoch + 1) % 5 == 0:
+            last_model_path = os.path.join(checkpoint_dir, "finetune_last.pth")
+            torch.save({
+                'epoch': epoch,
+                'model_state': student.state_dict(),
+                'optimizer_state': optimizer.state_dict(),
+                'history': history
+            }, last_model_path)
+            print(f"--> last checkpoint saved (Epoch {epoch+1})")
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_model_path = os.path.join(checkpoint_dir, "finetune_best.pth")
+            torch.save(student.state_dict(), best_model_path)
+            print(f"New best accuracy : {val_acc:.2f}% ! Model saved.")
+
+        save_finetune_plots(history['train_loss'], history['val_loss'], cm, history['train_acc'], history['val_acc'], plot_dir)
+
+
+        torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
+
+
+
+
+
+
+
+
+
+        

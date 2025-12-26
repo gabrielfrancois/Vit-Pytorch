@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from torchvision import transforms as T
 from torchvision.datasets import STL10
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from tqdm import tqdm
 
 # ours
@@ -51,9 +51,42 @@ class STL10Dataset(Dataset):
         return self.dataset[idx]
 
 
-def load_STL10(data_dir, batch_size):
-    train_dataset = STL10Dataset(split="train", transform=transform)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
-    print(f"STL10 train size: {len(train_dataset)}")
+def load_STL10(data_dir, batch_size, val_split=0.1):
+    
+    full_train_dataset = STL10Dataset(split="train", transform=transform)
+    #full_train_loader = DataLoader(full_train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    
+    val_size = int(len(full_train_dataset) * val_split)
+    train_size = len(full_train_dataset) - val_size
+    
+    train_dataset, val_dataset = random_split(
+        full_train_dataset, 
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42) # For reproducibility
+    )
+    
+    test_dataset = STL10Dataset(split="test", transform=transform)
 
-    return train_loader
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, 
+        num_workers=4, pin_memory=True
+    )
+    
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False, 
+        num_workers=4, pin_memory=True
+    )
+    
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, 
+        num_workers=4, pin_memory=True
+    )
+
+    print(f"STL10 Dataset loaded:")
+    print(f" - Train size: {len(train_dataset)}")
+    print(f" - Val size:   {len(val_dataset)}")
+    print(f" - Test size:  {len(test_dataset)}")
+
+    return [train_loader, val_loader, test_loader]
+    
+    
