@@ -25,7 +25,7 @@ from configs.train_cifar10 import *
 
 
 transform = T.Compose([
-    T.Resize((32,32)), # CIFAR dimensions, STL is 96*96
+    T.Resize((128,128)), # upscale to match pre-trained ViT on imagenet (128*128), STL is 96*96
     T.ToTensor()
 ])
 

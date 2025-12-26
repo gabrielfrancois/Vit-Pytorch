@@ -70,9 +70,6 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
     student = DynamicVisionTransformer(
         d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho_init
     ).to(device)

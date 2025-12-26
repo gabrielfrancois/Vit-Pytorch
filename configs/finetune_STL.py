@@ -1,13 +1,13 @@
-# train_imagenet1k.py
+
 d_model = 96
-n_classes = 10
-img_size = (96, 96)
-patch_size = (16, 16)
+n_classes = 1000 #left at 1000 to download student model but later changed manually to 10
+img_size = (128, 128) 
+patch_size = (16, 16) 
 n_channels = 3
 n_heads = 4
 n_layers = 12
 batch_size = 256
-epochs = 100
+epochs = 5
 alpha = 0.005
 
 
