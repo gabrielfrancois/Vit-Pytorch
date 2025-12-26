@@ -16,8 +16,10 @@ from tqdm import tqdm
 
 # ours
 from models.vision_transformer import VisionTransformer
+from models.dynamicViT_imagenet import DynamicVisionTransformer
 from models.finetune import inject_lora, propor_params
-from configs.train_cifar10 import *
+#from configs.train_cifar10 import *
+from configs.finetune_STL import *
 from finetuning.STL_data import load_STL10
 
 
@@ -68,28 +70,49 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    model = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-    propor_params(model)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-    checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/baseline_CIFAR10_reg.pth"
-    load_pretrained(model, checkpoint)
+    student = DynamicVisionTransformer(
+        d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho_init
+    ).to(device)
+
+    checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/imagenet1K/student_best.pth"
+    load_pretrained(student, checkpoint)
+    print(student)
+
+    #(classifier): Sequential((0): Linear(in_features=96, out_features=1000, bias=True))
+
+    # We change the last layer for two reasons: 1) STL has only 10 classes, 2) we finetune the model
+    student.classifier = nn.Linear(d_model, 10).to(device)
+
+    print(student)
+    #(classifier): Linear(in_features=96, out_features=10, bias=True)
 
     # Applying lora
-    model = inject_lora(model, rank=4, alpha=1)
+    student = inject_lora(student, rank=4, alpha=1)
     print("injected")
 
     # only train Lora params
-    lora_params = [p for p in model.parameters() if p.requires_grad]
+    lora_params = [p for p in student.parameters() if p.requires_grad]
 
     optimizer = torch.optim.AdamW(lora_params, lr=1e-4)
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(epochs):
 
-        loss, acc = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        loss, acc = train_one_epoch(student, train_loader, optimizer, criterion, device)
         print(loss, acc)
 
 
-    torch.save(model.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/CIFAR_finetune_STL.pth")
+    torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
 
 
+
+
+
+
+
+
+
+    
