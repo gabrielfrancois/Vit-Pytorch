@@ -30,7 +30,8 @@ from finetuning.STL_data import load_STL10
 
 def load_pretrained(model, checkpoint):
     state = torch.load(checkpoint, map_location="cpu")
-    model.load_state_dict(state, strict=False)
+    if 'model_state' in state: state = state['model_state']
+    model.load_state_dict(state, strict=True)
     print("loaded")
 
 
@@ -138,7 +139,51 @@ def save_finetune_plots(train_losses, val_losses, cm, train_accs, val_accs, save
     plt.close()
 
 
-if __name__ == "__main__":
+def test_model(model, loader, device, save_dir):
+        model.eval()
+        
+        correct, total = 0, 0
+        all_preds = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for imgs, labels in tqdm(loader):
+                imgs, labels = imgs.to(device), labels.to(device)
+
+                #print(labels)
+                
+                outputs = model(imgs)[0]
+                
+                _, pred = outputs.max(1)
+                #print(pred)
+                
+                total += labels.size(0)
+                correct += (pred == labels).sum().item()
+        
+                all_preds.extend(pred.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+                
+        accuracy = 100 * correct / total
+
+        cm = confusion_matrix(all_labels, all_preds)
+
+        # plot confusion matrix
+        plt.figure(figsize=(12, 10))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        plt.title(f'Test Confusion Matrix (accuracy = {accuracy})')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        plt.savefig(os.path.join(save_dir, "test_confusion_matrix.png"))
+        plt.close()
+
+        print(accuracy)
+        
+        return accuracy
+
+
+Train = True
+
+if Train:
 
     plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune"
     checkpoint_dir = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune"
@@ -216,6 +261,29 @@ if __name__ == "__main__":
 
 
         torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
+
+
+        # TEST
+
+        # load data
+
+        finetuned = DynamicVisionTransformer(
+            d_model, 10, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
+        ).to(device)
+
+        finetuned = inject_lora(finetuned, rank, alpha=1)
+
+        checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune/finetune_best.pth"
+        load_pretrained(finetuned, checkpoint)
+        print(finetuned)
+        plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune/"
+        test_model(finetuned, test_loader, device, plot_dir)
+
+
+    
+
+
+
 
 
 
