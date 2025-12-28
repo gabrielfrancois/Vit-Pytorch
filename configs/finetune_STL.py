@@ -7,7 +7,7 @@ n_channels = 3
 n_heads = 4
 n_layers = 12
 batch_size = 256
-epochs = 2
+epochs = 100
 alpha = 0.005
 
 # dynamic_Vit parameters
