@@ -212,7 +212,7 @@ if Train:
     #(classifier): Sequential((0): Linear(in_features=96, out_features=1000, bias=True))
 
     # We change the last layer for two reasons: 1) STL has only 10 classes, 2) we finetune the model
-    student.classifier = nn.Linear(d_model, 10).to(device)
+    student.classifier = nn.Sequential( nn.Linear(d_model, 10).to(device) )
 
     print(student)
     #(classifier): Linear(in_features=96, out_features=10, bias=True)
@@ -262,25 +262,24 @@ if Train:
 
         torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
 
-
-        # TEST
-
-        # load data
-
-        finetuned = DynamicVisionTransformer(
-            d_model, 10, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
-        ).to(device)
-
-        finetuned = inject_lora(finetuned, rank, alpha=1)
-
-        checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune/finetune_best.pth"
-        load_pretrained(finetuned, checkpoint)
-        print(finetuned)
-        plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune/"
-        test_model(finetuned, test_loader, device, plot_dir)
+        
+    # TEST
 
 
-    
+    finetuned = DynamicVisionTransformer(
+        d_model, 10, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
+    ).to(device)
+
+    finetuned = inject_lora(finetuned, rank, alpha=1) #inject LORA layers
+
+    checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune/finetune_best.pth"
+    load_pretrained(finetuned, checkpoint)
+    print(finetuned)
+    plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune/"
+    test_model(finetuned, test_loader, device, plot_dir)
+
+
+# test 1 epoch = 11.175%, 5 epochs = 24%
 
 
 

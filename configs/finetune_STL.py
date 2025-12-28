@@ -7,11 +7,8 @@ n_channels = 3
 n_heads = 4
 n_layers = 12
 batch_size = 256
-epochs = 1
+epochs = 2
 alpha = 0.005
-
-
-
 
 # dynamic_Vit parameters
 
@@ -29,6 +26,5 @@ lambda_distill = 0.0001
 mean_norm_imagenet = [0.485, 0.456, 0.406]
 std_norm_imagenet = [0.229, 0.224, 0.225]
 
-# finetuneing option
-finetuning = 'LORA' # Enter: False, 'LORA'
+# finetuneing option for LORA
 rank = 4
