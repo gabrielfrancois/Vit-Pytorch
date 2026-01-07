@@ -25,7 +25,9 @@ dev = [
   "pytest",
   "black",
   "isort",
-  "pylint"
+  "pylint",
+  "calflops",
+  "transformers"
 ]
 
 

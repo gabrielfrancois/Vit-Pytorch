@@ -1,7 +1,3 @@
-
-il est dans guidelines.md 
-
-
 # Vit-Pytorch: Custom Implementation of Vision Transformers and Dynamic Vision Transformers
 
 This repository contains **our PyTorch implementation** of **Vision Transformers (ViT)** and **Dynamic Vision Transformers (DynamicViT)** for datasets such as **ImageNet** and **CIFAR-10**.
