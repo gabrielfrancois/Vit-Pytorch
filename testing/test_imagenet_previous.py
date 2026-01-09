@@ -1,6 +1,3 @@
-# This Python file gathers all the functions / classes needed to handle training, validation or inference from the ViT model
-# python -m training.train_student_imagenet
-
 import os
 import time
 import torch
@@ -17,45 +14,26 @@ from configs.train_imagenet1k import *
 from helper_function.print import *
 from typing import List, Tuple, Optional, Any
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# ------------------------------------------------------------------
+# Setup
+# ------------------------------------------------------------------
+device = torch.device("cpu")
 print(bold(f"Using device: {device}"))
 
-# Checkpoint paths
 checkpoint_dir = "checkpoints/imagenet1K"
-checkpoint_path = f"{checkpoint_dir}/student_checkpoint_last.pth"
-teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
+teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
-os.makedirs(checkpoint_dir, exist_ok=True)
-
-
-
-
 
 results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
 pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
 os.makedirs(results_dir, exist_ok=True)
-
-# Initialize and load TEACHER
-print(yellow("Initializing Teacher..."))
-teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-
-if os.path.exists(teacher_checkpoint):
-    print(green(f"Loading Teacher weights from {teacher_checkpoint}"))
-    teacher.load_state_dict(torch.load(teacher_checkpoint, map_location=device))
-else:
-    raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
-
-
-# Initialize student
-print(yellow("Initializing Student..."))
-student = DynamicVisionTransformer(
-    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
-).to(device)
+os.makedirs(pruning_vis_dir, exist_ok=True)
 
 # ------------------------------------------------------------------
 # Evaluation
 # ------------------------------------------------------------------
-def evaluate_teacher_model(
+def evaluate_model(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
     device: torch.device,
@@ -226,183 +204,128 @@ def plot_per_class_accuracy(
     plt.savefig(os.path.join(save_dir, "compare_per_class_accuracy.png"))
     plt.close()
 
-# def evaluate_student_model(
-#     student: nn.Module,
-#     loader: torch.utils.data.DataLoader,
-#     device: torch.device,
-#     desc: str = "Validation"
-# ) -> tuple[float, np.ndarray]:
-#     """
-#     Evaluate the student model on a validation or test dataset.
+# ------------------------------------------------------------------
+# Pruning Visualization
+# ------------------------------------------------------------------
 
-#     The model is run in evaluation mode with no gradient computation.
-#     Only classification accuracy and confusion matrix are computed.
 
-#     Args:
-#         student: Student Vision Transformer model.
-#         loader: Validation or test data loader.
-#         device: Device used for evaluation.
-#         desc: Description shown in the progress bar.
 
-#     Returns:
-#         accuracy: Classification accuracy in percentage.
-#         cm: Confusion matrix over all classes.
-#     """
-#     student.eval()
-#     correct = 0
-#     total = 0
-#     all_preds, all_labels = [], []
-
-#     with torch.no_grad():
-#         for imgs, labels in tqdm(loader, desc=desc):
-#             imgs, labels = imgs.to(device), labels.to(device)
-#             student_logits, _, _, _ = student(imgs)  # Only logits needed
-#             _, predicted = torch.max(student_logits, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#             all_preds.extend(predicted.cpu().numpy())
-#             all_labels.extend(labels.cpu().numpy())
-
-#     accuracy = 100 * correct / total
-#     cm = confusion_matrix(all_labels, all_preds)
-#     return accuracy, cm
-
-def evaluate_student_model(
-    student: nn.Module,
+def visualize_pruning_on_images(
+    student_model: nn.Module,
     loader: torch.utils.data.DataLoader,
     device: torch.device,
-    desc: str = "Validation"
-) -> tuple[float, float, float, list, list]:
+    num_images: int = 8,
+    pruning_layers: List[int] = pruning_index,
+    pruned_color: Tuple[float, float, float] = (0.5, 0.5, 0.5),
+    mean: List[float] = mean_norm_imagenet,
+    std: List[float] = std_norm_imagenet,
+) -> None:
     """
-    Evaluate the student model on a dataset and compute loss, accuracy, throughput, and predictions.
+    Visualize pruning masks applied by the student model on input images.
 
     Args:
-        student: Student Vision Transformer model.
-        loader: DataLoader for validation or test data.
-        device: Device used for evaluation.
-        desc: Description shown in the progress bar.
-
-    Returns:
-        accuracy: Classification accuracy (%).
-        avg_loss: Average cross-entropy loss.
-        throughput: Images processed per second.
-        all_preds: List of predicted class indices.
-        all_labels: List of ground-truth class indices.
+        student_model: Student DynamicViT model.
+        loader: DataLoader providing the images.
+        device: Device to run the visualization on.
+        num_images: Maximum number of images to visualize.
+        pruning_layers: List of layer indices to visualize pruning.
+        pruned_color: RGB color used to mark pruned patches.
+        mean: Mean values for image de-normalization.
+        std: Standard deviation values for image de-normalization.
     """
-    student.eval()
-    criterion = nn.CrossEntropyLoss()
-    running_loss, correct, total = 0.0, 0, 0
-    all_preds, all_labels = [], []
 
-    start_time = time.time()
+    os.makedirs(pruning_vis_dir, exist_ok=True)
+    student_model.eval()
+    images_done = 0
+
+    mean = np.array(mean)
+    std = np.array(std)
 
     with torch.no_grad():
-        for imgs, labels in tqdm(loader, desc=f"Testing Student - {desc}"):
-            imgs, labels = imgs.to(device), labels.to(device)
+        for imgs, _ in loader:
+            imgs = imgs.to(device)
 
-            outputs = student(imgs)
-            logits = outputs[0] if isinstance(outputs, tuple) else outputs
+            outputs = student_model(imgs)
+            if not isinstance(outputs, tuple) or len(outputs) < 3:
+                print("Student model does not return pruning masks.")
+                return
 
-            # Compute loss
-            loss = criterion(logits, labels)
-            running_loss += loss.item() * imgs.size(0)
+            _, _, all_masks, _ = outputs
 
-            # Compute accuracy
-            _, predicted = torch.max(logits, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            B, C, H, W = imgs.shape
+            ph, pw = student_model.patch_size
+            n_h, n_w = H // ph, W // pw
+            num_patches = n_h * n_w
 
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+            for i in range(B):
+                if images_done >= num_images:
+                    return
 
-    total_time = time.time() - start_time
-    avg_loss = running_loss / len(loader.dataset)
-    accuracy = 100 * correct / total
-    throughput = len(loader.dataset) / total_time
+                img = imgs[i].cpu().numpy().transpose(1, 2, 0)
+                img = img * std + mean
+                img = np.clip(img, 0, 1)
 
-    print(orange("-" * 10 + f"\nResults for Student ({desc}):" + "-" * 10))
-    print(bold(f"  Accuracy: {accuracy:.2f}%"))
-    print(bold(f"  Loss: {avg_loss:.4f}"))
-    print(bold(f"  Throughput: {throughput:.2f} img/sec"))
+                fig, axes = plt.subplots(1, len(pruning_layers) + 1,
+                                         figsize=(3 * (len(pruning_layers) + 1), 3))
+                axes[0].imshow(img)
+                axes[0].set_title("Original")
+                axes[0].axis("off")
 
-    return accuracy, avg_loss, throughput, all_preds, all_labels
+                for j, layer_id in enumerate(pruning_layers):
+                    real_idx = student_model.pruning_index.index(layer_id)
+                    mask = all_masks[real_idx][i].cpu().numpy()[1:1 + num_patches]
+                    mask = mask.reshape(n_h, n_w)
 
+                    pruned_img = img.copy()
+                    for h in range(n_h):
+                        for w in range(n_w):
+                            if mask[h, w] == 0:
+                                y0, y1 = h * ph, (h + 1) * ph
+                                x0, x1 = w * pw, (w + 1) * pw
+                                pruned_img[y0:y1, x0:x1, :] = pruned_color
 
-def rho_schedule(
-    epoch: int,
-    max_epoch: int,
-    rho_init: float = 1.0,
-    rho_final: float = 0.7,
-    steepness: float = 10.0
-) -> float:
-    """
-    Compute a smooth pruning ratio schedule using a sigmoid function.
+                    keep_ratio = mask.mean()
+                    axes[j + 1].imshow(pruned_img)
+                    axes[j + 1].set_title(f"L{layer_id} | keep={keep_ratio:.2f}")
+                    axes[j + 1].axis("off")
 
-    The schedule starts close to rho_init, transitions smoothly around
-    mid-training, and converges towards rho_final.
-
-    Args:
-        epoch: Current epoch index.
-        max_epoch: Total number of epochs.
-        rho_init: Initial pruning ratio.
-        rho_final: Final pruning ratio.
-        steepness: Controls how sharp the transition is.
-
-    Returns:
-        rho: Pruning ratio for the given epoch.
-    """
-    x = epoch / (max_epoch - 1)
-    s = 1 / (1 + np.exp(-steepness * (x - 0.5)))
-    return rho_init + (rho_final - rho_init) * s
+                plt.tight_layout()
+                plt.savefig(os.path.join(pruning_vis_dir, f"img_{images_done}.png"))
+                plt.close()
+                images_done += 1
 
 
+# ------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------
 if __name__ == "__main__":
-    start_time = time.time()
-
     class_names = None
-    # Load data
-    print(blue("Loading Data..."))
-    train_loader, val_loader, test_loader = load_imagenet1k()
 
-    print(yellow("Starting Student Testing..."))
-    start_epoch = 0
-    history = {
-        'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [],
-        'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []
-    }
-    scaler = torch.amp.GradScaler()  # Mixed precision scaler
+    print(yellow("Loading Test Data..."))
+    _, _, test_loader = load_imagenet1k()
 
-    if os.path.exists(checkpoint_path):
-        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
-        last_epoch = ckpt['epoch']
-        ans = input(f"Checkpoint found at epoch {last_epoch}. Test last model or best one ? [last/best/n]")
-        if ans.lower() == 'last':
-            student.load_state_dict(ckpt['student_state'])
-            start_epoch = last_epoch + 1
-            results_dir = "testing/log/Imagenet/last/Evaluation_Graphs_Test"
-            pruning_vis_dir = "testing/log/Imagenet/last/Pruning_Images"
-        elif ans.lower() == 'best':
-            student.load_state_dict(torch.load(student_path, map_location=device))
-            start_epoch = 85
-            results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
-            pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
+    print(yellow("Loading Teacher Model..."))
+    teacher = VisionTransformer(
+        d_model, n_classes, img_size, patch_size,
+        n_channels, n_heads, n_layers
+    ).to(device)
+    teacher.load_state_dict(torch.load(teacher_path, map_location=device))
 
-    best_val_acc = 0.0
-    rho = rho_schedule(start_epoch, epochs)
+    print(yellow("Loading Student Model..."))
+    student = DynamicVisionTransformer(
+        d_model, n_classes, img_size, patch_size,
+        n_channels, n_heads, n_layers,
+        pruning_index=pruning_index,rho = 0.709
+    ).to(device)
+    student.load_state_dict(torch.load(student_path, map_location=device))
 
-    
     # Evaluation
-    t_acc, t_loss, t_speed, t_preds, t_labels = evaluate_teacher_model(
+    t_acc, t_loss, t_speed, t_preds, t_labels = evaluate_model(
         teacher, test_loader, device, "Teacher"
     )
-
-    # best
-    
-
-    s_acc, s_loss, s_speed, s_preds, s_labels  = evaluate_student_model(student, test_loader, device, desc="Testing Student")
-
-
-
+    s_acc, s_loss, s_speed, s_preds, s_labels = evaluate_model(
+        student, test_loader, device, "Student"
+    )
 
     print(yellow("Generating graphs..."))
     plot_confusion_matrices(
@@ -422,12 +345,6 @@ if __name__ == "__main__":
     diff_speed = ((s_speed - t_speed) / t_speed) * 100
     print(bold(f"Student speed-up: {diff_speed:.2f}%"))
 
-    # print(yellow("Visualizing pruning..."))
-    # visualize_pruning_on_images(student, test_loader, device)
-    # print(green("Done."))
-
-    # Display time taken
-    seconds = time.time() - start_time
-    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S", time.gmtime(seconds))))
-
-
+    print(yellow("Visualizing pruning..."))
+    visualize_pruning_on_images(student, test_loader, device)
+    print(green("Done."))
