@@ -168,7 +168,8 @@ def plot_performance_comparison(
     s_acc: float,
     t_speed: float,
     s_speed: float,
-    save_dir: str
+    save_dir: str,
+    device: str = "cpu",
 ) -> None:
     """
     Plot and save a bar chart comparing teacher and student performance.
@@ -180,16 +181,31 @@ def plot_performance_comparison(
         s_speed: Student throughput (img/sec).
         save_dir: Directory where the plot will be saved.
     """
-
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    models = ["Teacher", "Student"]
-    axes[0].bar(models, [t_acc, s_acc])
-    axes[0].set_title("Accuracy (%)")
-    axes[1].bar(models, [t_speed, s_speed])
-    axes[1].set_title("Throughput (img/sec)")
+    models = ['Teacher', 'Student']
+    colors = ['#1f77b4', '#ff7f0e']  # Blue, Orange
+
+    # Accuracy Comparison
+    axes[0].bar(models, [t_acc, s_acc], color=colors, alpha=0.8)
+    axes[0].set_title("Top-1 Accuracy Comparison")
+    axes[0].set_ylabel("Accuracy (%)")
+    axes[0].set_ylim(0, 100)
+    # Add text labels
+    for i, v in enumerate([t_acc, s_acc]):
+        axes[0].text(i, v + 1, f"{v:.2f}%", ha='center', fontweight='bold')
+
+    # Speed Comparison
+    axes[1].bar(models, [t_speed, s_speed], color=colors, alpha=0.8)
+    axes[1].set_title("Inference Speed (Throughput)")
+    axes[1].set_ylabel("Images / Second")
+    # Add text labels
+    for i, v in enumerate([t_speed, s_speed]):
+        axes[1].text(i, v + 10, f"{int(v)} img/s", ha='center', fontweight='bold')
+
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, "compare_performance.png"))
+    plt.savefig(os.path.join(save_dir, f"compare_performance_{device}.png"))
     plt.close()
+    print(blue(f"Saved Performance Comparison to {save_dir}"))
 
 def plot_per_class_accuracy(
     t_cm: np.ndarray,
@@ -226,46 +242,7 @@ def plot_per_class_accuracy(
     plt.savefig(os.path.join(save_dir, "compare_per_class_accuracy.png"))
     plt.close()
 
-# def evaluate_student_model(
-#     student: nn.Module,
-#     loader: torch.utils.data.DataLoader,
-#     device: torch.device,
-#     desc: str = "Validation"
-# ) -> tuple[float, np.ndarray]:
-#     """
-#     Evaluate the student model on a validation or test dataset.
 
-#     The model is run in evaluation mode with no gradient computation.
-#     Only classification accuracy and confusion matrix are computed.
-
-#     Args:
-#         student: Student Vision Transformer model.
-#         loader: Validation or test data loader.
-#         device: Device used for evaluation.
-#         desc: Description shown in the progress bar.
-
-#     Returns:
-#         accuracy: Classification accuracy in percentage.
-#         cm: Confusion matrix over all classes.
-#     """
-#     student.eval()
-#     correct = 0
-#     total = 0
-#     all_preds, all_labels = [], []
-
-#     with torch.no_grad():
-#         for imgs, labels in tqdm(loader, desc=desc):
-#             imgs, labels = imgs.to(device), labels.to(device)
-#             student_logits, _, _, _ = student(imgs)  # Only logits needed
-#             _, predicted = torch.max(student_logits, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#             all_preds.extend(predicted.cpu().numpy())
-#             all_labels.extend(labels.cpu().numpy())
-
-#     accuracy = 100 * correct / total
-#     cm = confusion_matrix(all_labels, all_preds)
-#     return accuracy, cm
 
 def evaluate_student_model(
     student: nn.Module,
@@ -411,7 +388,7 @@ if __name__ == "__main__":
         class_names, results_dir
     )
     plot_performance_comparison(
-        t_acc, s_acc, t_speed, s_speed, results_dir
+        t_acc, s_acc, t_speed, s_speed, results_dir, device
     )
     plot_per_class_accuracy(
         confusion_matrix(t_labels, t_preds),
