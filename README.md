@@ -3,7 +3,7 @@
 This repository contains **our PyTorch implementation** of **Vision Transformers (ViT)** and **Dynamic Vision Transformers (DynamicViT)** for datasets such as **ImageNet** and **CIFAR-10**.
 
 
-![Pruning Evolution](/testing/log/imagenet1k/Pruning_Images_ImageNet/img_0.png)
+[Pruning Evolution](/testing/log/imagenet1k/Pruning_Images_ImageNet/img_0.png)
 
 DynamicViT was originally proposed in:  
 *"Dynamic Vision Transformers for Efficient Image Recognition", 2021* [arXiv link](https://arxiv.org/abs/2106.02034). Our code is an independent implementation, including some modifications for adaptive pruning and efficient training on ImageNet with small teachers.
