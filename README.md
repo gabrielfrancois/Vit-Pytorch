@@ -32,20 +32,19 @@ git clone <repo_url>
 cd Vit-Pytorch
 ````
 
-2. Install dependencies using `uv` (optional):
+2. Install `uv` (if it is not already done):
 
 ```bash
-pip install uv
-uv pip install -r pyproject.toml
+brew install uv
 ```
 
-3. Activate virtual environment:
 
-```bash
-source .venv/bin/activate
-```
 
 > Note: Using `uv` and `pyproject.toml` is cleaner than `requirements.txt`.
+> You can also make a virtual environment and 
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
@@ -75,7 +74,6 @@ source .venv/bin/activate
 
 * Extends ViT with **dynamic token pruning** to reduce FLOPs and memory usage.
 * Each layer predicts which tokens can be pruned in deeper layers.
-Voici une version réécrite et plus fluide :
 
 * **Adaptive pruning ratio (`rho`)**:
 
@@ -91,7 +89,6 @@ Voici une version réécrite et plus fluide :
   2. Knowledge distillation from teacher
   3. KL divergence
   4. Ratio loss (enforces target keep ratio per layer)
-* Only unpruned tokens are passed through deeper layers; CLS token is always kept.
 
 ---
 
@@ -100,13 +97,19 @@ Voici une version réécrite et plus fluide :
 ### Training Teacher
 
 ```bash
-python -m training.train_teacher_imagenet
+uv run -m training.train_teacher_imagenet
+```
+
+or : 
+
+```bash
+python3 -m training.train_teacher_imagenet
 ```
 
 ### Training Student (DynamicViT)
 
 ```bash
-python -m training.train_student_imagenet
+uv run -m training.train_student_imagenet
 ```
 
 > Make sure to adjust `log_dir` and `checkpoint_dir` in config files to avoid overwriting previous results.
@@ -114,8 +117,8 @@ python -m training.train_student_imagenet
 ### Testing / Evaluation
 
 ```bash
-python -m testing.test_imagenet
-python -m testing.test_cifar
+uv run -m testing.test_imagenet
+uv run -m testing.test_cifar
 ```
 
 
