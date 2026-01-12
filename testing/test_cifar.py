@@ -1,6 +1,6 @@
 # This file handles the evaluation of both Teacher and Student models on the Test Set.
 # It generates comparison graphs for Accuracy, Speed (Throughput), and Confusion Matrices.
-# python -m testing.run_test
+# python -m testing.test_cifar
 import os
 import time
 import torch
@@ -10,6 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
+from typing import Sequence
 
 # Imports
 from models.vision_transformer import VisionTransformer
@@ -89,77 +90,173 @@ def evaluate_model(model, loader, device, model_name="Model"):
     return accuracy, avg_loss, throughput, all_preds, all_labels
 
 # Plotting Functions
-def plot_confusion_matrices(teacher_cm, student_cm, class_names, save_dir):
+
+
+
+def plot_confusion_matrices(
+    teacher_cm: np.ndarray,
+    student_cm: np.ndarray,
+    class_names: Sequence[str],
+    save_dir: str
+) -> None:
+    """
+    Plot and save side-by-side confusion matrices for teacher and student models.
+
+    This function visualizes the confusion matrices using heatmaps in order
+    to qualitatively compare the prediction behavior of a static teacher
+    model and a dynamically pruned student model.
+
+    Args:
+        teacher_cm (np.ndarray):
+            Confusion matrix of the teacher model (shape: [num_classes, num_classes]).
+        student_cm (np.ndarray):
+            Confusion matrix of the student model (shape: [num_classes, num_classes]).
+        class_names (Sequence[str]):
+            List of class names corresponding to matrix indices.
+        save_dir (str):
+            Directory where the generated figure will be saved.
+    """
+
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
-    
-    # Teacher
-    sns.heatmap(teacher_cm, annot=True, fmt='d', cmap='Blues', ax=axes[0], xticklabels=class_names, yticklabels=class_names)
+
+    # Teacher confusion matrix
+    sns.heatmap(
+        teacher_cm,
+        annot=True,
+        fmt='d',
+        cmap='Blues',
+        ax=axes[0],
+        xticklabels=class_names,
+        yticklabels=class_names
+    )
     axes[0].set_title("Teacher Confusion Matrix")
     axes[0].set_xlabel("Predicted")
     axes[0].set_ylabel("True")
-    
-    # Student
-    sns.heatmap(student_cm, annot=True, fmt='d', cmap='Oranges', ax=axes[1], xticklabels=class_names, yticklabels=class_names)
+
+    # Student confusion matrix
+    sns.heatmap(
+        student_cm,
+        annot=True,
+        fmt='d',
+        cmap='Oranges',
+        ax=axes[1],
+        xticklabels=class_names,
+        yticklabels=class_names
+    )
     axes[1].set_title("Student (DynamicViT) Confusion Matrix")
     axes[1].set_xlabel("Predicted")
     axes[1].set_ylabel("True")
-    
+
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_confusion_matrices.png"))
     plt.close()
-    print(blue(f"Saved Confusion Matrices to {save_dir}"))
 
-def plot_performance_comparison(teacher_acc, student_acc, teacher_speed, student_speed, save_dir):
+    print(blue(f"Saved confusion matrices to {save_dir}"))
+
+
+def plot_performance_comparison(
+    teacher_acc: float,
+    student_acc: float,
+    teacher_speed: float,
+    student_speed: float,
+    save_dir: str
+) -> None:
+    """
+    Plot and save a comparison of accuracy and inference throughput
+    between teacher and student models.
+
+    Args:
+        teacher_acc (float):
+            Top-1 accuracy of the teacher model (percentage).
+        student_acc (float):
+            Top-1 accuracy of the student model (percentage).
+        teacher_speed (float):
+            Inference throughput of the teacher model (images per second).
+        student_speed (float):
+            Inference throughput of the student model (images per second).
+        save_dir (str):
+            Directory where the generated figure will be saved.
+    """
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    
+
     models = ['Teacher', 'Student']
-    colors = ['#1f77b4', '#ff7f0e'] # Blue, Orange
-    
-    # Accuracy Comparison
+    colors = ['#1f77b4', '#ff7f0e']  # Blue, Orange
+
+    # Accuracy comparison
     axes[0].bar(models, [teacher_acc, student_acc], color=colors, alpha=0.8)
     axes[0].set_title("Top-1 Accuracy Comparison")
     axes[0].set_ylabel("Accuracy (%)")
     axes[0].set_ylim(0, 100)
-    # Add text labels
+
     for i, v in enumerate([teacher_acc, student_acc]):
         axes[0].text(i, v + 1, f"{v:.2f}%", ha='center', fontweight='bold')
-        
-    # Speed Comparison
+
+    # Throughput comparison
     axes[1].bar(models, [teacher_speed, student_speed], color=colors, alpha=0.8)
-    axes[1].set_title("Inference Speed (Throughput)")
+    axes[1].set_title("Inference Throughput Comparison")
     axes[1].set_ylabel("Images / Second")
-    # Add text labels
+
     for i, v in enumerate([teacher_speed, student_speed]):
         axes[1].text(i, v + 10, f"{int(v)} img/s", ha='center', fontweight='bold')
-    
+
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_performance.png"))
     plt.close()
-    print(blue(f"Saved Performance Comparison to {save_dir}"))
 
-def plot_per_class_accuracy(teacher_cm, student_cm, class_names, save_dir):
-    # Calculate per-class accuracy from CM (Diagonal / Row Sum)
-    teacher_cls_acc = teacher_cm.diagonal() / teacher_cm.sum(axis=1) * 100
-    student_cls_acc = student_cm.diagonal() / student_cm.sum(axis=1) * 100
-    
+    print(blue(f"Saved performance comparison to {save_dir}"))
+
+
+def plot_per_class_accuracy(
+    teacher_cm: np.ndarray,
+    student_cm: np.ndarray,
+    class_names: Sequence[str],
+    save_dir: str
+) -> None:
+    """
+    Plot and save a per-class accuracy comparison between teacher and student models.
+
+    Per-class accuracy is computed as the ratio of correct predictions
+    (diagonal of the confusion matrix) to the total number of samples
+    per class.
+
+    Args:
+        teacher_cm (np.ndarray):
+            Confusion matrix of the teacher model.
+        student_cm (np.ndarray):
+            Confusion matrix of the student model.
+        class_names (Sequence[str]):
+            List of class names.
+        save_dir (str):
+            Directory where the generated figure will be saved.
+    """
+
+    teacher_cls_acc: np.ndarray = (
+        teacher_cm.diagonal() / teacher_cm.sum(axis=1) * 100
+    )
+    student_cls_acc: np.ndarray = (
+        student_cm.diagonal() / student_cm.sum(axis=1) * 100
+    )
+
     x = np.arange(len(class_names))
     width = 0.35
-    
+
     fig, ax = plt.subplots(figsize=(14, 6))
-    rects1 = ax.bar(x - width/2, teacher_cls_acc, width, label='Teacher', color='#1f77b4')
-    rects2 = ax.bar(x + width/2, student_cls_acc, width, label='Student', color='#ff7f0e')
-    
+    ax.bar(x - width / 2, teacher_cls_acc, width, label='Teacher', color='#1f77b4')
+    ax.bar(x + width / 2, student_cls_acc, width, label='Student', color='#ff7f0e')
+
     ax.set_ylabel('Accuracy (%)')
     ax.set_title('Per-Class Accuracy Comparison')
     ax.set_xticks(x)
     ax.set_xticklabels(class_names)
     ax.legend()
     ax.grid(True, axis='y', alpha=0.3)
-    
+
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "compare_per_class_accuracy.png"))
     plt.close()
-    print(blue(f"Saved Per-Class Accuracy to {save_dir}"))
+
+    print(blue(f"Saved per-class accuracy comparison to {save_dir}"))
 
 # Main Execution
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
+from typing import List, Tuple
+from torch.utils.data import DataLoader
 
 from helper_function.print import *
 from models.vision_transformer import VisionTransformer
@@ -92,158 +94,49 @@ criterion = DynamicViTLoss(
 )
 
 # Plotting Function
-def save_training_plots(train_losses, train_accs, val_accs, ratio_losses, distill_loss, kl_loss, lrs, confusion_mat, save_dir):
-    print(blue(f"Saving student training graphs to {save_dir}..."))
-    
-    # 1. Total Loss Curve
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses, label='Total Train Loss', color='tab:blue')
-    plt.title('Student Training Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, "student_loss_curve.png"))
-    plt.close()
 
-    # 2. Accuracy Curve
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_accs, label='Train Acc', color='tab:green')
-    plt.plot(val_accs, label='Validation Acc', color='tab:red')
-    plt.title('Student Accuracy (Hard Pruning on Val)')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy (%)')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, "student_accuracy_curve.png"))
-    plt.close()
+def save_training_plots(
+    train_losses: List[float],
+    train_accs: List[float],
+    val_accs: List[float],
+    ratio_losses: List[float],
+    distill_losses: List[float],
+    kl_losses: List[float],
+    lrs: List[float],
+    confusion_mat: np.ndarray,
+    save_dir: str
+) -> None:
+    """
+    Generate and save all training visualizations for the student model.
 
-    # 3. Ratio Loss Curve (Sparsity)
-    plt.figure(figsize=(10, 6))
-    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
-    plt.title('Sparsity Convergence (Ratio Loss)')
-    plt.xlabel('Epoch')
-    plt.ylabel('Ratio Loss')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, "student_ratio_loss.png"))
-    plt.close()
+    This includes:
+      - Total training loss
+      - Training and validation accuracy
+      - Sparsity (ratio) loss
+      - Distillation loss
+      - KL divergence loss
+      - Final confusion matrix
 
-     # 4. Distill Loss Curve (Sparsity)
-    plt.figure(figsize=(10, 6))
-    plt.plot(distill_loss, label='Sparsity Loss', color='tab:orange')
-    plt.title('Sparsity Convergence (Distill Loss)')
-    plt.xlabel('Epoch')
-    plt.ylabel('distill Loss')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, "student_distill_loss.png"))
-    plt.close()
-
-     # 5. kl Loss Curve (Sparsity)
-    plt.figure(figsize=(10, 6))
-    plt.plot(kl_loss, label='Sparsity Loss', color='tab:orange')
-    plt.title('Sparsity Convergence (kl Loss)')
-    plt.xlabel('Epoch')
-    plt.ylabel('kl Loss')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(os.path.join(save_dir, "student_kl_loss.png"))
-    plt.close()
-
-    # 6. Confusion Matrix
-    plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Oranges')
-    plt.title('Student Test Confusion Matrix')
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
-    plt.savefig(os.path.join(save_dir, "student_confusion_matrix.png"))
-    plt.close()
-
-# Core Functions
-def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index):
-    student.train() 
-    # Teacher is already eval/frozen
-
-    running_loss = 0.0
-    running_ratio_loss = 0.0
-    running_distill_loss = 0.0
-    running_kl_loss = 0.0
-    correct = 0
-    total = 0
-
-    loop = tqdm(loader, desc=f'Training Student Epoch {epoch_index}')
-    
-    for imgs, labels in loop:
-        imgs, labels = imgs.to(device), labels.to(device)
-        # Get Teacher Output (Ground Truth for Distillation) 
-        with torch.no_grad():
-            teacher_logits, teacher_feats = teacher(imgs)
-        
-        # Get Student Output 
-        student_logits, student_feats, all_masks, all_scores = student(imgs)
-
-
-        # Calculate Compound Loss 
-        loss, metrics = criterion(
-            student_logits=student_logits, 
-            teacher_logits=teacher_logits, 
-            labels=labels, 
-            student_feats=student_feats, 
-            teacher_feats=teacher_feats, 
-            all_masks=all_masks
-        )
-
-        # Backprop
-        optimizer.zero_grad() # To prevent gradient accumulation, (refresh gradient to 0)
-        loss.backward() # Compute back propagation
-        optimizer.step() # Update weights
-
-        # Metrics
-        running_loss += loss.item() * imgs.size(0)
-        running_ratio_loss += metrics['ratio'] * imgs.size(0)
-        running_distill_loss += metrics["distill"] * imgs.size(0)
-        running_kl_loss += metrics["kl"] * imgs.size(0)
-        
-        _, predicted = torch.max(student_logits, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-
-        loop.set_postfix(loss=loss.item(), ratio=metrics['ratio'])
-    
-    avg_loss = running_loss / len(loader.dataset)
-    avg_ratio_loss = running_ratio_loss / len(loader.dataset)
-    avg_distill_loss = running_distill_loss / len(loader.dataset)
-    avg_kl_loss = running_kl_loss / len(loader.dataset)
-    accuracy = 100 * correct / total
-
-    return avg_loss, avg_ratio_loss, avg_distill_loss, avg_kl_loss, accuracy
-
-def validate_one_epoch(student, loader, device, desc="Validation"):
-    student.eval()
-    
-    correct = 0
-    total = 0
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():
-        loop = tqdm(loader, desc=desc)
-        for imgs, labels in loop:
-            imgs, labels = imgs.to(device), labels.to(device)
-            student_logits, _, _, _ = student(imgs) # We only need logits here
-            
-            _, predicted = torch.max(student_logits, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-            all_preds.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-            
-    accuracy = 100 * correct / total
-    cm = confusion_matrix(all_labels, all_preds)
-
-    return accuracy, cm
+    Args:
+        train_losses (List[float]):
+            Total training loss per epoch.
+        train_accs (List[float]):
+            Training accuracy per epoch.
+        val_accs (List[float]):
+            Validation accuracy per epoch.
+        ratio_losses (List[float]):
+            Sparsity (token ratio) loss per epoch.
+        distill_losses (List[float]):
+            Feature/logit distillation loss per epoch.
+        kl_losses (List[float]):
+            KL divergence loss per epoch.
+        lrs (List[float]):
+            Learning rate values per epoch.
+        confusion_mat (np.ndarray):
+            Confusion matrix computed on the test set.
+        save_dir (str):
+            Directory where plots will be saved.
+    """
 
 # Main Execution
 if __name__ == "__main__":

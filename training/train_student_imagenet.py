@@ -406,12 +406,16 @@ if __name__ == "__main__":
     }
     checkpoint = {}
     scaler = torch.amp.GradScaler()  # Initialize the scaler for mixed precision
+
     if os.path.exists(checkpoint_path):
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         last_epoch = ckpt['epoch']
-        ans = input(f"Checkpoint trouvé à l'epoch {last_epoch}. Voulez-vous reprendre l'entraînement depuis cet epoch ? [y/n] ")
+        ans = input(
+            f"Checkpoint found at epoch {last_epoch}. "
+            "Do you want to resume training from this epoch? [y/n] "
+        )
         if ans.lower() == 'y':
-            print(f"--> Reprise depuis l'epoch {last_epoch+1}")
+            print(f"--> Resuming training from epoch {last_epoch + 1}")
             student.load_state_dict(ckpt['student_state'])
             optimizer.load_state_dict(ckpt['optimizer_state'])
             scheduler.load_state_dict(ckpt['scheduler_state'])
@@ -419,7 +423,8 @@ if __name__ == "__main__":
             history = ckpt['history']
             start_epoch = last_epoch + 1
         else:
-            print("--> Nouveau départ, l'ancien checkpoint sera écrasé.")
+            print("--> Starting from scratch, the previous checkpoint will be overwritten.")
+
     best_val_acc = 0.0
     rho = 1
     for epoch in range(start_epoch,epochs):

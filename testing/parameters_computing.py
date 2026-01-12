@@ -35,8 +35,47 @@ os.makedirs(pruning_vis_dir, exist_ok=True)
 
 # -------------------- FLOPs Calculation --------------------
 
-def compute_model_flops(model: nn.Module, img_size: Tuple[int, int], batch_size: int = 1):
+from typing import Tuple
+import torch.nn as nn
+
+def compute_model_flops(
+    model: nn.Module,
+    img_size: Tuple[int, int],
+    batch_size: int = 1
+) -> Tuple[float, float, float]:
+    """
+    Compute and display the computational cost of a vision model.
+
+    This function estimates the number of parameters, FLOPs, and MACs
+    for a single forward pass given an input image resolution. It also
+    reports scaled FLOPs for a full batch and provides a rough estimate
+    of training cost by approximating the backward pass as twice the
+    forward cost.
+
+    FLOPs and MACs are computed using a dummy input tensor and rely on
+    the underlying FLOPs calculation utility.
+
+    Notes:
+        - FLOPs correspond to a single forward pass unless stated otherwise.
+        - Results may vary slightly depending on the FLOPs estimation backend.
+
+    Args:
+        model (nn.Module):
+            PyTorch model to be analyzed.
+        img_size (Tuple[int, int]):
+            Input image size as (height, width).
+        batch_size (int, optional):
+            Batch size used to scale FLOPs estimation. Defaults to 1.
+
+    Returns:
+        Tuple[float, float, float]:
+            - flops: Number of floating-point operations per image.
+            - macs: Number of multiply–accumulate operations per image.
+            - params: Number of trainable parameters.
+    """
+
     input_shape = (1, n_channels, img_size[0], img_size[1])
+
     flops, macs, params = calflops.calculate_flops(
         model=model,
         input_shape=input_shape,
@@ -44,19 +83,18 @@ def compute_model_flops(model: nn.Module, img_size: Tuple[int, int], batch_size:
         output_precision=4
     )
 
-    flops_g = flops / 1e9
-    macs_g = macs / 1e9
-    params_m = params / 1e6
+    flops_g: float = flops / 1e9
+    macs_g: float = macs / 1e9
+    params_m: float = params / 1e6
 
-    print(bold(f"Model Parameters: {params_m:.2f} M"))
-    print(bold(f"FLOPs per image: {flops_g:.2f} GFLOPs"))
-    print(bold(f"MACs per image: {macs_g:.2f} GMacs"))
+    print(red(f"Model Parameters: {params_m:.2f} M"))
+    print(cyan(f"FLOPs per image (forward): {flops_g:.2f} GFLOPs"))
+    print(green(f"MACs per image: {macs_g:.2f} GMacs"))
 
-    flops_batch = flops * batch_size / 1e9
-    print(bold(f"FLOPs per batch ({batch_size} imgs) forward: {flops_batch:.2f} GFLOPs"))
-    print(bold(f"FLOPs per batch forward+backward: {flops_batch*3:.2f} GFLOPs"))
-    print("-"*40)
+    print("-" * 40)
+
     return flops, macs, params
+
 
 
 if __name__ == "__main__":
