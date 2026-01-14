@@ -121,6 +121,11 @@ uv run -m testing.test_imagenet
 uv run -m testing.test_cifar
 ```
 
+### Finetuning the model
+```bash
+uv run -m  finetuning.finetune_model
+```
+
 
 ## Citation
 
