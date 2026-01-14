@@ -1,0 +1,30 @@
+
+d_model = 96
+n_classes = 1000 #left at 1000 to download student model but later changed manually to 10
+img_size = (128, 128) 
+patch_size = (16, 16) 
+n_channels = 3
+n_heads = 4
+n_layers = 12
+batch_size = 256
+epochs = 100
+alpha = 0.005
+
+# dynamic_Vit parameters
+
+pruning_index = [4,7,10]
+final_rho = 0.7
+rho_init = 1
+lambda_class = 0.001
+lambda_kl = 1
+lambda_ratio = 1/2
+lambda_distill = 0.0001
+
+
+# Normalisation parameters
+
+mean_norm_imagenet = [0.485, 0.456, 0.406]
+std_norm_imagenet = [0.229, 0.224, 0.225]
+
+# finetuneing option for LORA
+rank = 4
