@@ -14,7 +14,7 @@ DynamicViT was originally proposed in:
 
 1. [Installation](#installation)  
 2. [Project Structure](#project-structure)  
-3. [How It Works](#how-it-works)  
+3. [How the model works](#how-the-model-works)  
 4. [Usage](#usage)  
 5. [Training](#training)  
 6. [Evaluation](#evaluation)  
@@ -59,7 +59,7 @@ pip install -r requirements.txt
 
 ---
 
-## How It Works
+## How the model works
 
 ### Vision Transformer (ViT)
 
