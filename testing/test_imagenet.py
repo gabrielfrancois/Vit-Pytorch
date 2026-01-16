@@ -388,7 +388,7 @@ if __name__ == "__main__":
         class_names, results_dir
     )
     plot_performance_comparison(
-        t_acc, s_acc, t_speed, s_speed, results_dir
+        t_acc, s_acc, t_speed, s_speed, results_dir, device="cuda"
     )
     plot_per_class_accuracy(
         confusion_matrix(t_labels, t_preds),
