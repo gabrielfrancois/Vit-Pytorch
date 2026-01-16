@@ -50,47 +50,31 @@ pip install -r requirements.txt
 
 ## Project Structure
 
-* `models/`: Contains ViT and DynamicViT architectures, transformers, patch embedding, and predictor modules.
-* `data/`: Data loaders for ImageNet and CIFAR-10.
-* `configs/`: Training configuration files for ImageNet and CIFAR.
-* `training/`: Scripts to train teacher and student models.
-* `testing/`: Scripts to evaluate models and generate plots.
-* `helper_function/`: Utility functions (printing, plotting, etc.).
+- `models/`: Contains ViT and DynamicViT architectures, transformers, patch embedding, and predictor modules.
+- `data/`: Data loaders for ImageNet and CIFAR-10.
+- `configs/`: Training configuration files for ImageNet and CIFAR.
+- `training/`: Scripts to train teacher and student models.
+- `testing/`: Scripts to evaluate models and generate plots.
+- `helper_function/`: Utility functions (printing, plotting, etc.).
 
----
+
 
 ## How the model works
 
-### Vision Transformer (ViT)
-
-* Splits input images into patches and embeds them (`d_model`).
-* Adds **positional encoding**.
-* Processes embeddings with a **stack of transformer encoders**.
-* The **CLS token** summarizes the image for classification.
-* Outputs logits via a linear classification head.
-* Trained with standard **cross-entropy loss**.
-
 ### Dynamic Vision Transformer (DynamicViT)
+Dynamic ViT extends ViT with dynamic token pruning to reduce FLOPs and memory usage. Each layer predicts which tokens can be pruned in deeper layers. In an image, not all patches have the same importance to classify it. The goal is to retain only the most important tokens. Dynamic ViT relies on the teacher-student paradigm: the student model will learn to reproduce the outputs of a teacher model while including the token pruning. 
 
-* Extends ViT with **dynamic token pruning** to reduce FLOPs and memory usage.
-* Each layer predicts which tokens can be pruned in deeper layers.
+* **Adaptive pruning ratio (`rho`)**
+To make training more stable, we created an adaptive pruning schedule. It is adjusted according to a sigmoid schedule during training. During early epochs, only a few tokens are pruned, allowing the model to learn robust features. In the middle of training, more tokens are gradually pruned to improve efficiency.Finally during the last epochs, pruning slows down to stabilize the model. This strategy makes it possible to train DynamicViT on ImageNet even when using a small teacher model.
 
-* **Adaptive pruning ratio (`rho`)**:
-
-  * Adjusted according to a **sigmoid schedule** during training.
-  * **Early epochs**: only a few tokens are pruned, allowing the model to learn robust features.
-  * **Middle epochs**: more tokens are gradually pruned to improve efficiency.
-  * **Late epochs**: pruning slows down to stabilize the model.
-  * This strategy makes it possible to train DynamicViT on ImageNet even when using a **small teacher model**.
-
-* Loss function combines:
-
+### Loss function
+To perform such training, four components are required: 
   1. Classification loss
   2. Knowledge distillation from teacher
   3. KL divergence
   4. Ratio loss (enforces target keep ratio per layer)
 
----
+
 
 ## Usage
 
