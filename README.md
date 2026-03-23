@@ -4,7 +4,7 @@ This repository contains our PyTorch implementation of Vision Transformers (ViT)
 For more details on the theory and implementation, please look at our project report "**Projet_ViT.pdf**".
 
 
-[Pruning Evolution](/testing/log/pruning_evolution.jpeg)
+[Pruning Evolution](/test/log/pruning_evolution.jpeg)
 
 DynamicViT was originally proposed in:  
 *"Dynamic Vision Transformers for Efficient Image Recognition", 2021* [arXiv link](https://arxiv.org/abs/2106.02034). Our code is an independent implementation, including some modifications for adaptive pruning and efficient training on ImageNet with small teachers.
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 - `data/`: Data loaders for ImageNet and CIFAR-10.
 - `configs/`: Training configuration files for ImageNet and CIFAR.
 - `training/`: Scripts to train teacher and student models.
-- `testing/`: Scripts to evaluate models and generate plots.
+- `test/`: Scripts to evaluate models and generate plots.
 - `helper_function/`: Utility functions (printing, plotting, etc.).
 
 
