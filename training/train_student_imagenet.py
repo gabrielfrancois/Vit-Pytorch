@@ -21,8 +21,6 @@ import time
 import torch.amp
 from typing import List, Tuple, Dict, Any
 
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
@@ -52,7 +50,7 @@ if os.path.exists(teacher_checkpoint):
 else:
     raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
 
-teacher.eval() # Teacher is always in eval mode, already trained (otherwise, it would be the WORS teacher ever!)
+teacher.eval() # Teacher is always in eval mode, already trained (otherwise, it would be the WORSE teacher ever!)
 for param in teacher.parameters():
     param.requires_grad = False # Freeze weights
 
@@ -84,12 +82,9 @@ for k, v in teacher_dict.items():
 # strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
 student.load_state_dict(new_student_dict, strict=False) 
 
-
 # Optimizer & Loss, note that we only optimize the STUDENT
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-
-
 
 # Plotting Function
 def save_training_plots(
@@ -200,7 +195,6 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "student_confusion_matrix.png"))
     plt.close()
 
-
 # Core Functions
 def train_one_epoch(
     student: nn.Module,
@@ -248,9 +242,7 @@ def train_one_epoch(
     total = 0
 
     loop = tqdm(loader, desc=f'Training Student Epoch {epoch_index}')
-
-
-
+    
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
 
@@ -346,8 +338,6 @@ def validate_one_epoch(
 
     return accuracy, cm
 
-
-
 def rho_schedule(
     epoch: int,
     max_epoch: int,
@@ -379,7 +369,6 @@ def rho_schedule(
     s = 1 / (1 + np.exp(-steepness * (x - 0.5)))
     # Interpolation between rho_init and rho_final
     return rho_init + (rho_final - rho_init) * s
-
 
 # Main Execution
 if __name__ == "__main__":

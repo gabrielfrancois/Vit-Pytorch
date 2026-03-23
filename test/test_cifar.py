@@ -1,6 +1,6 @@
 # This file handles the evaluation of both Teacher and Student models on the Test Set.
 # It generates comparison graphs for Accuracy, Speed (Throughput), and Confusion Matrices.
-# python -m testing.test_cifar
+# python -m test.test_cifar
 import os
 import time
 import torch

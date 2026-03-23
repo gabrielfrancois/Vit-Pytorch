@@ -1,5 +1,4 @@
 # This Python file gathers all the functions / classes needed to handle training, validation or inference from the ViT model
-# python -m training.test_imagenet
 
 import os
 import time

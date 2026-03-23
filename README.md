@@ -101,8 +101,8 @@ uv run -m training.train_student_imagenet
 ### Testing / Evaluation
 
 ```bash
-uv run -m testing.test_imagenet
-uv run -m testing.test_cifar
+uv run -m test.test_imagenet
+uv run -m test.test_cifar
 ```
 
 ### Finetuning the model

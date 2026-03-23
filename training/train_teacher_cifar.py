@@ -18,7 +18,6 @@ from .dynamic_loss import DynamicViTLoss
 from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
@@ -47,9 +46,6 @@ checkpoint_dir = "checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
 graph_dir = "training/log/Teacher_ViT_CIFAR10-graphs"
 os.makedirs(graph_dir, exist_ok=True)
-
-# Training Function
-
 
 def train_one_epoch(
     model: nn.Module,
@@ -149,7 +145,6 @@ def validate_one_epoch(
             - accuracy: Evaluation accuracy in percentage.
             - cm: Confusion matrix over all classes.
     """
-
     model.eval()
     running_loss: float = 0.0
     correct: int = 0
@@ -261,21 +256,17 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
     plt.close()
 
-
 # Main Execution Loop
 if __name__ == "__main__":
-    # look at the time
     start_time = time.time()
-    # Load Data
     print(yellow("Loading Data..."))
-    # Adjust path if running from root or training folder
+    
     data_path = "./data/raw/cifar10" 
     train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
 
     print(yellow("Starting Teacher Training..."))
     best_val_acc = 0.0
 
-    # Lists to store metrics for plotting
     history = {
         'train_loss': [],
         'val_loss': [],
@@ -285,16 +276,13 @@ if __name__ == "__main__":
     }
     
     for epoch in range(epochs):
-        # Train on Training Set
         train_loss, train_acc = train_one_epoch(
             teacher, train_loader, optimizer, criterion, device, epoch
         )
-        # Validate
         val_loss, val_acc, _ = validate_one_epoch(
             teacher, val_loader, criterion, device, desc='Validating Teacher'
         )
         
-        # Store Metrics
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['train_acc'].append(train_acc)
@@ -304,7 +292,6 @@ if __name__ == "__main__":
         # Update Learning Rate
         scheduler.step()
         
-        # Logging
         print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
@@ -313,7 +300,6 @@ if __name__ == "__main__":
         writer.add_scalar('Teacher/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Teacher/LearningRate', optimizer.param_groups[0]['lr'], epoch)
 
-        # Save Best Model based on Validation Accuracy
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             save_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"

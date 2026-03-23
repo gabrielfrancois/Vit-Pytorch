@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from helper_function.print import *
 from configs.train_cifar10 import *
 
-
 class DynamicViTLoss(nn.Module):
     def __init__(self,target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
         super().__init__()
@@ -33,11 +32,8 @@ class DynamicViTLoss(nn.Module):
             - total_loss: float
             - dict with cross entropy loss, distill loss and ratio loss
         ----------------------------------
-
         """
         device = student_feats.device
-
-        # S'assurer que tous les masques sont sur le bon device
         all_masks = [mask.to(device) for mask in all_masks]
         
         # Classification Loss (Student vs Ground Truth)

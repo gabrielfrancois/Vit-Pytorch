@@ -17,11 +17,9 @@ from data.load.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 from typing import Tuple, List
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
-# Initialize Teacher Model
 print("Initializing Teacher ViT...")
 teacher = VisionTransformer(
     d_model=d_model, 
@@ -47,7 +45,6 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 graph_dir = "training/log/Teacher_ViT_imagenet1K-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
-# Training Function
 def train_one_epoch(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
@@ -71,7 +68,6 @@ def train_one_epoch(
         avg_loss: Average loss over the epoch.
         accuracy: Training accuracy in percentage.
     """
-
     model.train()
     running_loss = 0.0
     correct = 0
@@ -83,7 +79,7 @@ def train_one_epoch(
         imgs, labels = imgs.to(device), labels.to(device)
 
         optimizer.zero_grad(set_to_none=True)
-        # We don't mind 'feats' here (represented by _)
+        # We don't mind 'feats' here 
         outputs, _ = model(imgs) 
         
         # Backprop
@@ -103,7 +99,6 @@ def train_one_epoch(
 
     return avg_loss, accuracy
 
-# Validation Function
 def validate_one_epoch(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
@@ -126,7 +121,6 @@ def validate_one_epoch(
         accuracy: Validation accuracy in percentage.
         cm: Confusion matrix of predictions.
     """
-
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -226,22 +220,16 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
     plt.close()
 
-
-
-# Main Execution Loop
 if __name__ == "__main__":
-    # look at the time
     start_time = time.time()
-    # Load Data
     print(yellow("Loading Data..."))
-    # Adjust path if running from root or training folder
+
     data_path = "/home/onyxia/work/Vit-Pytorch/data" 
     train_loader, test_loader, val_loader = load_imagenet1k() 
 
     print(yellow("Starting Teacher Training..."))
     best_val_acc = 0.0
 
-    # Lists to store metrics for plotting
     history = {
         'train_loss': [],
         'val_loss': [],
@@ -251,11 +239,9 @@ if __name__ == "__main__":
     }
     
     for epoch in range(epochs):
-        # Train on Training Set
         train_loss, train_acc = train_one_epoch(
             teacher, train_loader, optimizer, criterion, device, epoch
         )
-        # Validate
         val_loss, val_acc, _ = validate_one_epoch(
             teacher, val_loader, criterion, device, desc='Validating Teacher'
         )
@@ -279,14 +265,12 @@ if __name__ == "__main__":
         writer.add_scalar('Teacher/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Teacher/LearningRate', optimizer.param_groups[0]['lr'], epoch)
 
-        # Save Best Model based on Validation Accuracy
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             save_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
             torch.save(teacher.state_dict(), save_path)
             print(purple(f"--> New Best Teacher Model saved at {save_path}"))
 
-        # Save Periodic Checkpoint
         if (epoch + 1) % 5 == 0:
             torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
 
@@ -297,7 +281,6 @@ if __name__ == "__main__":
     test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
     print(bold(f"Final Test Accuracy: {test_acc:.2f}%"))
 
-    # Generate and Save Graphs
     save_training_plots(
         history['train_loss'], 
         history['val_loss'], 
