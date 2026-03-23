@@ -13,7 +13,7 @@ from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss_copy import DynamicViTLoss
-from data.imagenet_loader import load_imagenet1k
+from data.load.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
 from typing import Tuple, List
 

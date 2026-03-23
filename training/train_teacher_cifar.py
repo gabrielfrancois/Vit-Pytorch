@@ -15,7 +15,7 @@ from helper_function.print import *
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss import DynamicViTLoss
-from data.load_data import load_CIFAR
+from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 
 
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     # Load Data
     print(yellow("Loading Data..."))
     # Adjust path if running from root or training folder
-    data_path = "/home/onyxia/work/Vit-Pytorch/data" 
+    data_path = "./data/raw/cifar10" 
     train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
 
     print(yellow("Starting Teacher Training..."))

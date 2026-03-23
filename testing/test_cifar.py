@@ -15,7 +15,7 @@ from typing import Sequence
 # Imports
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT import DynamicVisionTransformer
-from data.load_data import load_CIFAR
+from data..load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 from helper_function.print import *
 
@@ -265,7 +265,8 @@ if __name__ == "__main__":
     # Load Data
     print(yellow("Loading Test Data..."))
     # We only need test_loader here
-    _, test_loader, _ = load_CIFAR("/home/onyxia/work/Vit-Pytorch/data", CIFAR=10)
+    data_path = "./data/load/cifar10"
+    _, test_loader, _ = load_CIFAR(data_path, CIFAR=10)
 
     # Load Teacher & student
     print(yellow("Loading Teacher Model..."))
