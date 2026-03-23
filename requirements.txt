@@ -4,7 +4,6 @@ torch
 torchinfo
 torchvision
 matplotlib
-Pillow
 tensorboard
 seaborn
 scikit-learn

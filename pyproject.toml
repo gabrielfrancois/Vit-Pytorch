@@ -1,7 +1,8 @@
 [project]
+requires-python = ">=3.11"
 name = "Vit_Pytorch"
 version = "0.1.0"
-description = "Mise en place d'un Vision transformer"
+description = "Implement from scratch a Dynamic Vision Transformer"
 dependencies = [
     "numpy",
     "tqdm",
@@ -9,7 +10,6 @@ dependencies = [
     "torchinfo",
     "torchvision",
     "matplotlib",
-    "Pillow",
     "tensorboard",
     "seaborn",
     "scikit-learn",
