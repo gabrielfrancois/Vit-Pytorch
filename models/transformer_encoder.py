@@ -14,16 +14,13 @@ class TransformerEncoder(nn.Module):
         # Sub-Layer 1 Normalization
         self.ln1 = nn.LayerNorm(d_model)
 
-        # Multi-Head Attention
         self.mha = MultiHeadAttention(d_model, n_heads)
-
         # post-attention dropout
         self.dropout1 = nn.Dropout(0.1)
 
         # Sub-Layer 2 Normalization
         self.ln2 = nn.LayerNorm(d_model)
 
-        # Multilayer Perception
         self.mlp = nn.Sequential(
             nn.Linear(d_model, d_model*r_mlp), # expansion
             nn.GELU(),

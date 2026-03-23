@@ -6,7 +6,6 @@ STL-10 dataset: https://cs.stanford.edu/~acoates/stl10/
 - 96x96 images (resized to 32x32 to match CIFAR-10 pretrained model) 
 [this is just for test]
 """
-
 import torch
 from torch import nn
 from torchvision import transforms as T
@@ -22,11 +21,8 @@ import seaborn as sns
 from models.vision_transformer import VisionTransformer
 from models.dynamicViT_imagenet import DynamicVisionTransformer
 from models.finetune import inject_lora, propor_params
-#from configs.train_cifar10 import *
 from configs.finetune_STL import *
-from finetuning.STL_data import load_STL10
-
-
+from data.load.STL_data import load_STL10
 
 def load_pretrained(model, checkpoint):
     state = torch.load(checkpoint, map_location="cpu")
@@ -46,7 +42,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         imgs, labels = imgs.to(device), labels.to(device)
         optimizer.zero_grad()
 
-        outputs = model(imgs)[0] #to return only the logits and not the teacher features
+        outputs = model(imgs)[0] # to return only the logits and not the teacher features
         loss = criterion(outputs, labels)
 
         loss.backward()
@@ -57,7 +53,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         total += labels.size(0)
         correct += (pred == labels).sum().item()
 
-        # to show the improve in live
+        # To show the improve in live
         current_acc = 100 * correct / total
         loop.set_postfix(loss=loss.item(), acc=f"{current_acc:.2f}%")
  
@@ -149,13 +145,9 @@ def test_model(model, loader, device, save_dir):
         with torch.no_grad():
             for imgs, labels in tqdm(loader):
                 imgs, labels = imgs.to(device), labels.to(device)
-
-                #print(labels)
                 
                 outputs = model(imgs)[0]
-                
                 _, pred = outputs.max(1)
-                #print(pred)
                 
                 total += labels.size(0)
                 correct += (pred == labels).sum().item()
@@ -180,13 +172,11 @@ def test_model(model, loader, device, save_dir):
         
         return accuracy
 
-
 Train = True
 
 if Train:
-
-    plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune"
-    checkpoint_dir = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune"
+    plot_dir = "./plots/plot_finetune"
+    checkpoint_dir = "./checkpoints/fine_tune"
     
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     best_val_acc = 0.0
@@ -262,9 +252,7 @@ if Train:
 
         torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
 
-        
     # TEST
-
 
     finetuned = DynamicVisionTransformer(
         d_model, 10, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init

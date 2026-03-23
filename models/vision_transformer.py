@@ -33,8 +33,8 @@ class VisionTransformer(nn.Module):
         self.dropout = nn.Dropout(0.1) #regularisation
 
         self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) 
-        # The vision transformer will also need to be able to have multiple encoder modules. This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
-
+        # The vision transformer will also need to be able to have multiple encoder modules. 
+        # This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
 
         # Classification MLP
         self.classifier = nn.Sequential(
@@ -56,9 +56,9 @@ class VisionTransformer(nn.Module):
         x = self.dropout(x)
         x = self.transformer_encoder(x)
 
-        # 1. Capture the features (t_i' in the paper) before classification
+        # Capture the features (t_i' in the paper) before classification
         teacher_feats = x
 
-        # Ccalculate logits around the CLS token
+        # Calculate logits around the CLS token
         logits = self.classifier(x[:,0])
         return logits, teacher_feats
