@@ -30,8 +30,8 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 
 
 
-results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
-pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
+results_dir = "logs/test_imagenet/Imagenet/best/Evaluation_Graphs_Test"
+pruning_vis_dir = "logs/test_imagenet/Imagenet/best/Pruning_Images"
 os.makedirs(results_dir, exist_ok=True)
 
 # Initialize and load TEACHER
@@ -355,30 +355,23 @@ if __name__ == "__main__":
         if ans.lower() == 'last':
             student.load_state_dict(ckpt['student_state'])
             start_epoch = last_epoch + 1
-            results_dir = "testing/log/Imagenet/last/Evaluation_Graphs_Test"
-            pruning_vis_dir = "testing/log/Imagenet/last/Pruning_Images"
+            results_dir = "logs/test_imagenet/Imagenet/last/Evaluation_Graphs_Test"
+            pruning_vis_dir = "logs/test_imagenet/Imagenet/last/Pruning_Images"
         elif ans.lower() == 'best':
             student.load_state_dict(torch.load(student_path, map_location=device))
             start_epoch = 85
-            results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
-            pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
+            results_dir = "logs/test_imagenet/Imagenet/best/Evaluation_Graphs_Test"
+            pruning_vis_dir = "logs/test_imagenet/Imagenet/best/Pruning_Images"
 
     best_val_acc = 0.0
     rho = rho_schedule(start_epoch, epochs)
 
-    
     # Evaluation
     t_acc, t_loss, t_speed, t_preds, t_labels = evaluate_teacher_model(
         teacher, test_loader, device, "Teacher"
     )
 
-    # best
-    
-
     s_acc, s_loss, s_speed, s_preds, s_labels  = evaluate_student_model(student, test_loader, device, desc="Testing Student")
-
-
-
 
     print(yellow("Generating graphs..."))
     plot_confusion_matrices(

@@ -30,7 +30,6 @@ def load_pretrained(model, checkpoint):
     model.load_state_dict(state, strict=True)
     print("loaded")
 
-
 def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
     running_loss = 0.0
@@ -62,7 +61,6 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     
     return avg_loss, accuracy 
 
-
 def validate_one_epoch(model, loader, criterion, device):
     model.eval()
     running_loss = 0.0
@@ -92,9 +90,6 @@ def validate_one_epoch(model, loader, criterion, device):
     cm = confusion_matrix(all_labels, all_preds)
     
     return avg_loss, accuracy, cm
-
-
-
 
 def save_finetune_plots(train_losses, val_losses, cm, train_accs, val_accs, save_dir):
     if not os.path.exists(save_dir):
@@ -156,7 +151,7 @@ def test_model(model, loader, device, save_dir):
                 all_labels.extend(labels.cpu().numpy())
                 
         accuracy = 100 * correct / total
-
+        
         cm = confusion_matrix(all_labels, all_preds)
 
         # plot confusion matrix
@@ -167,9 +162,8 @@ def test_model(model, loader, device, save_dir):
         plt.xlabel('Predicted Label')
         plt.savefig(os.path.join(save_dir, "test_confusion_matrix.png"))
         plt.close()
-
-        print(accuracy)
         
+        print(accuracy)
         return accuracy
 
 Train = True
@@ -187,7 +181,6 @@ if Train:
     val_loader = data[1]
     test_loader = data[2]
 
-    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -253,17 +246,16 @@ if Train:
         torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
 
     # TEST
-
     finetuned = DynamicVisionTransformer(
         d_model, 10, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
     ).to(device)
 
     finetuned = inject_lora(finetuned, rank, alpha=1) #inject LORA layers
 
-    checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/fine_tune/finetune_best.pth"
+    checkpoint = "./checkpoints/fine_tune/finetune_best.pth"
     load_pretrained(finetuned, checkpoint)
     print(finetuned)
-    plot_dir = "/home/onyxia/work/Vit-Pytorch/plots/plot_finetune/"
+    plot_dir = "./logs/plot_finetune/"
     test_model(finetuned, test_loader, device, plot_dir)
 
 

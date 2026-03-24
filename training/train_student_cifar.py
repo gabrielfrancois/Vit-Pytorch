@@ -30,20 +30,19 @@ teacher_checkpoint = f"checkpoints/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "training/log/test/Student_ViT_CIFAR10"
+log_dir = "./logs/train_cifar/Student_ViT_CIFAR10"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "training/log/test/Student_ViT_CIFAR10-graphs"
+graph_dir = "./logs/train_cifar/Student_ViT_CIFAR10-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
-
 # Initialize and Load TEACHER 
-print(yellow("Initializing Teacher..."))
+print(blue("Initializing Teacher..."))
 teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
 
 if os.path.exists(teacher_checkpoint):
-    print(green(f"Loading Teacher weights from {teacher_checkpoint}"))
+    print(f"Loading Teacher weights from {teacher_checkpoint}")
     teacher.load_state_dict(torch.load(teacher_checkpoint, map_location=device))
 else:
     raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
@@ -140,9 +139,8 @@ def save_training_plots(
 
 # Main Execution
 if __name__ == "__main__":
-    # look at the time
     start_time = time.time()
-    # Load Data
+
     print(blue("Loading Data..."))
     data_path = "./data/raw/cifar10" 
     train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
@@ -168,10 +166,7 @@ if __name__ == "__main__":
             student, teacher, train_loader, optimizer, criterion, device, epoch
         )
         
-        # Validate
         val_acc, _ = validate_one_epoch(student, val_loader, device)
-        
-        # Scheduler Step
         scheduler.step()
         
         # Store History
