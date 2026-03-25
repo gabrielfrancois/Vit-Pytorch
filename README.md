@@ -1,15 +1,14 @@
 # Vit-Pytorch: Custom Implementation of Vision Transformers and Dynamic Vision Transformers
 
-This repository contains our PyTorch implementation of Vision Transformers (ViT) and Dynamic Vision Transformers (DynamicViT) for datasets such as ImageNet, STL and CIFAR-10.
-For more details on the theory and implementation, please look at our project report "**Projet_ViT.pdf**".
+![Pruning Evolution](logs/imagenet/student/pruning/pruning_evolution.jpeg)
 
+**Dynamic Token Pruning: Overcoming the computational cost of Transformers to enable high-performance inference on CPU-limited devices by dynamically selecting only the most informative image tokens.**
 
-[Pruning Evolution](/test/log/pruning_evolution.jpeg)
+This repository contains a PyTorch implementation of Vision Transformers (ViT) and Dynamic Vision Transformers (DynamicViT) for datasets such as ImageNet-1K, STL-10, and CIFAR-10.
+For more details on the theory and implementation, please refer to the project report "**Projet_ViT.pdf**".
 
 DynamicViT was originally proposed in:  
-*"Dynamic Vision Transformers for Efficient Image Recognition", 2021* [arXiv link](https://arxiv.org/abs/2106.02034). Our code is an independent implementation, including some modifications for adaptive pruning and efficient training on ImageNet with small teachers.
-
-
+*"Dynamic Vision Transformers for Efficient Image Recognition", 2021* [arXiv link](https://arxiv.org/abs/2106.02034). This repository is an independent implementation featuring adaptive pruning schedules and knowledge distillation strategies.
 
 ## Table of Contents
 
@@ -17,12 +16,7 @@ DynamicViT was originally proposed in:
 2. [Project Structure](#project-structure)  
 3. [How the model works](#how-the-model-works)  
 4. [Usage](#usage)  
-5. [Training](#training)  
-6. [Evaluation](#evaluation)  
-7. [Visualization](#visualization)  
-8. [Citation](#citation)
-
-
+5. [Citation](#citation)
 
 ## Installation
 
@@ -31,89 +25,94 @@ DynamicViT was originally proposed in:
 ```bash
 git clone <repo_url>
 cd Vit-Pytorch
-````
-
-2. Install `uv` (if it is not already done):
-
-```bash
-brew install uv
 ```
 
+2. Set up a virtual environment and install dependencies:
 
-
-> Note: Using `uv` and `pyproject.toml` is cleaner than `requirements.txt`.
-> You can also make a virtual environment and 
 ```bash
+# Create a virtual environment
+python -m venv .venv
+
+# Activate it (MacOS/Linux)
+source .venv/bin/activate
+
+# Install requirements
 pip install -r requirements.txt
 ```
 
-
+Alternatively, if you use `uv`:
+```bash
+uv sync
+```
 
 ## Project Structure
 
-- `models/`: Contains ViT and DynamicViT architectures, transformers, patch embedding, and predictor modules.
-- `data/`: Data loaders for ImageNet and CIFAR-10.
-- `configs/`: Training configuration files for ImageNet and CIFAR.
-- `training/`: Scripts to train teacher and student models.
-- `test/`: Scripts to evaluate models and generate plots.
-- `helper_function/`: Utility functions (printing, plotting, etc.).
-
-
+```text
+Vit-Pytorch/
+├── src/
+│   ├── models/           # Architecture: ViT, DynamicViT, Patch Embedding, Predictor LG
+│   ├── train/            # Training loops for Teacher and Student (CIFAR & ImageNet)
+│   ├── test/             # Evaluation scripts and parameter computing
+│   └── finetuning/       # LoRA fine-tuning scripts for STL-10
+├── configs/              # Hyperparameters and data paths per dataset
+├── data/                 # Data loading logic and raw data storage
+├── logs/                 # TensorBoard events and generated plots
+├── checkpoints/          # Saved model weights (.pth)
+├── helper_function/      # Utility functions for printing and formatting
+├── pyproject.toml        # Project dependencies and metadata
+└── requirements.txt      # Traditional pip requirements
+```
 
 ## How the model works
 
 ### Dynamic Vision Transformer (DynamicViT)
-Dynamic ViT extends ViT with dynamic token pruning to reduce FLOPs and memory usage. Each layer predicts which tokens can be pruned in deeper layers. In an image, not all patches have the same importance to classify it. The goal is to retain only the most important tokens. Dynamic ViT relies on the teacher-student paradigm: the student model will learn to reproduce the outputs of a teacher model while including the token pruning. 
+Dynamic ViT extends the standard ViT with dynamic token pruning to reduce FLOPs and memory usage. Since not all image patches contribute equally to classification, the model learns to prune less informative tokens in deeper layers.
 
-**Adaptive pruning ratio (`rho`)**: To make training more stable, we created an adaptive pruning schedule. It is adjusted according to a sigmoid schedule during training. During early epochs, only a few tokens are pruned, allowing the model to learn robust features. In the middle of training, more tokens are gradually pruned to improve efficiency.Finally during the last epochs, pruning slows down to stabilize the model. This strategy makes it possible to train DynamicViT on ImageNet even when using a small teacher model.
+**Adaptive pruning ratio (rho)**: To stabilize training, we implement a sigmoid-based pruning schedule. In early epochs, the model retains most tokens to learn robust features. The pruning intensity gradually increases towards a target ratio (`rho_final`) in the middle of training before stabilizing in the final epochs.
 
-### Loss function
-To perform such training, four components are required: 
-  1. Classification loss
-  2. Knowledge distillation from teacher
-  3. KL divergence
-  4. Ratio loss (enforces target keep ratio per layer)
-
-
+### Loss Function
+The training objective combines four components:
+1. **Classification Loss**: Standard cross-entropy for the target task.
+2. **Knowledge Distillation**: Matching the student's features to a frozen teacher model.
+3. **KL Divergence**: Aligning the probability distributions of the student and teacher.
+4. **Ratio Loss**: Enforcing the target token keep-ratio at each pruning stage.
 
 ## Usage
 
-### Training Teacher
+All scripts must be executed from the project root using the `-m` flag to ensure proper module resolution.
 
+### 1. Training a Teacher Model
+Train a standard Vision Transformer to serve as a teacher:
 ```bash
-uv run -m training.train_teacher_imagenet
+python -m src.train.train_teacher_cifar
+# or for ImageNet
+python -m src.train.train_teacher_imagenet
 ```
 
-or : 
-
+### 2. Training a Student Model (DynamicViT)
+Train a student model with dynamic pruning, distilling knowledge from a pretrained teacher:
 ```bash
-python3 -m training.train_teacher_imagenet
+python -m src.train.train_student_cifar
+# or for ImageNet
+python -m src.train.train_student_imagenet
 ```
 
-### Training Student (DynamicViT)
-
+### 3. Evaluation
+Evaluate model performance, compute FLOPs/Parameters, and generate confusion matrices:
 ```bash
-uv run -m training.train_student_imagenet
+python -m src.test.test_cifar
+python -m src.test.test_imagenet
 ```
 
-> Make sure to adjust `log_dir` and `checkpoint_dir` in config files to avoid overwriting previous results.
-
-### Testing / Evaluation
-
+### 4. Fine-tuning
+Fine-tune a pretrained model on a new dataset (e.g., STL-10) using LoRA:
 ```bash
-uv run -m test.test_imagenet
-uv run -m test.test_cifar
+python -m src.finetuning.finetune_model
 ```
-
-### Finetuning the model
-```bash
-uv run -m  finetuning.finetune_model
-```
-
 
 ## Citation
 
-If you use this implementation, please cite our repository and refer to the original DynamicViT paper:
+If you use this implementation, please cite this repository and the original DynamicViT paper:
 
 ```text
 @article{DBLP:journals/corr/abs-2106-02034,
