@@ -16,11 +16,6 @@ from typing import List, Tuple, Optional, Any
 
 import calflops
 
-
-
-# ------------------------------------------------------------------
-# Setup
-# ------------------------------------------------------------------
 device = torch.device("cpu")
 print(bold(f"Using device: {device}"))
 
@@ -28,8 +23,8 @@ checkpoint_dir = "checkpoints/imagenet1K"
 teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
 
-results_dir = "testing/log/Imagenet/best/Evaluation_Graphs_Test"
-pruning_vis_dir = "testing/log/Imagenet/best/Pruning_Images"
+results_dir = "logs/imagenet/student/graphs/best/Evaluation_Graphs_Test"
+pruning_vis_dir = "logs/imagenet/student/pruning/Pruning_Images"
 os.makedirs(results_dir, exist_ok=True)
 os.makedirs(pruning_vis_dir, exist_ok=True)
 
@@ -119,8 +114,6 @@ if __name__ == "__main__":
         pruning_index=pruning_index, rho=0.709
     ).to(device)
     student.load_state_dict(torch.load(student_path, map_location=device))
-
-
 
     print(yellow("Computing FLOPs for Teacher..."))
     compute_model_flops(teacher, img_size=img_size, batch_size=batch_size)

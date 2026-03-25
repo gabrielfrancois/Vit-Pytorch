@@ -6,7 +6,6 @@ from helper_function.print import *
 from configs.train_imagenet1k import *
 from typing import List, Tuple, Dict
 
-
 class DynamicViTLoss(nn.Module):
     def __init__(
         self,

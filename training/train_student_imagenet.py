@@ -32,11 +32,11 @@ teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "training/log/Imagenet/Student_ViT_imagenet1k"
+log_dir = "./logs/imagenet/student/Student_ViT_imagenet1k"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "training/log/Imagenet/Student_ViT_imagenet1k-graphs"
+graph_dir = "./logs/imagenet/student/Student_ViT_imagenet1k-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 
@@ -376,7 +376,6 @@ if __name__ == "__main__":
     start_time = time.time()
     # Load Data
     print(blue("Loading Data..."))
-    data_path = "/home/onyxia/work/Vit-Pytorch/data" 
     train_loader, test_loader, val_loader = load_imagenet1k() 
 
     print(yellow("Starting Student Training..."))

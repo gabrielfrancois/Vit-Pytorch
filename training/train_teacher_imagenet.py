@@ -37,12 +37,12 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
 
 # Logging and checkpoints
-log_dir = "training/log/Teacher_ViT_imagenet1K"
+log_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1K"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 checkpoint_dir = "checkpoints/imagenet1K"
 os.makedirs(checkpoint_dir, exist_ok=True)
-graph_dir = "training/log/Teacher_ViT_imagenet1K-graphs"
+graph_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 def train_one_epoch(
@@ -222,12 +222,11 @@ def save_training_plots(
 
 if __name__ == "__main__":
     start_time = time.time()
-    print(yellow("Loading Data..."))
-
-    data_path = "/home/onyxia/work/Vit-Pytorch/data" 
+    print(blue("Loading Data..."))
+    
     train_loader, test_loader, val_loader = load_imagenet1k() 
 
-    print(yellow("Starting Teacher Training..."))
+    print(blue("Starting Teacher Training..."))
     best_val_acc = 0.0
 
     history = {
@@ -257,7 +256,7 @@ if __name__ == "__main__":
         scheduler.step()
         
         # Logging
-        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%")
         
         writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('Teacher/Loss/val', val_loss, epoch)
@@ -293,6 +292,6 @@ if __name__ == "__main__":
     
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
 
     writer.close()

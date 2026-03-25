@@ -13,11 +13,7 @@ epochs = 3
 alpha = 0.005
 
 # dataset
-
-
-data_dir = "/home/onyxia/work/Vit-Pytorch/data"
-
-
+data_dir = "./data"
 
 pruning_index = [4,7,10]
 rho_final = 0.7

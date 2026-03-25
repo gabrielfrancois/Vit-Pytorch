@@ -30,11 +30,11 @@ teacher_checkpoint = f"checkpoints/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories
-log_dir = "./logs/train_cifar/Student_ViT_CIFAR10"
+log_dir = "./logs/cifar10/student/"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 
-graph_dir = "./logs/train_cifar/Student_ViT_CIFAR10-graphs"
+graph_dir = "./logs/cifar10/student/graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 # Initialize and Load TEACHER 
@@ -53,7 +53,7 @@ for param in teacher.parameters():
 
 
 # Initialize student
-print(yellow("Initializing Student..."))
+print(blue("Initializing Student..."))
 student = DynamicVisionTransformer(
     d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho
 ).to(device)
@@ -200,7 +200,7 @@ if __name__ == "__main__":
             print(purple(f"--> New Best Student Saved ({val_acc:.2f}%)"))
 
     # Final Test
-    print(yellow("\nTraining Complete. Loading best student for final testing..."))
+    print(green("\nTraining Complete. Loading best student for final testing..."))
     student.load_state_dict(torch.load(f"{checkpoint_dir}/student_best.pth"))
     test_acc, cm = validate_one_epoch(student, test_loader, device, desc="Testing Student")
     print(blue(f"Final Student Test Accuracy: {test_acc:.2f}%"))
@@ -220,6 +220,6 @@ if __name__ == "__main__":
 
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     
     writer.close()

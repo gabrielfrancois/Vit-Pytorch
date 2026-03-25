@@ -188,7 +188,7 @@ if Train:
         d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho_init
     ).to(device)
 
-    checkpoint = "/home/onyxia/work/Vit-Pytorch/checkpoints/imagenet1K/student_best.pth"
+    checkpoint = "./checkpoints/imagenet1K/student_best.pth"
     load_pretrained(student, checkpoint)
     print(student)
 
@@ -243,7 +243,7 @@ if Train:
         save_finetune_plots(history['train_loss'], history['val_loss'], cm, history['train_acc'], history['val_acc'], plot_dir)
 
 
-        torch.save(student.state_dict(), "/home/onyxia/work/Vit-Pytorch/checkpoints/student_finetune_STL.pth")
+        torch.save(student.state_dict(), "./Vit-Pytorch/checkpoints/student_finetune_STL.pth")
 
     # TEST
     finetuned = DynamicVisionTransformer(

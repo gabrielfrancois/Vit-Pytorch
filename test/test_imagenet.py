@@ -26,27 +26,22 @@ teacher_checkpoint = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
-
-
-
-
-results_dir = "logs/test_imagenet/Imagenet/best/Evaluation_Graphs_Test"
-pruning_vis_dir = "logs/test_imagenet/Imagenet/best/Pruning_Images"
+results_dir = "logs/imagenet/student/graphs"
+pruning_vis_dir = "logs/imagenet/student/pruning"
 os.makedirs(results_dir, exist_ok=True)
 
 # Initialize and load TEACHER
-print(yellow("Initializing Teacher..."))
+print(blue("Initializing Teacher..."))
 teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
 
 if os.path.exists(teacher_checkpoint):
-    print(green(f"Loading Teacher weights from {teacher_checkpoint}"))
+    print(f"Loading Teacher weights from {teacher_checkpoint}")
     teacher.load_state_dict(torch.load(teacher_checkpoint, map_location=device))
 else:
     raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
 
-
 # Initialize student
-print(yellow("Initializing Student..."))
+print(blue("Initializing Student..."))
 student = DynamicVisionTransformer(
     d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho_init
 ).to(device)
@@ -106,7 +101,7 @@ def evaluate_teacher_model(
     accuracy = 100 * correct / total
     throughput = len(loader.dataset) / total_time
 
-    print(orange("-" * 10 + f"\nResults for {model_name}:" + "-" * 10))
+    print(blue("-" * 10 + f"\nResults for {model_name}:" + "-" * 10))
     print(bold(f"  Accuracy: {accuracy:.2f}%"))
     print(bold(f"  Loss: {avg_loss:.4f}"))
     print(bold(f"  Throughput: {throughput:.2f} img/sec"))
@@ -296,7 +291,7 @@ def evaluate_student_model(
     accuracy = 100 * correct / total
     throughput = len(loader.dataset) / total_time
 
-    print(orange("-" * 10 + f"\nResults for Student ({desc}):" + "-" * 10))
+    print(blue("-" * 10 + f"\nResults for Student ({desc}):" + "-" * 10))
     print(bold(f"  Accuracy: {accuracy:.2f}%"))
     print(bold(f"  Loss: {avg_loss:.4f}"))
     print(bold(f"  Throughput: {throughput:.2f} img/sec"))
@@ -340,7 +335,7 @@ if __name__ == "__main__":
     print(blue("Loading Data..."))
     train_loader, val_loader, test_loader = load_imagenet1k()
 
-    print(yellow("Starting Student Testing..."))
+    print(blue("Starting Student Testing..."))
     start_epoch = 0
     history = {
         'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [],
@@ -355,13 +350,13 @@ if __name__ == "__main__":
         if ans.lower() == 'last':
             student.load_state_dict(ckpt['student_state'])
             start_epoch = last_epoch + 1
-            results_dir = "logs/test_imagenet/Imagenet/last/Evaluation_Graphs_Test"
-            pruning_vis_dir = "logs/test_imagenet/Imagenet/last/Pruning_Images"
+            results_dir = "logs/imagenet/student/graphs/last/Evaluation_Graphs_Test"
+            pruning_vis_dir = "logs/imagenet/student/graphs/last/Pruning_Images"
         elif ans.lower() == 'best':
             student.load_state_dict(torch.load(student_path, map_location=device))
             start_epoch = 85
-            results_dir = "logs/test_imagenet/Imagenet/best/Evaluation_Graphs_Test"
-            pruning_vis_dir = "logs/test_imagenet/Imagenet/best/Pruning_Images"
+            results_dir = "logs/imagenet/student/graphs/best/Evaluation_Graphs_Test"
+            pruning_vis_dir = "logs/imagenet/student/graphs/best/Pruning_Images"
 
     best_val_acc = 0.0
     rho = rho_schedule(start_epoch, epochs)

@@ -28,7 +28,7 @@ print(bold(f"Using device: {device}"))
 checkpoint_dir = "checkpoints"
 teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
-results_dir = "testing/log/Evaluation_Graphs"
+results_dir = "./logs/cifar10/student/graphs/Evaluation_Graphs"
 os.makedirs(results_dir, exist_ok=True)
 
 
