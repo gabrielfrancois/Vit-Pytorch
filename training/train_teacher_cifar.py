@@ -39,12 +39,12 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
 
 # Logging and checkpoints
-log_dir = "./logs/cifar10/teacher/Teacher_ViT_CIFAR10"
+log_dir = "./logs/cifar10/teacher/"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
 checkpoint_dir = "checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
-graph_dir = "./logs/cifar10/teacher/Teacher_ViT_CIFAR10-graphs"
+graph_dir = "./logs/cifar10/teacher/graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 def train_one_epoch(
