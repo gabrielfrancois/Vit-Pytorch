@@ -7,8 +7,8 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-from models.vision_transformer import VisionTransformer
-from models.dynamicViT_imagenet import DynamicVisionTransformer
+from src.models.vision_transformer import VisionTransformer
+from src.models.dynamicViT_imagenet import DynamicVisionTransformer
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import *
 from helper_function.print import *

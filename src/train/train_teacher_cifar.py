@@ -8,18 +8,20 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
+from typing import Tuple, List
+from torch.utils.data import DataLoader
 
 from helper_function.print import *
-from models.vision_transformer import VisionTransformer
-from models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss_copy import DynamicViTLoss
-from data.load.imagenet_loader import load_imagenet1k
-from configs.train_imagenet1k import * 
-from typing import Tuple, List
+from src.models.vision_transformer import VisionTransformer
+from src.models.dynamicViT import DynamicVisionTransformer
+from .dynamic_loss_cifar import DynamicViTLoss
+from data.load.load_data import load_CIFAR
+from configs.train_cifar10 import * 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
+# Initialize Teacher Model
 print("Initializing Teacher ViT...")
 teacher = VisionTransformer(
     d_model=d_model, 
@@ -37,53 +39,64 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
 
 # Logging and checkpoints
-log_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1k"
+log_dir = "./logs/cifar10/teacher/"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
-checkpoint_dir = "checkpoints/imagenet"
+checkpoint_dir = "checkpoints/cifar10/teacher_2th_try"
 os.makedirs(checkpoint_dir, exist_ok=True)
-graph_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs"
+graph_dir = "./logs/cifar10/teacher/graphs"
 os.makedirs(graph_dir, exist_ok=True)
 
 def train_one_epoch(
     model: nn.Module,
-    loader: torch.utils.data.DataLoader,
+    loader: DataLoader,
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
     device: torch.device,
     epoch_index: int
 ) -> Tuple[float, float]:
     """
-    Train the model for one epoch.
+    Train the model for a single epoch.
+
+    This function performs a standard supervised training loop including
+    forward pass, loss computation, backward pass, and parameter update.
+    It also tracks average loss and classification accuracy over the epoch.
 
     Args:
-        model: PyTorch model to train.
-        loader: DataLoader for training data.
-        optimizer: Optimizer for model parameters.
-        criterion: Loss function.
-        device: Device to run computations on.
-        epoch_index: Current epoch index (for logging).
+        model (nn.Module):
+            Model to be trained.
+        loader (DataLoader):
+            DataLoader providing the training batches.
+        optimizer (torch.optim.Optimizer):
+            Optimizer used to update model parameters.
+        criterion (nn.Module):
+            Loss function used for training.
+        device (torch.device):
+            Device on which the model and data are located.
+        epoch_index (int):
+            Index of the current epoch (used for logging).
 
     Returns:
-        avg_loss: Average loss over the epoch.
-        accuracy: Training accuracy in percentage.
+        Tuple[float, float]:
+            - avg_loss: Average training loss over the epoch.
+            - accuracy: Training accuracy in percentage.
     """
-    model.train()
-    running_loss = 0.0
-    correct = 0
-    total = 0
 
-    loop = tqdm(loader, desc=f'Training Teacher Epoch {epoch_index}')
-    
+    model.train()
+    running_loss: float = 0.0
+    correct: int = 0
+    total: int = 0
+
+    loop = tqdm(loader, desc=f"Training Teacher Epoch {epoch_index}")
+
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
 
         optimizer.zero_grad(set_to_none=True)
-        # We don't mind 'feats' here 
-        outputs, _ = model(imgs) 
-        
-        # Backprop
+
+        outputs, _ = model(imgs)
         loss = criterion(outputs, labels)
+
         loss.backward()
         optimizer.step()
 
@@ -93,49 +106,58 @@ def train_one_epoch(
         correct += (predicted == labels).sum().item()
 
         loop.set_postfix(loss=loss.item())
-    
-    avg_loss = running_loss / len(loader.dataset)
-    accuracy = 100 * correct / total
+
+    avg_loss: float = running_loss / len(loader.dataset)
+    accuracy: float = 100.0 * correct / total
 
     return avg_loss, accuracy
 
+
 def validate_one_epoch(
     model: nn.Module,
-    loader: torch.utils.data.DataLoader,
+    loader: DataLoader,
     criterion: nn.Module,
     device: torch.device,
-    desc: str = 'Validating'
-) -> Tuple[float, float, torch.Tensor]:
+    desc: str = "Validating"
+) -> Tuple[float, float, np.ndarray]:
     """
-    Validate the model on a dataset for one epoch.
+    Evaluate the model for a single epoch on a validation or test set.
+
+    The model is run in evaluation mode with gradients disabled.
+    The function computes average loss, classification accuracy,
+    and the confusion matrix over the entire dataset.
 
     Args:
-        model: PyTorch model to evaluate.
-        loader: DataLoader for validation or test data.
-        criterion: Loss function.
-        device: Device to run computations on.
-        desc: Description for tqdm progress bar.
+        model (nn.Module):
+            Model to be evaluated.
+        loader (DataLoader):
+            DataLoader providing the evaluation batches.
+        criterion (nn.Module):
+            Loss function used for evaluation.
+        device (torch.device):
+            Device on which the model and data are located.
+        desc (str, optional):
+            Description displayed in the progress bar.
 
     Returns:
-        avg_loss: Average loss over the validation set.
-        accuracy: Validation accuracy in percentage.
-        cm: Confusion matrix of predictions.
+        Tuple[float, float, np.ndarray]:
+            - avg_loss: Average evaluation loss.
+            - accuracy: Evaluation accuracy in percentage.
+            - cm: Confusion matrix over all classes.
     """
     model.eval()
-    running_loss = 0.0
-    correct = 0
-    total = 0
-    all_preds = []
-    all_labels = []
+    running_loss: float = 0.0
+    correct: int = 0
+    total: int = 0
+    all_preds: List[int] = []
+    all_labels: List[int] = []
 
     with torch.no_grad():
         loop = tqdm(loader, desc=desc)
         for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
-            
-            # Unpack tuple here as well
+
             outputs, _ = model(imgs)
-            
             loss = criterion(outputs, labels)
 
             running_loss += loss.item() * imgs.size(0)
@@ -145,12 +167,13 @@ def validate_one_epoch(
 
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
-            
-    avg_loss = running_loss / len(loader.dataset)
-    accuracy = 100 * correct / total
-    cm = confusion_matrix(all_labels, all_preds)
+
+    avg_loss: float = running_loss / len(loader.dataset)
+    accuracy: float = 100.0 * correct / total
+    cm: np.ndarray = confusion_matrix(all_labels, all_preds)
 
     return avg_loss, accuracy, cm
+
 
 def save_training_plots(
     train_losses: List[float],
@@ -158,25 +181,38 @@ def save_training_plots(
     train_accs: List[float],
     val_accs: List[float],
     lrs: List[float],
-    confusion_mat: torch.Tensor,
+    confusion_mat: np.ndarray,
     save_dir: str
 ) -> None:
     """
-    Generate and save training graphs: Loss, Accuracy, Learning Rate curves, and Confusion Matrix heatmap.
+    Generate and save training and evaluation visualizations.
+
+    This function saves:
+      - Training and validation loss curves
+      - Training and validation accuracy curves
+      - Learning rate schedule
+      - Final confusion matrix heatmap
 
     Args:
-        train_losses: List of training loss values per epoch.
-        val_losses: List of validation loss values per epoch.
-        train_accs: List of training accuracy values per epoch.
-        val_accs: List of validation accuracy values per epoch.
-        lrs: List of learning rates per epoch.
-        confusion_mat: Confusion matrix for the final evaluation.
-        save_dir: Directory to save plots.
+        train_losses (List[float]):
+            Training loss values per epoch.
+        val_losses (List[float]):
+            Validation loss values per epoch.
+        train_accs (List[float]):
+            Training accuracy values per epoch.
+        val_accs (List[float]):
+            Validation accuracy values per epoch.
+        lrs (List[float]):
+            Learning rate values per epoch.
+        confusion_mat (np.ndarray):
+            Confusion matrix computed on the test set.
+        save_dir (str):
+            Directory where all figures will be saved.
     """
 
     print(blue(f"Saving training graphs to {save_dir}..."))
-    
-    # 1. Loss Curve
+
+    # 1. Loss curve
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label='Train Loss', color='tab:blue')
     plt.plot(val_losses, label='Validation Loss', color='tab:orange')
@@ -188,10 +224,10 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "loss_curve.png"))
     plt.close()
 
-    # 2. Accuracy Curve
+    # 2. Accuracy curve
     plt.figure(figsize=(10, 6))
-    plt.plot(train_accs, label='Train Acc', color='tab:green')
-    plt.plot(val_accs, label='Validation Acc', color='tab:red')
+    plt.plot(train_accs, label='Train Accuracy', color='tab:green')
+    plt.plot(val_accs, label='Validation Accuracy', color='tab:red')
     plt.title('Teacher Training & Validation Accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
@@ -200,33 +236,35 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "accuracy_curve.png"))
     plt.close()
 
-    # 3. Learning Rate Curve
+    # 3. Learning rate curve
     plt.figure(figsize=(10, 6))
     plt.plot(lrs, label='Learning Rate', color='purple')
     plt.title('Learning Rate Schedule')
     plt.xlabel('Epoch')
-    plt.ylabel('LR')
+    plt.ylabel('Learning Rate')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(save_dir, "lr_curve.png"))
     plt.close()
 
-    # 4. Confusion Matrix Heatmap
+    # 4. Confusion matrix
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Blues')
+    sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Blues')
     plt.title('Final Test Confusion Matrix')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
     plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
     plt.close()
 
+# Main Execution Loop
 if __name__ == "__main__":
     start_time = time.time()
-    print(blue("Loading Data..."))
+    print(yellow("Loading Data..."))
     
-    train_loader, test_loader, val_loader = load_imagenet1k() 
+    data_path = "./data/raw/cifar10" 
+    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
 
-    print(blue("Starting Teacher Training..."))
+    print(yellow("Starting Teacher Training..."))
     best_val_acc = 0.0
 
     history = {
@@ -245,7 +283,6 @@ if __name__ == "__main__":
             teacher, val_loader, criterion, device, desc='Validating Teacher'
         )
         
-        # Store Metrics
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
         history['train_acc'].append(train_acc)
@@ -255,8 +292,7 @@ if __name__ == "__main__":
         # Update Learning Rate
         scheduler.step()
         
-        # Logging
-        print(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%")
+        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('Teacher/Loss/val', val_loss, epoch)
@@ -270,6 +306,7 @@ if __name__ == "__main__":
             torch.save(teacher.state_dict(), save_path)
             print(purple(f"--> New Best Teacher Model saved at {save_path}"))
 
+        # Save Periodic Checkpoint
         if (epoch + 1) % 5 == 0:
             torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
 
@@ -280,6 +317,7 @@ if __name__ == "__main__":
     test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
     print(bold(f"Final Test Accuracy: {test_acc:.2f}%"))
 
+    # Generate and Save Graphs
     save_training_plots(
         history['train_loss'], 
         history['val_loss'], 
@@ -292,6 +330,6 @@ if __name__ == "__main__":
     
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
+    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
 
     writer.close()

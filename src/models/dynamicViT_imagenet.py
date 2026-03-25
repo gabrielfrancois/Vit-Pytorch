@@ -1,9 +1,9 @@
 import torch
 from torch import nn as nn 
 
-from .dynamic_transformer_encoder import DynamicTransformerEncoder
-from .predictor_LG import PredictorLG
-from .patch_embed import PatchEmbedding
+from src.models.dynamic_transformer_encoder import DynamicTransformerEncoder
+from src.models.predictor_LG import PredictorLG
+from src.models.patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding  
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *

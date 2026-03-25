@@ -13,9 +13,9 @@ from sklearn.metrics import confusion_matrix, classification_report
 from typing import Sequence
 
 # Imports
-from models.vision_transformer import VisionTransformer
-from models.dynamicViT import DynamicVisionTransformer
-from data..load.load_data import load_CIFAR
+from src.models.vision_transformer import VisionTransformer
+from src.models.dynamicViT import DynamicVisionTransformer
+from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 from helper_function.print import *
 

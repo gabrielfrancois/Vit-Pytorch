@@ -12,8 +12,8 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 from helper_function.print import *
-from models.vision_transformer import VisionTransformer
-from models.dynamicViT_imagenet import DynamicVisionTransformer
+from src.models.vision_transformer import VisionTransformer
+from src.models.dynamicViT_imagenet import DynamicVisionTransformer
 from .dynamic_loss_imagenet import DynamicViTLoss
 from data.load.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import * 
@@ -38,7 +38,6 @@ writer = SummaryWriter(log_dir)
 
 graph_dir = "./logs/imagenet/student/Student_ViT_imagenet1k-graphs"
 os.makedirs(graph_dir, exist_ok=True)
-
 
 # Initialize and Load TEACHER 
 print(yellow("Initializing Teacher..."))

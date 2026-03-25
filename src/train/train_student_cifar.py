@@ -14,9 +14,9 @@ from typing import List, Tuple
 from torch.utils.data import DataLoader
 
 from helper_function.print import *
-from models.vision_transformer import VisionTransformer
-from models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss import DynamicViTLoss
+from src.models.vision_transformer import VisionTransformer
+from src.models.dynamicViT import DynamicVisionTransformer
+from .dynamic_loss_cifar import DynamicViTLoss
 from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 import time
