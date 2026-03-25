@@ -1,4 +1,4 @@
-# Vit-Pytorch: Custom Implementation of Vision Transformers and Dynamic Vision Transformers
+# Vit-Pytorch: Custom Implementation of Dynamic Vision Transformers
 
 ![Pruning Evolution](logs/imagenet/student/pruning/pruning_evolution.jpeg)
 
