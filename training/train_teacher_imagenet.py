@@ -37,10 +37,10 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
 
 # Logging and checkpoints
-log_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1K"
+log_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1k"
 os.makedirs(log_dir, exist_ok=True)
 writer = SummaryWriter(log_dir)
-checkpoint_dir = "checkpoints/imagenet1K"
+checkpoint_dir = "checkpoints/imagenet"
 os.makedirs(checkpoint_dir, exist_ok=True)
 graph_dir = "./logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs"
 os.makedirs(graph_dir, exist_ok=True)

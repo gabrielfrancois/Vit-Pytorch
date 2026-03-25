@@ -19,7 +19,7 @@ import calflops
 device = torch.device("cpu")
 print(bold(f"Using device: {device}"))
 
-checkpoint_dir = "checkpoints/imagenet1K"
+checkpoint_dir = "checkpoints/imagenet"
 teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
 student_path = f"{checkpoint_dir}/student_best.pth"
 

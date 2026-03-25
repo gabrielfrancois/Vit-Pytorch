@@ -25,8 +25,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
-checkpoint_dir = "checkpoints/test"
-teacher_checkpoint = f"checkpoints/teacher_checkpoint_best.pth"
+checkpoint_dir = "checkpoints/cifar10/student_2th_try"
+teacher_checkpoint = "checkpoints/cifar10/teacher_2th_try/teacher_checkpoint_best.pth"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Logging Directories

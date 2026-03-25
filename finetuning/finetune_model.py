@@ -129,7 +129,6 @@ def save_finetune_plots(train_losses, val_losses, cm, train_accs, val_accs, save
     plt.savefig(os.path.join(save_dir, "finetune_confusion_matrix.png"))
     plt.close()
 
-
 def test_model(model, loader, device, save_dir):
         model.eval()
         
@@ -170,7 +169,7 @@ Train = True
 
 if Train:
     plot_dir = "./plots/plot_finetune"
-    checkpoint_dir = "./checkpoints/fine_tune"
+    checkpoint_dir = "checkpoints/finetune/cifar10"
     
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
     best_val_acc = 0.0
@@ -188,7 +187,7 @@ if Train:
         d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho_init
     ).to(device)
 
-    checkpoint = "./checkpoints/imagenet1K/student_best.pth"
+    checkpoint = "checkpoints/imagenet/student_best.pth"
     load_pretrained(student, checkpoint)
     print(student)
 
@@ -242,8 +241,7 @@ if Train:
 
         save_finetune_plots(history['train_loss'], history['val_loss'], cm, history['train_acc'], history['val_acc'], plot_dir)
 
-
-        torch.save(student.state_dict(), "./Vit-Pytorch/checkpoints/student_finetune_STL.pth")
+        torch.save(student.state_dict(), "checkpoints/finetune/cifar10/student_finetune_STL.pth")
 
     # TEST
     finetuned = DynamicVisionTransformer(
@@ -252,24 +250,10 @@ if Train:
 
     finetuned = inject_lora(finetuned, rank, alpha=1) #inject LORA layers
 
-    checkpoint = "./checkpoints/fine_tune/finetune_best.pth"
+    checkpoint = "checkpoints/finetune/cifar10/finetune_best.pth"
     load_pretrained(finetuned, checkpoint)
     print(finetuned)
-    plot_dir = "./logs/plot_finetune/"
+    plot_dir = "./logs/finetune/"
     test_model(finetuned, test_loader, device, plot_dir)
 
-
 # test 1 epoch = 11.175%, 5 epochs = 24%
-
-
-
-
-
-
-
-
-
-
-
-
-        

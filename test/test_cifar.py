@@ -25,9 +25,9 @@ device = torch.device("cpu")
 print(bold(f"Using device: {device}"))
 
 # Directories (best by default)
-checkpoint_dir = "checkpoints"
-teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
-student_path = f"{checkpoint_dir}/student_best.pth"
+checkpoint_dir = "checkpoints/cifar10/student_2th_try"
+teacher_path = "checkpoints/cifar10/teacher_2th_try/teacher_checkpoint_best.pth"
+student_path = "checkpoints/cifar10/student_2th_try/student_best.pth"
 results_dir = "./logs/cifar10/student/graphs/Evaluation_Graphs"
 os.makedirs(results_dir, exist_ok=True)
 
