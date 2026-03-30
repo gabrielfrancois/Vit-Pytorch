@@ -64,7 +64,8 @@ class DynamicTransformerEncoder(nn.Module):
                  # TRAINING: Use Gumbel-Softmax to sample a binary mask differentiably, this allows gradients to flow back into the predictor
                 hard_keep_decision = F.gumbel_softmax(pred_logits, tau=1, hard=True)[:, :, 1]
                 # FORCE CLS TOKEN: Always keep index 0 during training mask update
-                new_policy *= hard_keep_decision
+                new_policy = new_policy*hard_keep_decision 
+                new_policy = new_policy.clone() # clone to avoid in-place pb like Calls into the C++ engine to run the backward pass
                 new_policy[:, 0] = 1.0 
 
                 # Calculate attention with MASK, x is still (B, N, C) to keep GPU computational advantages
@@ -74,8 +75,7 @@ class DynamicTransformerEncoder(nn.Module):
                 return x, new_policy, pred_score, None
 
             else: # INFERENCE, hard pruning
-                # Here, N will definitely reduce to N' <= N
-                B, N, C = x.shape
+                B, N, C = x.shape # Here, N will definitely reduce to N' <= N
                 keep = int(N*self.keep_ratio)
                 if keep < 1:
                     keep = 1

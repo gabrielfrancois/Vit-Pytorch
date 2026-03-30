@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 from helper_function.print import *
 from configs.train_cifar10 import *
-
 class DynamicViTLoss(nn.Module):
     def __init__(self,target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
         super().__init__()
@@ -12,10 +11,7 @@ class DynamicViTLoss(nn.Module):
         self.lambda_ratio = lambda_ratio   # Weight for enforcing sparsity
         self.lambda_distill = lambda_distill # weight for mimic the teacher model
         self.target_ratios = target_ratios # Keep 70% of tokens 
-
-        # Losses
         self.ce_loss = nn.CrossEntropyLoss()
-        self.mse_loss = nn.MSELoss()
 
     def forward(self, student_logits, teacher_logits, labels, student_feats, teacher_feats, all_masks):
         """
@@ -33,8 +29,7 @@ class DynamicViTLoss(nn.Module):
             - dict with cross entropy loss, distill loss and ratio loss
         ----------------------------------
         """
-        device = student_feats.device
-        all_masks = [mask.to(device) for mask in all_masks]
+        assert len(all_masks) == len(self.target_ratios), "Mismatch between number of masks and target ratios!"
         
         # Classification Loss (Student vs Ground Truth)
         loss_cls = self.ce_loss(student_logits, labels)
@@ -69,4 +64,4 @@ class DynamicViTLoss(nn.Module):
             (self.lambda_distill * loss_distill) + 
             (self.lambda_ratio * loss_ratio)
         )
-        return total_loss, {"cls": loss_cls.item(), "distill": loss_distill.item(), "ratio": loss_ratio.item(),"kl": loss_kl.item()}
+        return total_loss, {"cls": loss_cls.item(), "distill": loss_distill.item(), "ratio": loss_ratio.item(), "kl": loss_kl.item()}

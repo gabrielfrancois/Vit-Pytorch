@@ -3,15 +3,13 @@
 import os
 import time
 import torch
-from torch import nn
-from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix
 from typing import List, Tuple
-from torch.utils.data import DataLoader
+import numpy as np
 
 from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
@@ -19,7 +17,6 @@ from src.models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss_cifar import DynamicViTLoss
 from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
-import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
@@ -43,11 +40,12 @@ teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels
 
 if os.path.exists(teacher_checkpoint):
     print(f"Loading Teacher weights from {teacher_checkpoint}")
-    teacher.load_state_dict(torch.load(teacher_checkpoint, map_location=device))
+    checkpoint = torch.load(teacher_checkpoint, map_location=device)
+    teacher.load_state_dict(checkpoint['model_state_dict'])
 else:
     raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
 
-teacher.eval() # Teacher is always in eval mode, already trained (otherwise, it would be the WORS teacher ever!)
+teacher.eval() # Teacher is always in eval mode, already trained (otherwise, it would be the WORSE teacher ever!)
 for param in teacher.parameters():
     param.requires_grad = False # Freeze weights
 
@@ -55,7 +53,10 @@ for param in teacher.parameters():
 # Initialize student
 print(blue("Initializing Student..."))
 student = DynamicVisionTransformer(
-    d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index,rho
+    d_model, n_classes, 
+    img_size, patch_size, 
+    n_channels, n_heads, 
+    n_layers, pruning_index,rho
 ).to(device)
 
 # Load Teacher weights into Student Backbone, the student should start as a copy of the teacher, then learn to prune.
@@ -67,7 +68,7 @@ new_student_dict = {}
 
 for k, v in teacher_dict.items():
     # Map 'transformer_encoder' -> 'transformer_encoders'
-    # Indeed, the keys name changed since we use ModuleList instrad of Sequential, thus, we've to make it match.
+    # Indeed, the keys name changed since we use ModuleList instrad of Sequential, thus, we've to have it match.
     new_key = k.replace('transformer_encoder', 'transformer_encoders')
     if new_key in student_dict:
         new_student_dict[new_key] = v
@@ -76,14 +77,14 @@ for k, v in teacher_dict.items():
         pass
 
 # Update student with available matching weights (Backbone + Classifier)
-# strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
+# strict=False because Student has extra 'predictor' layers that Teacher doesn't have (PredictorLG)
 student.load_state_dict(new_student_dict, strict=False) 
 
 # Optimizer & Loss, note that we only optimize the STUDENT
 optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-# Dynamic loss setup, pho is replaceable
+# Dynamic loss setup, rho is exchangeable
 target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
 criterion = DynamicViTLoss(
     lambda_kl=lambda_kl, 
@@ -105,7 +106,6 @@ def save_training_plots(
 ) -> None:
     """
     Generate and save all training visualizations for the student model.
-
     This includes:
       - Total training loss
       - Training and validation accuracy
@@ -160,7 +160,7 @@ def save_training_plots(
 
     # 3. Ratio Loss Curve (Sparsity)
     plt.figure(figsize=(10, 6))
-    plt.plot(ratio_losses, label='Sparsity Loss', color='tab:orange')
+    plt.plot(distill_losses, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (Ratio Loss)')
     plt.xlabel('Epoch')
     plt.ylabel('Ratio Loss')
@@ -182,7 +182,7 @@ def save_training_plots(
 
      # 5. kl Loss Curve (Sparsity)
     plt.figure(figsize=(10, 6))
-    plt.plot(kl_loss, label='Sparsity Loss', color='tab:orange')
+    plt.plot(kl_losses, label='Sparsity Loss', color='tab:orange')
     plt.title('Sparsity Convergence (kl Loss)')
     plt.xlabel('Epoch')
     plt.ylabel('kl Loss')
@@ -277,7 +277,6 @@ def validate_one_epoch(student, loader, device, desc="Validation"):
 
     return accuracy, cm
 
-# Main Execution
 if __name__ == "__main__":
     start_time = time.time()
 
@@ -285,7 +284,7 @@ if __name__ == "__main__":
     data_path = "./data/raw/cifar10" 
     train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
 
-    print(yellow("Starting Student Training..."))
+    print(blue("Starting Student Training..."))
     
     # Metric History
     history = {
@@ -319,7 +318,7 @@ if __name__ == "__main__":
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         # Logging
-        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(bold(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Student/Loss/total', train_loss, epoch)
         writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
@@ -329,23 +328,36 @@ if __name__ == "__main__":
         writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
         writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
 
-        # Save Checkpoint
+        checkpoint = {
+            'epoch': epoch + 1,
+            'model_state_dict': student.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'best_val_acc': best_val_acc if val_acc <= best_val_acc else val_acc,
+            'hyperparameters': {
+                'd_model': d_model,
+                'n_classes': n_classes,
+                'img_size': img_size,
+                'patch_size': patch_size,
+                'n_channels': n_channels,
+                'n_heads': n_heads,
+                'n_layers': n_layers,
+                'pruning_index': pruning_index, # Student specific!
+                'rho': rho # Student specific!
+            }
+        }
         if (epoch + 1) % 5 == 0:
-            torch.save(student.state_dict(), f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
-            
-        # Save Best Student
+            torch.save(checkpoint, f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(student.state_dict(), f"{checkpoint_dir}/student_best.pth")
-            print(purple(f"--> New Best Student Saved ({val_acc:.2f}%)"))
+            torch.save(checkpoint, f"{checkpoint_dir}/student_best.pth")
+            print(green(f"--> New Best Student Saved ({val_acc:.2f}%)"))
 
-    # Final Test
     print(green("\nTraining Complete. Loading best student for final testing..."))
-    student.load_state_dict(torch.load(f"{checkpoint_dir}/student_best.pth"))
+    checkpoint = torch.load(f"{checkpoint_dir}/student_best.pth", map_location=device)
+    student.load_state_dict(checkpoint['model_state_dict'])
     test_acc, cm = validate_one_epoch(student, test_loader, device, desc="Testing Student")
     print(blue(f"Final Student Test Accuracy: {test_acc:.2f}%"))
 
-    # Save Plots
     save_training_plots(
         history['train_loss'],
         history['train_acc'],
@@ -357,9 +369,6 @@ if __name__ == "__main__":
         cm,
         graph_dir
     )
-
-    # Display the time taken by the student (expected to be much lower)
-    seconds = time.time() - start_time
+    seconds = time.time() - start_time # (expected to be much lower)
     print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
-    
     writer.close()

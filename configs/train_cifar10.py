@@ -14,7 +14,7 @@ alpha = 0.005
 data_dir = "data/raw/cifar10"
 
 pruning_index = [4,7,10]
-rho_final = 0.7
+rho = 0.7
 rho_init = 1
 lambda_class = 1
 lambda_kl = 1/2

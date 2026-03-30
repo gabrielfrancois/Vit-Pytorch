@@ -53,17 +53,20 @@ class PredictorLG(nn.Module):
         x = self.in_conv(x)  # (B, N, C)
         B, N, C = x.size()
         # Split features into local and global parts
-        local_x = x[:, :, :C//2]  # (B, N, C//2) for local info (C' = C//2)
+        local_dim = C // 2
+        global_dim = C - local_dim
+
+        local_x = x[:, :, :local_dim]  # (B, N, local_dim) 
 
         # Global pooling over kept tokens only, using the policy mask
         epsilon = 1e-6 # Could change
         policy_sum = torch.sum(policy, dim=1, keepdim=True) + epsilon # (B,1)
-        masked_x = x[:,:,C//2:]*policy.unsqueeze(-1) # (B, N, C//2) (Hadamar product) 
-        sum_x = masked_x.sum(dim=1, keepdim=True) # (B,1,C//2)
-        global_x = sum_x/policy_sum.unsqueeze(-1)  # (B, 1, C//2) 
+        masked_x = x[:,:,local_dim:]*policy.unsqueeze(-1) # (B, N, local_dim) (Hadamar product) 
+        sum_x = masked_x.sum(dim=1, keepdim=True) # (B,1,local_dim)
+        global_x = sum_x/policy_sum.unsqueeze(-1)  # (B, 1,local_dim) 
 
         # Concatenate local and global features
-        x = torch.cat([local_x, global_x.expand(B, N, C//2)], dim=-1)  # (B, N, C)
+        x = torch.cat([local_x, global_x.expand(B, N, global_dim)], dim=-1)  # (B, N, C)
 
         return self.out_conv(x)  # (B, N, 2) 
         # These two dimensions correspond to the log-probabilities of the two possible actions for each token: dropping or keeping.

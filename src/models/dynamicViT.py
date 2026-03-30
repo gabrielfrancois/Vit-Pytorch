@@ -13,7 +13,7 @@ class DynamicVisionTransformer(nn.Module):
     def __init__(self, d_model: int, n_classes: int, 
         img_size: Tuple[int, int], patch_size: Tuple[int, int], 
         n_channels: int, n_heads: int, 
-        n_layers: int, pruning_index List[int], rho:float=0.7
+        n_layers: int, pruning_index: List[int], rho:float=0.7
     ):
         """
         Initialize a Dynamic Vision Transformer (DynamicViT) model.
@@ -110,9 +110,9 @@ class DynamicVisionTransformer(nn.Module):
                 all_pred_scores.append(pred_score)
                 # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
                 # DynamicViT usually relies on the predictor learning to keep it => current_policy[:, 0] = 1
+                current_policy = current_policy.clone()
                 current_policy[:, 0] = 1.0
                 all_masks.append(current_policy)
-
         # Final Classifier (Only use the CLS token)
         cls_token = x[:, 0]
         logits = self.classifier(cls_token)
