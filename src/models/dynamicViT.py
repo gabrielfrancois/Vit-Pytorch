@@ -7,9 +7,27 @@ from src.models.patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding  
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
+from typing import List, Tuple, Dict, Optional
 
 class DynamicVisionTransformer(nn.Module):
-    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, base_keep_rate=0.7):
+    def __init__(self, d_model: int, n_classes: int, 
+        img_size: Tuple[int, int], patch_size: Tuple[int, int], 
+        n_channels: int, n_heads: int, 
+        n_layers: int, pruning_index List[int], rho:float=0.7
+    ):
+        """
+        Initialize a Dynamic Vision Transformer (DynamicViT) model.
+        Args:
+            d_model: Dimensionality of the model (embedding size).
+            n_classes: Number of output classes.
+            img_size: Tuple (H, W) of input image size.
+            patch_size: Tuple (ph, pw) of patch size.
+            n_channels: Number of input channels (e.g., 3 for RGB).
+            n_heads: Number of attention heads.
+            n_layers: Number of transformer layers.
+            pruning_index: List of layer indices where pruning occurs.
+            rho: Base keep rate for pruning (fraction of tokens kept per pruned layer).
+        """
         super().__init__()
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads. Actually, I think we could relax this assumption, we'll need to adapt the code though..."
@@ -37,14 +55,12 @@ class DynamicVisionTransformer(nn.Module):
         )
 
         # Map layer index to the specific ratio it should enforce
-        layer_to_ratio = {}
+        layer_to_ratio: Dict[int, float] = {}
         current_cumulative_ratio = 1.0
-        
-        # Create a sorted list to iterate in order
         sorted_pruning_locs = sorted(pruning_index)
         
         for loc in sorted_pruning_locs:
-            current_cumulative_ratio *= base_keep_rate # exact rate of the paper
+            current_cumulative_ratio *= rho # exact rate of the paper
             layer_to_ratio[loc] = current_cumulative_ratio
 
         for i in range(n_layers):

@@ -19,7 +19,7 @@ import seaborn as sns
 
 # ours
 from src.models.vision_transformer import VisionTransformer
-from src.models.dynamicViT_imagenet import DynamicVisionTransformer
+from src.models.dynamicViT import DynamicVisionTransformer
 from src.models.finetune import inject_lora, propor_params
 from configs.finetune_STL import *
 from data.load.STL_data import load_STL10

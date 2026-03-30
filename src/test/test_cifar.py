@@ -276,7 +276,7 @@ if __name__ == "__main__":
     else:
         print(red("Teacher checkpoint not found! Running with random weights (Results will be meaningless)."))
         
-    print(yellow("Loading Student Model..."))
+    print(blue("Loading Student Model..."))
     student = DynamicVisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index=pruning_index).to(device)
     if os.path.exists(student_path):
         student.load_state_dict(torch.load(student_path, map_location=device))

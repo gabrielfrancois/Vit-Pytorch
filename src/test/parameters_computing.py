@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 from src.models.vision_transformer import VisionTransformer
-from src.models.dynamicViT_imagenet import DynamicVisionTransformer
+from src.models.dynamicViT import DynamicVisionTransformer
 from data.imagenet_loader import load_imagenet1k
 from configs.train_imagenet1k import *
 from helper_function.print import *
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     teacher.load_state_dict(torch.load(teacher_path, map_location=device))
 
     # -------------------- Student --------------------
-    print(yellow("Loading Student Model..."))
+    print(blue("Loading Student Model..."))
     student = DynamicVisionTransformer(
         d_model, n_classes, img_size, patch_size,
         n_channels, n_heads, n_layers,
