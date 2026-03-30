@@ -11,7 +11,7 @@ class DynamicViTLoss(nn.Module):
         self.lambda_kl = lambda_kl         # Weight for distilling teacher knowledge
         self.lambda_ratio = lambda_ratio   # Weight for enforcing sparsity
         self.lambda_distill = lambda_distill # weight for mimic the teacher model
-        self.target_ratios = target_ratios # Keep 70% of tokens
+        self.target_ratios = target_ratios # Keep 70% of tokens 
 
         # Losses
         self.ce_loss = nn.CrossEntropyLoss()
@@ -46,9 +46,7 @@ class DynamicViTLoss(nn.Module):
             reduction='batchmean'
         )
 
-
         # Uses the FINAL mask (D at last stage)
-
         final_mask = all_masks[-1] 
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1) # Sum over D_model dim 
         masked_diff = token_diff * final_mask
@@ -67,8 +65,8 @@ class DynamicViTLoss(nn.Module):
 
         total_loss = (
             loss_cls + 
-                    (self.lambda_kl * loss_kl) + 
-                     (self.lambda_distill * loss_distill) + 
-                     (self.lambda_ratio * loss_ratio)
+            (self.lambda_kl * loss_kl) + 
+            (self.lambda_distill * loss_distill) + 
+            (self.lambda_ratio * loss_ratio)
         )
         return total_loss, {"cls": loss_cls.item(), "distill": loss_distill.item(), "ratio": loss_ratio.item(),"kl": loss_kl.item()}

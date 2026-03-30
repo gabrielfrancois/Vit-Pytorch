@@ -2,26 +2,23 @@ import os
 import time
 import torch
 from torch import nn
-from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix
 from typing import Tuple, List
 from torch.utils.data import DataLoader
+import numpy as np
 
 from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
-from src.models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss_cifar import DynamicViTLoss
 from data.load.load_data import load_CIFAR
 from configs.train_cifar10 import * 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
-# Initialize Teacher Model
 print("Initializing Teacher ViT...")
 teacher = VisionTransformer(
     d_model=d_model, 
@@ -33,7 +30,6 @@ teacher = VisionTransformer(
     n_layers=n_layers
 ).to(device)
 
-# Optimizer & Loss
 optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 criterion = nn.CrossEntropyLoss()
@@ -57,11 +53,9 @@ def train_one_epoch(
 ) -> Tuple[float, float]:
     """
     Train the model for a single epoch.
-
     This function performs a standard supervised training loop including
     forward pass, loss computation, backward pass, and parameter update.
     It also tracks average loss and classification accuracy over the epoch.
-
     Args:
         model (nn.Module):
             Model to be trained.
@@ -75,23 +69,19 @@ def train_one_epoch(
             Device on which the model and data are located.
         epoch_index (int):
             Index of the current epoch (used for logging).
-
     Returns:
         Tuple[float, float]:
             - avg_loss: Average training loss over the epoch.
             - accuracy: Training accuracy in percentage.
     """
-
     model.train()
     running_loss: float = 0.0
     correct: int = 0
     total: int = 0
-
     loop = tqdm(loader, desc=f"Training Teacher Epoch {epoch_index}")
 
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
-
         optimizer.zero_grad(set_to_none=True)
 
         outputs, _ = model(imgs)
@@ -259,12 +249,12 @@ def save_training_plots(
 # Main Execution Loop
 if __name__ == "__main__":
     start_time = time.time()
-    print(yellow("Loading Data..."))
+    print(blue("Loading Data..."))
     
     data_path = "./data/raw/cifar10" 
-    train_loader, test_loader, val_loader = load_CIFAR(data_path, CIFAR=10) 
+    train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
 
-    print(yellow("Starting Teacher Training..."))
+    print(blue("Starting Teacher Training..."))
     best_val_acc = 0.0
 
     history = {
@@ -292,7 +282,7 @@ if __name__ == "__main__":
         # Update Learning Rate
         scheduler.step()
         
-        print(red(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        print(bold(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
         
         writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('Teacher/Loss/val', val_loss, epoch)
@@ -303,17 +293,33 @@ if __name__ == "__main__":
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             save_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
-            torch.save(teacher.state_dict(), save_path)
-            print(purple(f"--> New Best Teacher Model saved at {save_path}"))
+            checkpoint = {
+                'epoch': epoch + 1,
+                'model_state_dict': teacher.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(), # Great for resuming interrupted training!
+                'best_val_acc': best_val_acc,
+                'hyperparameters': {
+                    'd_model': d_model,
+                    'n_classes': n_classes,
+                    'img_size': img_size,
+                    'patch_size': patch_size,
+                    'n_channels': n_channels,
+                    'n_heads': n_heads,
+                    'n_layers': n_layers
+                }
+            }
+            torch.save(checkpoint, save_path)
+            print(green(f"--> New Best Teacher Model saved at {save_path}"))
 
         # Save Periodic Checkpoint
         if (epoch + 1) % 5 == 0:
             torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
 
-    # Final Test on Test Set
     # After training is complete, check performance on the hold-out test set using the best model
     print(green("\nTraining Complete. Loading best model for final testing..."))
-    teacher.load_state_dict(torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth"))
+    checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)
+    teacher.load_state_dict(checkpoint['model_state_dict'])
+
     test_loss, test_acc, cm = validate_one_epoch(teacher, test_loader, criterion, device, desc='Testing Teacher')
     print(bold(f"Final Test Accuracy: {test_acc:.2f}%"))
 
