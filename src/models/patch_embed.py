@@ -3,7 +3,6 @@ from torch import nn as nn
 """
 For start, let's set up the patch embeeding. This is the first step of our approach, and it consists of preparing the batch size of our dataset. 
 For instance, with cifar-10, we'll split each images into 4  patches of 16x16 pixels + 1 cls (prediction token). 
-
 """
 
 class PatchEmbedding(nn.Module):
@@ -16,7 +15,6 @@ class PatchEmbedding(nn.Module):
         self.n_channels = n_channels # Number of Channels
 
         self.linear_project = nn.Conv2d(in_channels=self.n_channels,out_channels=self.d_model, kernel_size=self.patch_size, stride=self.patch_size)
-
     # B: Batch Size
     # C: Image Channels
     # H: Image Height

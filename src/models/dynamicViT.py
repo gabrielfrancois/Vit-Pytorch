@@ -23,14 +23,13 @@ class DynamicVisionTransformer(nn.Module):
         self.pruning_index = pruning_index # index where patch are prunned
 
         # Calculate number of patches
-        # The number of patches can be found by dividing the product of the height and width of the input image by the product of the height and width of the patch size.
         self.n_patches = (self.img_size[0] * self.img_size[1]) // (self.patch_size[0] * self.patch_size[1]) 
         self.max_seq_length = self.n_patches + 1
 
         self.patch_embedding = PatchEmbedding(self.d_model, self.img_size, self.patch_size, self.n_channels)
         self.positional_encoding = PositionalEmbedding(self.d_model, self.max_seq_length)
         self.transformer_encoders = nn.ModuleList() # To get iterable (sequential isn't yet possible due to the masks).
-        self.dropout = nn.Dropout(0.1) #regularisation
+        self.dropout = nn.Dropout(0.1) # Regularisation
 
         # Classification MLP
         self.classifier = nn.Sequential(
@@ -48,12 +47,10 @@ class DynamicVisionTransformer(nn.Module):
             current_cumulative_ratio *= base_keep_rate # exact rate of the paper
             layer_to_ratio[loc] = current_cumulative_ratio
 
-        # Build layers
         for i in range(n_layers):
             if i in pruning_index:
                 has_pred = True
-                 # Get the calculated ratio for this specific layer
-                ratio_for_this_layer = layer_to_ratio[i]
+                ratio_for_this_layer = layer_to_ratio[i] # Get the calculated ratio for this specific layer
             else:
                 has_pred = False
                 ratio_for_this_layer = 1.0 # No pruning happens here anyway
@@ -93,11 +90,10 @@ class DynamicVisionTransformer(nn.Module):
         # Manual Loop over layers
         for layer in self.transformer_encoders:
             x, current_policy, pred_score, keep_indices = layer(x, current_policy)
-            
             if pred_score is not None:
                 all_pred_scores.append(pred_score)
                 # Force CLS token (index 0) to always be 1. If we don't do this, the predictor might "prune" the CLS token
-                # DynamicViT usually relies on the predictor learning to keep it, thus, we'll force it by: current_policy[:, 0] = 1
+                # DynamicViT usually relies on the predictor learning to keep it => current_policy[:, 0] = 1
                 current_policy[:, 0] = 1.0
                 all_masks.append(current_policy)
 
@@ -105,7 +101,6 @@ class DynamicVisionTransformer(nn.Module):
         cls_token = x[:, 0]
         logits = self.classifier(cls_token)
 
-        # Store the t_i's of the paper
-        student_feats = x
+        student_feats = x # Store the t_i's of the paper
 
         return logits, student_feats, all_masks, all_pred_scores

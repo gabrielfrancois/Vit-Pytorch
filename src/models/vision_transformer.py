@@ -1,7 +1,6 @@
 """
 This Vision transformer will be the 'teacher' model, he'll trained the dynamic ViT to fetch a faster model almost as effiscient as the teacher (as much as possible).
 """
-
 import torch
 from torch import nn as nn 
 
@@ -56,8 +55,7 @@ class VisionTransformer(nn.Module):
         x = self.dropout(x)
         x = self.transformer_encoder(x)
 
-        # Capture the features (t_i' in the paper) before classification
-        teacher_feats = x
+        teacher_feats = x # Capture the features (t_i' in the paper) before classification
 
         # Calculate logits around the CLS token
         logits = self.classifier(x[:,0])

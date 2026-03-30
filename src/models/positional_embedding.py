@@ -2,11 +2,9 @@ import torch
 from torch import nn as nn
 import numpy as np
 
-
 class PositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_seq_length):
         super().__init__()
-
         self.cls_token = nn.Parameter(torch.randn(1, 1, d_model)) # Classification Token added for every image in the batch
 
         # Creating positional encoding to keep hte informations about the position.
@@ -17,17 +15,15 @@ class PositionalEmbedding(nn.Module):
                     pe[pos][i] = np.sin(pos/(10000 ** (i/d_model)))
                 else:
                     pe[pos][i] = np.cos(pos/(10000 ** ((i-1)/d_model)))
-        self.register_buffer('pe', pe.unsqueeze(0))
+        self.register_buffer('pe', pe.unsqueeze(0)) # Won't be trained
 
     def forward(self, x):
         # Expand to have class token for every image in batch
         tokens_batch = self.cls_token.expand(x.size()[0], -1, -1)
 
         # Adding class tokens to the beginning of each embedding
-        x = torch.cat((tokens_batch,x), dim=1)
+        x = torch.cat((tokens_batch,x), dim=1) # (B, N, d) -> (B, N+1, d) (N+1 not trained)
 
         # Add positional encoding to embeddings
         x = x + self.pe
         return x
-
- 
