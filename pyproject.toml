@@ -18,6 +18,7 @@ dependencies = [
     "black",
     "pylint",
     "caffeinate",
+    "dotenv>=0.9.9",
 ]
 
 [dependency-groups]

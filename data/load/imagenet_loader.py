@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from typing import Tuple
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -7,7 +10,7 @@ from datasets import load_dataset
 import numpy as np
 import matplotlib.pyplot as plt
 
-cache_dir = "data/raw/imagenet"
+cache_dir = os.getenv("HF_DATASETS_CACHE", "data/raw/imagenet")
 os.makedirs(cache_dir, exist_ok=True)
 
 def load_imagenet1k(

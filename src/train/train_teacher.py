@@ -220,11 +220,28 @@ if __name__ == "__main__":
     print(bold(f"Using device: {device}"))
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="cifar10", help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
-    parser.add_argument("-v", "--verbose", help="increase training verbosity")
+    parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
+    parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
+    parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
+    parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
+    parser.add_argument('--patch_size',type=int,nargs=2,default=None,help='choose the patch-size dimension (ex: 8 8)')
+    parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
+    subparsers = parser.add_subparsers(dest="dataset", required=False)
     args = parser.parse_args()
+
     available_dataset = ["cifar10", "imagenet"]
     assert args.dataset in available_dataset, "choose a dataset in the available options: ['cifar10', 'imagenet']"
+    if args.n_heads is not None and args.d_model is not None:
+        assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
+
+    param_selected = [
+        'epochs', 'd_model',
+        'dataset','n_layers',
+        'batch_size','patch_size',
+        'alpha','n_heads'
+        ]
 
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR
@@ -254,6 +271,13 @@ if __name__ == "__main__":
 
         print(blue(f"Loading {args.dataset} Data..."))
         train_loader, test_loader, val_loader = load_imagenet1k() 
+    
+    for param in param_selected: # Set up CLI param if specified...
+        value = getattr(args, param)
+        if value is not None:
+            if param == 'patch_size':
+                value = tuple(value)
+            globals()[param] = value
 
     start_time = time.time()
     print("Initializing Teacher ViT...")
@@ -328,7 +352,6 @@ if __name__ == "__main__":
             torch.save(checkpoint, save_path)
             print(green(f"--> New Best Teacher Model saved at {save_path}"))
 
-        # Save Periodic Checkpoint
         if (epoch + 1) % 10 == 0:
             torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
         
@@ -350,7 +373,6 @@ if __name__ == "__main__":
         graph_dir
     )
     
-    # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
     print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     writer.close()
