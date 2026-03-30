@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 import torch
@@ -13,35 +14,9 @@ import numpy as np
 
 from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
-from data.load.load_data import load_CIFAR
-from configs.train_cifar10 import * 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-print(bold(f"Using device: {device}"))
 
-print("Initializing Teacher ViT...")
-teacher = VisionTransformer(
-    d_model=d_model, 
-    n_classes=n_classes, 
-    img_size=img_size, 
-    patch_size=patch_size, 
-    n_channels=n_channels, 
-    n_heads=n_heads, 
-    n_layers=n_layers
-).to(device)
-
-optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-criterion = nn.CrossEntropyLoss()
-
-# Logging and checkpoints
-log_dir = "./logs/cifar10/teacher/"
-os.makedirs(log_dir, exist_ok=True)
-writer = SummaryWriter(log_dir)
-checkpoint_dir = "checkpoints/cifar10/teacher_2th_try"
-os.makedirs(checkpoint_dir, exist_ok=True)
-graph_dir = "./logs/cifar10/teacher/graphs"
-os.makedirs(graph_dir, exist_ok=True)
+# ----------------------------------------- Training Functions -----------------------------------------
 
 def train_one_epoch(
     model: nn.Module,
@@ -112,11 +87,9 @@ def validate_one_epoch(
 ) -> Tuple[float, float, np.ndarray]:
     """
     Evaluate the model for a single epoch on a validation or test set.
-
     The model is run in evaluation mode with gradients disabled.
     The function computes average loss, classification accuracy,
     and the confusion matrix over the entire dataset.
-
     Args:
         model (nn.Module):
             Model to be evaluated.
@@ -128,7 +101,6 @@ def validate_one_epoch(
             Device on which the model and data are located.
         desc (str, optional):
             Description displayed in the progress bar.
-
     Returns:
         Tuple[float, float, np.ndarray]:
             - avg_loss: Average evaluation loss.
@@ -171,7 +143,7 @@ def save_training_plots(
     train_accs: List[float],
     val_accs: List[float],
     lrs: List[float],
-    confusion_mat: np.ndarray,
+    confusion_mat,
     save_dir: str
 ) -> None:
     """
@@ -199,10 +171,10 @@ def save_training_plots(
         save_dir (str):
             Directory where all figures will be saved.
     """
-
+    if isinstance(confusion_mat, torch.Tensor):
+        confusion_mat = confusion_mat.cpu().numpy()
     print(blue(f"Saving training graphs to {save_dir}..."))
 
-    # 1. Loss curve
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label='Train Loss', color='tab:blue')
     plt.plot(val_losses, label='Validation Loss', color='tab:orange')
@@ -214,7 +186,6 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "loss_curve.png"))
     plt.close()
 
-    # 2. Accuracy curve
     plt.figure(figsize=(10, 6))
     plt.plot(train_accs, label='Train Accuracy', color='tab:green')
     plt.plot(val_accs, label='Validation Accuracy', color='tab:red')
@@ -226,7 +197,6 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "accuracy_curve.png"))
     plt.close()
 
-    # 3. Learning rate curve
     plt.figure(figsize=(10, 6))
     plt.plot(lrs, label='Learning Rate', color='purple')
     plt.title('Learning Rate Schedule')
@@ -237,7 +207,6 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "lr_curve.png"))
     plt.close()
 
-    # 4. Confusion matrix
     plt.figure(figsize=(12, 10))
     sns.heatmap(confusion_mat, annot=True, fmt='d', cmap='Blues')
     plt.title('Final Test Confusion Matrix')
@@ -246,13 +215,61 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "confusion_matrix.png"))
     plt.close()
 
-# Main Execution Loop
 if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    print(bold(f"Using device: {device}"))
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default="cifar10", help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument("-v", "--verbose", help="increase training verbosity")
+    args = parser.parse_args()
+    available_dataset = ["cifar10", "imagenet"]
+    assert args.dataset in available_dataset, "choose a dataset in the available options: ['cifar10', 'imagenet']"
+
+    if args.dataset == "cifar10":
+        from data.load.load_data import load_CIFAR
+        from configs.train_cifar10 import * 
+
+        log_dir = "./logs/cifar10/teacher/"
+        os.makedirs(log_dir, exist_ok=True)
+        writer = SummaryWriter(log_dir)
+        checkpoint_dir = "checkpoints/cifar10/teacher_2th_try"
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        graph_dir = "./logs/cifar10/teacher/graphs"
+        os.makedirs(graph_dir, exist_ok=True)
+
+        print(blue(f"Loading {args.dataset} Data..."))
+        train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
+    else:
+        from data.load.imagenet_loader import load_imagenet1k
+        from configs.train_imagenet1k import * 
+
+        log_dir = "logs/imagenet/teacher/Teacher_ViT_imagenet1k"
+        os.makedirs(log_dir, exist_ok=True)
+        writer = SummaryWriter(log_dir)
+        checkpoint_dir = "checkpoints/imagenet"
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        graph_dir = "logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs"
+        os.makedirs(graph_dir, exist_ok=True)
+
+        print(blue(f"Loading {args.dataset} Data..."))
+        train_loader, test_loader, val_loader = load_imagenet1k() 
+
     start_time = time.time()
-    print(blue("Loading Data..."))
-    
-    data_path = "./data/raw/cifar10" 
-    train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
+    print("Initializing Teacher ViT...")
+    teacher = VisionTransformer(
+        d_model=d_model, 
+        n_classes=n_classes, 
+        img_size=img_size, 
+        patch_size=patch_size, 
+        n_channels=n_channels, 
+        n_heads=n_heads, 
+        n_layers=n_layers
+    ).to(device)
+
+    optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    criterion = nn.CrossEntropyLoss()
 
     print(blue("Starting Teacher Training..."))
     best_val_acc = 0.0
@@ -264,7 +281,7 @@ if __name__ == "__main__":
         'val_acc': [],
         'lrs': []
     }
-    
+
     for epoch in range(epochs):
         train_loss, train_acc = train_one_epoch(
             teacher, train_loader, optimizer, criterion, device, epoch
@@ -312,10 +329,9 @@ if __name__ == "__main__":
             print(green(f"--> New Best Teacher Model saved at {save_path}"))
 
         # Save Periodic Checkpoint
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 10 == 0:
             torch.save(teacher.state_dict(), f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
-
-    # After training is complete, check performance on the hold-out test set using the best model
+        
     print(green("\nTraining Complete. Loading best model for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)
     teacher.load_state_dict(checkpoint['model_state_dict'])
@@ -336,6 +352,5 @@ if __name__ == "__main__":
     
     # Display the time taken by the student (expected to be much lower)
     seconds = time.time() - start_time
-    print(cyan('Time Taken:'), cyan(time.strftime("%H:%M:%S",time.gmtime(seconds))))
-
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     writer.close()

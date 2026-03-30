@@ -13,6 +13,7 @@ alpha = 0.005
 # dataset
 data_dir = "data/raw/cifar10"
 
+# dynamic_Vit parameters
 pruning_index = [4,7,10]
 rho = 0.7
 rho_init = 1

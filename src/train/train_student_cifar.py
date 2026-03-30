@@ -308,7 +308,6 @@ if __name__ == "__main__":
         val_acc, _ = validate_one_epoch(student, val_loader, device)
         scheduler.step()
         
-        # Store History
         history['train_loss'].append(train_loss)
         history['ratio_loss'].append(ratio_loss)
         history['distill_loss'].append(distill_loss)
@@ -341,8 +340,8 @@ if __name__ == "__main__":
                 'n_channels': n_channels,
                 'n_heads': n_heads,
                 'n_layers': n_layers,
-                'pruning_index': pruning_index, # Student specific!
-                'rho': rho # Student specific!
+                'pruning_index': pruning_index, 
+                'rho': rho 
             }
         }
         if (epoch + 1) % 5 == 0:
@@ -369,6 +368,6 @@ if __name__ == "__main__":
         cm,
         graph_dir
     )
-    seconds = time.time() - start_time # (expected to be much lower)
+    seconds = time.time() - start_time 
     print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
     writer.close()

@@ -10,13 +10,9 @@ batch_size = 256
 epochs = 100
 alpha = 0.005
 
-
-
-
 # dynamic_Vit parameters
-
 pruning_index = [4,7,10]
-final_rho = 0.7
+# final_rho = 0.7
 rho_init = 1
 steepness = 10.0
 lambda_class = 0.001
@@ -26,7 +22,6 @@ lambda_distill = 0.0001
 
 
 # Normalisation parameters
-
 mean_norm_imagenet = [0.485, 0.456, 0.406]
 std_norm_imagenet = [0.229, 0.224, 0.225]
 
