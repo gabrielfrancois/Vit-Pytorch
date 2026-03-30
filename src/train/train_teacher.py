@@ -228,7 +228,6 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size',type=int,nargs=2,default=None,help='choose the patch-size dimension (ex: 8 8)')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
-    subparsers = parser.add_subparsers(dest="dataset", required=False)
     args = parser.parse_args()
 
     available_dataset = ["cifar10", "imagenet"]
