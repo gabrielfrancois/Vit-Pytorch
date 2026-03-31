@@ -416,13 +416,13 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size',type=int,nargs=2,default=None,help='choose the patch-size dimension (ex: 8 8)')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
+    parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Explicit path to the teacher checkpoint')
     args = parser.parse_args()
 
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
-
     if args.dataset == "cifar10":
-        from data.load.load_data import load_CIFAR
+        from data.load.load_data import load_CIFAR 
         from configs.train_cifar10 import * 
 
         base_dir = "cifar10"
@@ -440,6 +440,12 @@ if __name__ == "__main__":
     
     checkpoint_dir = f"checkpoints/{base_dir}/student_2th_try" if base_dir == "cifar10" else f"checkpoints/{base_dir}"
     teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
+    if args.teacher_checkpoint and os.path.exists(args.teacher_checkpoint):
+        teacher_checkpoint = args.teacher_checkpoint
+        print(green(f"Overriding default teacher path with: {teacher_checkpoint}"))
+    elif args.teacher_checkpoint:
+        raise FileNotFoundError(red(f"Provided teacher checkpoint does not exist: {args.teacher_checkpoint}"))
+
     log_dir = f"./logs/{base_dir}/student/"
     graph_dir = f"./logs/{base_dir}/student/graphs"
 
