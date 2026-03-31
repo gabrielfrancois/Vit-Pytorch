@@ -252,6 +252,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         best_val_acc = checkpoint.get('best_val_acc', 0.0)
         history = checkpoint.get('history', history)
         print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
+    teacher = torch.compile(teacher)# Add Just In Time compiler
 
     print(blue("Starting teacher training..."))
     for epoch in range(start_epoch, epochs):

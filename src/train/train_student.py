@@ -255,6 +255,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         print(f"Loading Teacher weights from {teacher_checkpoint}")
         checkpoint = torch.load(teacher_checkpoint, map_location=device)
         teacher.load_state_dict(checkpoint['model_state_dict'])
+        teacher = torch.compile(teacher) # Add JIT compiler
         print(green(f"Teacher {teacher_checkpoint} successfully loaded."))
     else:
         raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
@@ -305,6 +306,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         start_epoch = checkpoint['epoch']
         best_val_acc = checkpoint.get('best_val_acc', 0.0)
         print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
+    student = torch.compile(student) # Add JIT
 
     for epoch in range(start_epoch, epochs):
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
