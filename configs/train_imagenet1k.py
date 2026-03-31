@@ -12,7 +12,7 @@ alpha = 0.005
 
 # dynamic_Vit parameters
 pruning_index = [4,7,10]
-# final_rho = 0.7
+rho = 0.7
 rho_init = 1
 steepness = 10.0
 lambda_class = 0.001

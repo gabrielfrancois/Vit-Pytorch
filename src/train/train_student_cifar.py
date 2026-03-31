@@ -1,5 +1,5 @@
 # This Python file gathers all the functions / classes needed to handle training, validation or inference from the ViT model
-# python -m training.train
+# python -m training.train 
 import os
 import time
 import torch
@@ -203,7 +203,7 @@ def save_training_plots(
 # Core Functions
 def train_one_epoch(student, teacher, loader, optimizer, criterion, device, epoch_index):
     student.train() 
-    # Teacher is already eval/frozen
+
     running_loss = 0.0
     running_ratio_loss = 0.0
     running_distill_loss = 0.0
@@ -281,7 +281,6 @@ if __name__ == "__main__":
     start_time = time.time()
 
     print(blue("Loading Data..."))
-    data_path = "./data/raw/cifar10" 
     train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
 
     print(blue("Starting Student Training..."))

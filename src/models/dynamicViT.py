@@ -87,7 +87,7 @@ class DynamicVisionTransformer(nn.Module):
         output :
         ------------------
             - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
-            - student_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
+            - student_feats: tensor: (B, N, d_model) (recall that d_model is actually N + 1, since we add the cls token)
             - all_masks: list of mask = [(B,N), ..., (B,N)]
             - all_pred_scores: list of proba of keeping each mask = [(B,N), ... , (B,N)]
         """

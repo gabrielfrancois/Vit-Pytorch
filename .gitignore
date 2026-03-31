@@ -20,7 +20,6 @@
 
 data/raw
 
-
 # =========================
 # Huge file
 # =========================
@@ -30,7 +29,8 @@ data/raw
 *.h5
 *.hdf5
 *.pt
-*.pth
+checkpoints/imagenet/*
+checkpoints/cifar10/*
 *.ckpt
 
 # =========================
