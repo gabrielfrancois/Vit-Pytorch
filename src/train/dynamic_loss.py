@@ -37,7 +37,6 @@ class DynamicViTLoss(nn.Module):
 
         # Loss functions
         self.ce_loss = nn.CrossEntropyLoss()
-        self.mse_loss = nn.MSELoss()
 
     def forward(
         self,
@@ -68,13 +67,13 @@ class DynamicViTLoss(nn.Module):
                 - "kl": KL divergence with teacher logits
         """
         device = student_feats.device
+        assert len(all_masks) == len(self.target_ratios), "Mismatch between number of masks and target ratios!"
+
         all_masks = [mask.to(device) for mask in all_masks]
         final_mask = all_masks[-1]
 
-        # Classification loss
         loss_cls = self.ce_loss(student_logits, labels)
 
-        # KL divergence with teacher
         loss_kl = F.kl_div(
             F.log_softmax(student_logits, dim=1),
             F.log_softmax(teacher_logits.detach(), dim=1),
@@ -82,18 +81,16 @@ class DynamicViTLoss(nn.Module):
             log_target=True
         )
 
-        # Feature distillation loss
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1)  # sum over d_model
         masked_diff = token_diff * final_mask
         loss_distill = masked_diff.sum() / (final_mask.sum() + 1e-6)
 
-        # Ratio loss for each pruning step
-        all_masks_tensor = torch.stack(all_masks, dim=0)  # (T, B, N)
-        actual_ratios = all_masks_tensor.float().mean(dim=-1)  # (T, B)
-        targets = torch.tensor(self.target_ratios, device=actual_ratios.device).unsqueeze(1)  # (T,1)
-        loss_ratio = ((targets - actual_ratios)**2).mean(dim=1).sum()
+        # Ratio loss for each pruning step, S = time step of the paper
+        all_masks_tensor = torch.stack(all_masks, dim=0)  # (S, B, N) 
+        actual_ratios = all_masks_tensor.float().mean(dim=-1)  # (S, B), mean over all patches
+        targets = torch.tensor(self.target_ratios, device=actual_ratios.device).unsqueeze(1)  # broadcasting (S, 1)
+        loss_ratio = ((targets - actual_ratios)**2).mean()
 
-        # Total loss
         total_loss = (
             self.lambda_class * loss_cls +
             self.lambda_kl * loss_kl +

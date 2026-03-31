@@ -16,7 +16,7 @@ from typing import List, Tuple, Dict, Any
 from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
-from .dynamic_loss_imagenet import DynamicViTLoss
+from .dynamic_loss import DynamicViTLoss
 
 # ----------------------------------------- Test Functions -----------------------------------------
 
