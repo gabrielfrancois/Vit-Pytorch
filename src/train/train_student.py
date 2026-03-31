@@ -179,6 +179,11 @@ def train_one_epoch(
             )
         # Multiplies the loss by a huge number before backprop and then divides them back down before update
         scaler.scale(loss).backward() #x1024
+        
+        # Prevents the "NaN explosion" by capping massive gradients
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=1.0)
+
         scaler.step(optimizer)
         scaler.update()
 
