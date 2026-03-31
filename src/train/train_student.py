@@ -120,7 +120,6 @@ def save_training_plots(
     plt.savefig(os.path.join(save_dir, "student_confusion_matrix.png"))
     plt.close()
 
-
 def train_one_epoch(
     student: nn.Module,
     teacher: nn.Module,
@@ -245,6 +244,137 @@ def validate_one_epoch(
 
     return accuracy, cm
 
+# ----------------------------------------- run Functions -----------------------------------------
+def run_training(args, device, train_loader, val_loader, test_loader, checkpoint_dir, graph_dir, writer, teacher_checkpoint):
+    start_time = time.time()
+
+    print(blue("Initializing teacher..."))
+    teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
+
+    if os.path.exists(teacher_checkpoint):
+        print(f"Loading Teacher weights from {teacher_checkpoint}")
+        checkpoint = torch.load(teacher_checkpoint, map_location=device)
+        teacher.load_state_dict(checkpoint['model_state_dict'])
+        print(green(f"Teacher {teacher_checkpoint} successfully loaded."))
+    else:
+        raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
+
+    teacher.eval() 
+    for param in teacher.parameters():
+        param.requires_grad = False # Freeze weights
+    
+    print(blue("Initializing student..."))
+    student = DynamicVisionTransformer(
+        d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho
+    ).to(device)
+
+    print("Copying backbone weights from teacher to student...")
+    teacher_dict = teacher.state_dict()
+    student_dict = student.state_dict()
+    new_student_dict = {}
+
+    for k, v in teacher_dict.items():
+        new_key = k.replace('transformer_encoder', 'transformer_encoders')
+        if new_key in student_dict:
+            new_student_dict[new_key] = v
+
+    student.load_state_dict(new_student_dict, strict=False) 
+
+    target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
+    criterion = DynamicViTLoss(
+        lambda_kl=lambda_kl, lambda_distill=lambda_distill, 
+        lambda_ratio=lambda_ratio, target_ratios=target_ratios
+    )
+
+    optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    scaler = torch.amp.GradScaler() 
+
+    history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
+    best_val_acc = 0.0
+    start_epoch = 0
+
+    if args.resume_from is not None and os.path.exists(args.resume_from):
+        checkpoint = torch.load(args.resume_from, map_location=device)
+        student.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state'])
+        scaler.load_state_dict(checkpoint['scaler_state'])
+
+        history = checkpoint.get('history', history)
+        start_epoch = checkpoint['epoch']
+        best_val_acc = checkpoint.get('best_val_acc', 0.0)
+        print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
+
+    for epoch in range(start_epoch, epochs):
+        train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
+            student, teacher, train_loader, 
+            optimizer, criterion, 
+            device, epoch, 
+            scaler
+        )
+        val_acc, _ = validate_one_epoch(student, val_loader, device)
+        scheduler.step() 
+        
+        history['train_loss'].append(train_loss)
+        history['ratio_loss'].append(ratio_loss)
+        history['distill_loss'].append(distill_loss)
+        history['kl_loss'].append(kl_loss)
+        history['train_acc'].append(train_acc)
+        history['rho'].append(rho)
+        history['val_acc'].append(val_acc)
+        history['lrs'].append(optimizer.param_groups[0]['lr'])
+
+        print(bold(f"Epoch {epoch+1}/{epochs} | rho {rho:.3f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill: {distill_loss:.4f} | KL: {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
+        
+        writer.add_scalar('Student/Loss/total', train_loss, epoch)
+        writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
+        writer.add_scalar('Student/Loss/distill', distill_loss, epoch)
+        writer.add_scalar('Student/Loss/kl', kl_loss, epoch)
+        writer.add_scalar('Student/Accuracy/rho', rho, epoch)
+        writer.add_scalar('Student/Accuracy/train', train_acc, epoch)
+        writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
+        writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
+
+        checkpoint_dict = {
+            'epoch': epoch + 1,
+            'model_state_dict': student.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state': scheduler.state_dict(),
+            'scaler_state': scaler.state_dict(),
+            'history': history,
+            'best_val_acc': best_val_acc if val_acc <= best_val_acc else val_acc,
+            'hyperparameters': {
+                'd_model': d_model, 'n_classes': n_classes, 'img_size': img_size,
+                'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads, 
+                'n_layers': n_layers, 'pruning_index': pruning_index, 'rho': rho 
+            }
+        }
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(checkpoint_dict, f"{checkpoint_dir}/student_best.pth")
+            print(green(f"--> New Best Student Saved ({val_acc:.2f}%)"))
+        elif (epoch + 1) % 10 == 0:
+            torch.save(checkpoint_dict, f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
+
+    print(green("\nTraining complete. Loading best student for final testing..."))
+    checkpoint = torch.load(f"{checkpoint_dir}/student_best.pth", map_location=device)
+    student.load_state_dict(checkpoint['model_state_dict'])
+    
+    test_acc, cm = validate_one_epoch(student, test_loader, device, desc="Testing Student")
+    print(blue(f"Final Student Test Accuracy: {test_acc:.2f}%"))
+
+    save_training_plots(
+        history['train_loss'], history['train_acc'], history['val_acc'],
+        history['ratio_loss'], history["distill_loss"], history['kl_loss'],
+        history['lrs'], history['rho'], cm, graph_dir
+    )
+    
+    seconds = time.time() - start_time
+    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
+    writer.close()
+
 def rho_schedule(
     epoch: int,
     max_epoch: int,
@@ -286,10 +416,35 @@ if __name__ == "__main__":
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
     args = parser.parse_args()
 
-    available_dataset = ["cifar10", "imagenet"]
-    assert args.dataset in available_dataset, "choose a dataset in the available options: ['cifar10', 'imagenet']"
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
+
+    if args.dataset == "cifar10":
+        from data.load.load_data import load_CIFAR
+        from configs.train_cifar10 import * 
+
+        base_dir = "cifar10"
+
+        print(blue(f"Loading {args.dataset} data..."))
+        train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
+    else:
+        from data.load.imagenet_loader import load_imagenet1k
+        from configs.train_imagenet1k import * 
+
+        base_dir = "imagenet"
+
+        print(blue(f"Loading {args.dataset} data..."))
+        train_loader, test_loader, val_loader = load_imagenet1k()
+    
+    checkpoint_dir = f"checkpoints/{base_dir}/student_2th_try" if base_dir == "cifar10" else f"checkpoints/{base_dir}"
+    teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
+    log_dir = f"./logs/{base_dir}/student/"
+    graph_dir = f"./logs/{base_dir}/student/graphs"
+
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(graph_dir, exist_ok=True)
+    writer = SummaryWriter(log_dir)
 
     param_selected = [
         'epochs', 'd_model',
@@ -297,43 +452,6 @@ if __name__ == "__main__":
         'batch_size','patch_size',
         'alpha','n_heads'
         ]
-    if args.dataset == "cifar10":
-        from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * 
-
-        checkpoint_dir = "checkpoints/cifar10/student_2th_try"
-        checkpoint_path = f"{checkpoint_dir}/student_checkpoint_last.pth"
-        teacher_checkpoint = "checkpoints/cifar10/teacher_2th_try/teacher_checkpoint_best.pth"
-        os.makedirs(checkpoint_dir, exist_ok=True)
-
-        log_dir = "./logs/cifar10/student/"
-        os.makedirs(log_dir, exist_ok=True)
-        writer = SummaryWriter(log_dir)
-
-        graph_dir = "./logs/cifar10/student/graphs"
-        os.makedirs(graph_dir, exist_ok=True)
-
-        print(blue(f"Loading {args.dataset} Data..."))
-        train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
-    else:
-        from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
-
-        checkpoint_dir = "checkpoints/imagenet"
-        checkpoint_path = f"{checkpoint_dir}/student_checkpoint_last.pth"
-        teacher_checkpoint = "checkpoints/imagenet/teacher_checkpoint_best.pth"
-        os.makedirs(checkpoint_dir, exist_ok=True)
-
-        log_dir = "./logs/imagenet/student/Student_ViT_imagenet1k"
-        os.makedirs(log_dir, exist_ok=True)
-        writer = SummaryWriter(log_dir)
-
-        graph_dir = "./logs/imagenet/student/Student_ViT_imagenet1k-graphs"
-        os.makedirs(graph_dir, exist_ok=True)
-
-        print(blue(f"Loading {args.dataset} Data..."))
-        train_loader, test_loader, val_loader = load_imagenet1k() 
-
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)
         if value is not None:
@@ -341,179 +459,9 @@ if __name__ == "__main__":
                 value = tuple(value)
             globals()[param] = value
 
-    start_time = time.time()
-    print(blue("Initializing Teacher..."))
-    teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-
-    if os.path.exists(teacher_checkpoint):
-        print(f"Loading Teacher weights from {teacher_checkpoint}")
-        checkpoint = torch.load(teacher_checkpoint, map_location=device)
-        teacher.load_state_dict(checkpoint['model_state_dict'])
-        print(green(f"teacher {teacher_checkpoint} successfully loaded."))
-    else:
-        raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Please run run_teacher.py first!"))
-
-    teacher.eval() 
-
-    for param in teacher.parameters():
-        param.requires_grad = False # Freeze weights
-    
-    print(blue("Initializing Student..."))
-    student = DynamicVisionTransformer(
-        d_model, n_classes, 
-        img_size, patch_size, 
-        n_channels, n_heads, 
-        n_layers, pruning_index,rho
-    ).to(device)
-
-    print("Copying backbone weights from Teacher to Student...")
-    teacher_dict = teacher.state_dict()
-    student_dict = student.state_dict()
-
-    new_student_dict = {}
-
-    for k, v in teacher_dict.items():
-        # Map 'transformer_encoder' -> 'transformer_encoders'
-        # Indeed, the keys name changed since we use ModuleList instrad of Sequential, thus, we've to have it match.
-        new_key = k.replace('transformer_encoder', 'transformer_encoders')
-        if new_key in student_dict:
-            new_student_dict[new_key] = v
-        else: # This might happen for predictors or mismatched layers
-            pass 
-
-    # Update student with available matching weights (Backbone + Classifier)
-    # strict=False because Student has extra 'predictor' layers that Teacher doesn't have (in PredictorLG)
-    student.load_state_dict(new_student_dict, strict=False) 
-
-    # Set up loss
-    target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
-    criterion = DynamicViTLoss(
-        lambda_kl=lambda_kl, 
-        lambda_distill=lambda_distill, 
-        lambda_ratio=lambda_ratio, 
-        target_ratios=target_ratios
+    run_training(
+        args=args, device=device, 
+        train_loader=train_loader, val_loader=val_loader, test_loader=test_loader, 
+        checkpoint_dir=checkpoint_dir, graph_dir=graph_dir, writer=writer,
+        teacher_checkpoint=teacher_checkpoint
     )
-
-    # Optimizer & Loss, note that we only optimize the STUDENT
-    optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-
-    best_val_acc = 0.0
-
-    history = {
-        'train_loss': [],
-        'ratio_loss': [],
-        "distill_loss": [],
-        "kl_loss": [],
-        'train_acc': [],
-        'val_acc': [],
-        'lrs': [],
-        'rho': []
-    }
-    checkpoint = {}
-    scaler = torch.amp.GradScaler()  # Initialize the scaler for mixed precision
-    if args.resume_from is not None and os.path.exists(args.resume_from):
-        checkpoint = torch.load(args.resume_from, map_location=device)
-
-        student.load_state_dict(checkpoint['student_state'])
-        optimizer.load_state_dict(checkpoint['optimizer_state'])
-        scheduler.load_state_dict(checkpoint['scheduler_state'])
-        scaler.load_state_dict(checkpoint['scaler_state'])
-
-        history = checkpoint.get('history', history)
-        start_epoch = checkpoint['epoch']
-        best_val_acc = checkpoint.get('best_val_acc', 0.0)
-        print(green(f"resume model already trained on {start_epoch} epochs and with best val accuracy: {best_val_acc}"))
-
-    for epoch in range(epochs):
-        train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
-            student, teacher, 
-            train_loader, optimizer, 
-            criterion, device, 
-            epoch, scaler
-        )
-
-        val_acc, _ = validate_one_epoch(student, val_loader, device)
-        
-        scheduler.step() # update learning rate
-        
-        history['train_loss'].append(train_loss)
-        history['ratio_loss'].append(ratio_loss)
-        history['distill_loss'].append(distill_loss)
-        history['kl_loss'].append(kl_loss)
-        history['train_acc'].append(train_acc)
-        history['rho'].append(rho)
-        history['val_acc'].append(val_acc)
-        history['lrs'].append(optimizer.param_groups[0]['lr'])
-
-        # Logging
-        print(blue(f"Epoch {epoch+1}/{epochs} | rho  {rho:.3f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill loss: {distill_loss:.4f} | kl loss : {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
-        
-        writer.add_scalar('Student/Loss/total', train_loss, epoch)
-        writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
-        writer.add_scalar('Student/Loss/distill', distill_loss, epoch)
-        writer.add_scalar('Student/Loss/kl', kl_loss, epoch)
-        writer.add_scalar('Student/Accuracy/rho', rho, epoch)
-        writer.add_scalar('Student/Accuracy/train', train_acc, epoch)
-        writer.add_scalar('Student/Accuracy/val', val_acc, epoch)
-        writer.add_scalar('Student/LearningRate', optimizer.param_groups[0]['lr'], epoch)
-
-        # Create the checkpoint dictionary every epoch
-        checkpoint = {
-            'epoch': epoch + 1,
-            'model_state_dict': student.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state': scheduler.state_dict(),
-            'scaler_state': scaler.state_dict(),
-            'history': history,
-            'best_val_acc': best_val_acc if val_acc <= best_val_acc else val_acc,
-            'hyperparameters': {
-                'd_model': d_model,
-                'n_classes': n_classes,
-                'img_size': img_size,
-                'patch_size': patch_size,
-                'n_channels': n_channels,
-                'n_heads': n_heads,
-                'n_layers': n_layers,
-                'pruning_index': pruning_index, 
-                'rho': rho 
-            }
-        }
-
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            torch.save(checkpoint, f"{checkpoint_dir}/student_best.pth")
-            print(green(f"--> New Best Student Saved ({val_acc:.2f}%)"))
-        elif (epoch + 1) % 10 == 0:
-            torch.save(checkpoint, f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
-
-    print(green("\nTraining Complete. Loading best student for final testing..."))
-    student.load_state_dict(torch.load(f"{checkpoint_dir}/student_best.pth"))
-    test_acc, cm = validate_one_epoch(student, test_loader, device, desc="Testing Student")
-    print(blue(f"Final Student Test Accuracy: {test_acc:.2f}%"))
-
-    save_training_plots(
-        history['train_loss'],
-        history['train_acc'],
-        history['val_acc'],
-        history['ratio_loss'],
-        history["distill_loss"], 
-        history['kl_loss'],
-        history['lrs'],
-        history['rho'],
-        cm,
-        graph_dir
-    )
-    seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S",time.gmtime(seconds))))
-    writer.close()
-
-
-    
-
-
-
-
-
-
-

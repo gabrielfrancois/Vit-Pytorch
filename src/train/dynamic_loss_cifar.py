@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from helper_function.print import *
 from configs.train_cifar10 import *
+
 class DynamicViTLoss(nn.Module):
     def __init__(self,target_ratios, lambda_kl=0.5, lambda_ratio=2.0, lambda_distill=0.5):
         super().__init__()
