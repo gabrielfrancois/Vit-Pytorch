@@ -20,7 +20,7 @@ rho_init = 1
 lambda_class = 1
 lambda_kl = 1/2
 lambda_ratio = 2
-lambda_distill = 1/2
+lambda_distill = (1/2)
 
 # finetuneing option
 finetuning = 'LORA' # Enter: False, 'LORA'

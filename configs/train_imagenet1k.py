@@ -17,7 +17,7 @@ rho_init = 1
 steepness = 10.0
 lambda_class = 1
 lambda_kl = 1
-lambda_ratio = 1/2
+lambda_ratio = (1/2)
 lambda_distill = 2
 
 # Normalisation parameters

@@ -81,9 +81,10 @@ class DynamicViTLoss(nn.Module):
             log_target=True
         )
 
+        d_model = student_feats.size(-1)
         token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1)  # sum over d_model
         masked_diff = token_diff * final_mask
-        loss_distill = masked_diff.sum() / (final_mask.sum() + 1e-6)
+        loss_distill = (masked_diff.sum() / (final_mask.sum() + 1e-6))/d_model # To avoid blowing up of distill
 
         # Ratio loss for each pruning step, S = time step of the paper
         all_masks_tensor = torch.stack(all_masks, dim=0)  # (S, B, N) 
