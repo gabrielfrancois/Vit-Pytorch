@@ -284,7 +284,8 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
     criterion = DynamicViTLoss(
         lambda_kl=lambda_kl, lambda_distill=lambda_distill, 
-        lambda_ratio=lambda_ratio, target_ratios=target_ratios
+        lambda_ratio=lambda_ratio, target_ratios=target_ratios, 
+        lambda_class=lambda_class
     )
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
@@ -309,6 +310,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     student = torch.compile(student) # Add JIT
 
     for epoch in range(start_epoch, epochs):
+        first_time_epoch = time.time()
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
             student, teacher, train_loader, 
             optimizer, criterion, 
@@ -359,6 +361,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             print(green(f"--> New Best Student Saved ({val_acc:.2f}%)"))
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
+            
+        epoch_time = time.time()-first_time_epoch
+        print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
 
     print(green("\nTraining complete. Loading best student for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/student_best.pth", map_location=device)

@@ -256,6 +256,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
     print(blue("Starting teacher training..."))
     for epoch in range(start_epoch, epochs):
+        first_time_epoch = time.time()
         train_loss, train_acc = train_one_epoch(teacher, train_loader, optimizer, criterion, device, epoch, scaler)
         val_loss, val_acc, _ = validate_one_epoch(teacher, val_loader, criterion, device, desc='Validating Teacher')
 
@@ -296,6 +297,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             print(green(f"--> New Best Teacher Model saved at {save_path}"))
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
+        epoch_time = time.time()-first_time_epoch
+        print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
+        
         
     print(green("\nTraining complete. Loading best model for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)
@@ -309,12 +313,13 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         history['val_acc'], history['lrs'], cm, graph_dir
     )
     seconds = time.time() - start_time
-    print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
+    print(blue('Time taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
     writer.close()
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))
+    torch.backends.cudnn.benchmark = True
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
