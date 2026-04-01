@@ -179,7 +179,7 @@ def train_one_epoch(
             )
         # Multiplies the loss by a huge number before backprop and then divides them back down before update
         scaler.scale(loss).backward() #x1024
-        
+
         # Prevents the "NaN explosion" by capping massive gradients
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(student.parameters(), max_norm=1.0)
@@ -259,7 +259,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     if os.path.exists(teacher_checkpoint):
         print(f"Loading Teacher weights from {teacher_checkpoint}")
         checkpoint = torch.load(teacher_checkpoint, map_location=device)
-        teacher.load_state_dict(checkpoint['model_state_dict'])
+        teacher.load_state_dict(checkpoint['model_state_dict'], strict=False)
         teacher = torch.compile(teacher) # Add JIT compiler
         print(green(f"Teacher {teacher_checkpoint} successfully loaded."))
     else:
@@ -303,7 +303,12 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
-        student.load_state_dict(checkpoint['model_state_dict'])
+        state_dict = checkpoint['model_state_dict']
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_key = k.replace("_orig_mod.", "") 
+            new_state_dict[new_key] = v
+        student.load_state_dict(new_state_dict, strict=False)
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state'])
         scaler.load_state_dict(checkpoint['scaler_state'])

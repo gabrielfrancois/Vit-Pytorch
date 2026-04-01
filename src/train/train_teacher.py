@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
         base_dir = "imagenet"
 
-        print(blue(f"Loading {args.dataset} Data..."))
+        print(blue(f"Loading {args.dataset} Data...")) 
         train_loader, test_loader, val_loader = load_imagenet1k()
     
     log_dir = f"./logs/{base_dir}/teacher/"
