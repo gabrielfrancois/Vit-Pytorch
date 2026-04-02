@@ -24,7 +24,18 @@ def evaluate_model(
     model_name: str = "Model"
 ) -> Tuple[float, float, float, List[int], List[int]]:
     """
-    Evaluate a model
+    Run a full evaluation pass over the test set and return key metrics.
+    Args:
+        model       (nn.Module):
+        loader      (DataLoader):
+        device      (torch.device):
+        model_name  (str):
+    Returns:
+        accuracy    (float):                Top-1 accuracy in percent [0, 100].
+        avg_loss    (float):                Mean CrossEntropy loss over the full dataset.
+        throughput  (float):                Inference speed in images per second.
+        all_preds   (List[int]):            Predicted class indices, one per sample.
+        all_labels  (List[int]):            Ground-truth class indices, one per sample.
     """
     model.eval()
     criterion = nn.CrossEntropyLoss()
@@ -71,6 +82,18 @@ def plot_confusion_matrices(
     teacher_cm: np.ndarray, student_cm: np.ndarray,
     class_names: Optional[List[str]], save_dir: str, top_k: int = 10
 ) -> None:
+    """
+        Save a side-by-side confusion matrix plot for Teacher and Student.
+        If the number of classes exceeds top_k (e.g. ImageNet), only the top_k
+        most frequent classes are shown.
+        Args:
+            teacher_cm  (np.ndarray):           Confusion matrix for the Teacher, shape [C, C].
+            student_cm  (np.ndarray):           Confusion matrix for the Student, shape [C, C].
+            class_names (Optional[List[str]]):  Human-readable label for each class, length C.
+                                                If None, labels default to "Class 0", "Class 1", ...
+            save_dir    (str):                  Directory where the PNG file is written.
+            top_k       (int):                  Max number of classes to display. Default: 10.
+    """
     if class_names is None:
         class_names = [f"Class {i}" for i in range(teacher_cm.shape[0])]
     
@@ -95,6 +118,15 @@ def plot_confusion_matrices(
     plt.close()
 
 def plot_performance_comparison(t_acc: float, s_acc: float, t_speed: float, s_speed: float, save_dir: str) -> None:
+    """
+        Save a two-panel bar chart comparing Teacher vs Student accuracy and throughput.
+        Args:
+            t_acc   (float):    Teacher top-1 accuracy in percent.
+            s_acc   (float):    Student top-1 accuracy in percent.
+            t_speed (float):    Teacher inference throughput in images/second.
+            s_speed (float):    Student inference throughput in images/second.
+            save_dir (str):     Directory where the PNG file is written.
+    """
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     models = ['Teacher', 'Student']
     colors = ['#1f77b4', '#ff7f0e']
@@ -125,9 +157,25 @@ def visualize_pruning_on_images(
     pruned_color: Tuple[float, float, float] = (0.5, 0.5, 0.5)
 ) -> None:
     """
-    Visualize pruning masks. Uses a trick to run in .train() mode to bypass 
-    physical patch dropping, ensuring masks remain full-sized for easy plotting.
-    """
+        For each image, save a figure showing the original alongside the pruning mask
+        applied at each pruning layer. Pruned patches are filled with a solid color.
+        
+        The model is temporarily set to train() mode so patches are not physically
+        dropped, keeping all mask tensors full-sized for easy spatial plotting.
+        Dropout layers are frozen manually to avoid corrupting activations.
+        Args:
+            student_model   (nn.Module):                    The DynamicVisionTransformer to visualize.
+            loader          (DataLoader):                   DataLoader yielding (imgs, labels) batches.
+            device          (torch.device):                 Device to run inference on.
+            save_dir        (str):                          Directory where PNG files are written.
+            num_images      (int):                          Number of images to visualize. Default: 8.
+            pruned_color    (Tuple[float, float, float]):   RGB fill color for pruned patches,
+                                                            values in [0, 1]. Default: (0.5, 0.5, 0.5).
+        Notes:
+            Expects student_model(imgs) to return a 4-tuple where index 2 is a list of
+            binary mask tensors, one per pruning layer, each of shape [B, N+1] (CLS token
+            included at position 0).
+        """
     print("\nGenerating Pruning Visualizations...")
     os.makedirs(save_dir, exist_ok=True)
     
@@ -199,9 +247,6 @@ def visualize_pruning_on_images(
 # ----------------------------------------- Main Execution -----------------------------------------
 
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    print(bold(f"Using device: {device}"))
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset')
     parser.add_argument('--test_teacher', action='store_true', default=True, help='Flag to test the teacher model')
@@ -213,7 +258,16 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--n_heads', type=int, default=None)
+    parser.add_argument('--device', type=str, default=None, choices = ["cpu", "cuda", "mps"], help='Choose your device')
+    parser.add_argument('--num_images', type=int, default=None)
     args = parser.parse_args()
+    
+    if args.device :
+        device = args.device
+        print(flash(bold(f"Using device: {device}")))
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(bold(f"Using device: {device}"))
 
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR
@@ -274,7 +328,12 @@ if __name__ == "__main__":
         s_acc, _, s_speed, s_preds, s_labels = evaluate_model(student, test_loader, device, "Student")
         
         if args.visualize:
-            visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir)
+            if args.num_images:
+                print(f"visualize the student's prunning of {args.num_images} images" )
+                visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir, args.num_images)
+            else:
+                print("visualize the student's prunning of 8 images")
+                visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir)
 
     if args.test_teacher and args.test_student:
         print(cyan("\nGenerating Comparison Graphs..."))
