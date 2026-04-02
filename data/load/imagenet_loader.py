@@ -13,6 +13,22 @@ import matplotlib.pyplot as plt
 cache_dir = os.getenv("HF_DATASETS_CACHE", "data/raw/imagenet")
 os.makedirs(cache_dir, exist_ok=True)
 
+# Conversion toward Dataset torch-compatible
+class HFDataset(Dataset):
+    def __init__(self, hf_ds, transform):
+        self.ds = hf_ds
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        sample = self.ds[idx]
+        img = sample["image"].convert("RGB")
+        label = sample["label"]
+        img = self.transform(img)
+        return img, label
+
 def load_imagenet1k(
     batch_size: int = 256,
     val_ratio: float = 0.1,
@@ -51,22 +67,6 @@ def load_imagenet1k(
         split="validation[:{}]".format(max_items_val) if max_items_val else "validation", 
         cache_dir=cache_dir
         )
-
-    # Conversion toward Dataset torch-compatible
-    class HFDataset(Dataset):
-        def __init__(self, hf_ds, transform):
-            self.ds = hf_ds
-            self.transform = transform
-
-        def __len__(self):
-            return len(self.ds)
-
-        def __getitem__(self, idx):
-            sample = self.ds[idx]
-            img = sample["image"].convert("RGB")
-            label = sample["label"]
-            img = self.transform(img)
-            return img, label
 
     train_dataset_full = HFDataset(ds_train, train_transform)
     test_dataset = HFDataset(ds_val, test_transform)

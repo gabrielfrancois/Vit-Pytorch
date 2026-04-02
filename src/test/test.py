@@ -128,7 +128,7 @@ def visualize_pruning_on_images(
     Visualize pruning masks. Uses a trick to run in .train() mode to bypass 
     physical patch dropping, ensuring masks remain full-sized for easy plotting.
     """
-    print(blue("\nGenerating Pruning Visualizations..."))
+    print("\nGenerating Pruning Visualizations...")
     os.makedirs(save_dir, exist_ok=True)
     
     student_model.train() # Put in train mode so patches aren't physically deleted
@@ -293,6 +293,3 @@ if __name__ == "__main__":
         diff_speed = ((s_speed - t_speed) / t_speed) * 100
         print(bold(f"\n Student Speed-Up: {diff_speed:.2f}%"))
         print(bold(f" Accuracy Drop: {t_acc - s_acc:.2f}%"))
-        
-        # print(yellow("\nVisualizing pruning..."))
-        # visualize_pruning_on_images(student, test_loader, device)
