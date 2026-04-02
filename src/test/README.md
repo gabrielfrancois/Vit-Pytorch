@@ -1,4 +1,4 @@
-# evaluate.py — Model Evaluation & Visualization
+# test.py — Model Evaluation & Visualization
 
 Evaluate and compare a **Teacher** ViT against a **Student** DynamicViT on CIFAR-10 or ImageNet-1k.
 Produces accuracy/speed comparison charts, confusion matrices, and per-layer pruning visualizations.
