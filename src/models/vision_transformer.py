@@ -1,6 +1,7 @@
 """
 This Vision transformer will be the 'teacher' model, he'll trained the dynamic ViT to fetch a faster model almost as effiscient as the teacher (as much as possible).
 """
+
 import torch
 from torch import nn as nn 
 
@@ -34,29 +35,57 @@ class VisionTransformer(nn.Module):
         self.transformer_encoder = nn.Sequential(*[TransformerEncoder(self.d_model, self.n_heads) for _ in range(n_layers)]) 
         # The vision transformer will also need to be able to have multiple encoder modules. 
         # This can be achieved by putting a list of encoder layers inside of a sequential wrapper.
+        
+        # Self Supervised Learning PRE-TRAINING COMPONENTS (MAE Style)
+        self.mask_token = nn.Parameter(torch.zeros(1, 1, d_model))
+
+        pixels_per_patch = patch_size[0] * patch_size[1] * n_channels
+        self.pretrain_head = nn.Linear(self.d_model, pixels_per_patch)
 
         # Classification MLP
         self.classifier = nn.Sequential(
             nn.Linear(self.d_model, self.n_classes),
         )
 
-    def forward(self, images):
+        # Initialize the mask token
+        torch.nn.init.normal_(self.mask_token, std=.02)
+
+    def forward(self, images,bool_masked_pos=None):
         """
         input :
         ------------------
             - images: (batch size (=B), image channel, image height, image width)
+            - bool_masked_pos: (B, N) boolean tensor. True means the patch is masked. 
+                               If None, the model acts as a standard classifier.
         output :
         ------------------
             - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
             - teacher_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
         """
-        x = self.patch_embedding(images) 
-        x = self.positional_encoding(x)
+        x = self.patch_embedding(images)
+        B, N, D = x.shape
+
+        if bool_masked_pos is not None:
+            mask_tokens = self.mask_token.expand(B, N, -1) # broadcasting
+            
+            # Reshape boolean mask so we can multiply it with the features
+            # True (1) = the mask token, False (0) = original image patch
+            w = bool_masked_pos.unsqueeze(-1).type_as(mask_tokens)
+            x = x * (1 - w) + mask_tokens * w
+
+        x = self.positional_encoding(x) # Add CLS AFTERWARD
         x = self.dropout(x)
+
         x = self.transformer_encoder(x)
 
-        teacher_feats = x # Capture the features (t_i' in the paper) before classification
+        if bool_masked_pos is not None: # predict the pixels of the spatial patches.
+            # Strip off the CLS token (index 0)
+            spatial_features = x[:, 1:, :] # (B, N, d_model)
 
-        # Calculate logits around the CLS token
-        logits = self.classifier(x[:,0])
-        return logits, teacher_feats
+            # Project d_model back into raw pixel dimension
+            pixel_predictions = self.pretrain_head(spatial_features) 
+            return pixel_predictions
+        else: # Standard behavior
+            teacher_feats = x  # Capture the features (t_i' in the paper) before classification
+            logits = self.classifier(x[:, 0]) # Classify using only the CLS token
+            return logits, teacher_feats
