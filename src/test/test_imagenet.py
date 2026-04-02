@@ -1,7 +1,6 @@
-# This Python file gathers all the functions / classes needed to handle training, validation or inference from the ViT model
-
 import os
 import time
+
 import torch
 import numpy as np
 from torch import nn
@@ -9,6 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 from data.load.imagenet_loader import load_imagenet1k
@@ -16,7 +16,7 @@ from configs.train_imagenet1k import *
 from helper_function.print import *
 from typing import List, Tuple, Optional, Any
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 print(bold(f"Using device: {device}"))
 
 # Checkpoint paths
