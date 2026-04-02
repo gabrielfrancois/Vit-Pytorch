@@ -163,7 +163,7 @@ def train_one_epoch(
         imgs, labels = imgs.to(device), labels.to(device)
         with torch.no_grad():
             with torch.amp.autocast(device.type):  # forward in float16
-                teacher_logits, teacher_feats = teacher(imgs)
+                teacher_logits, teacher_feats, _ = teacher(imgs)
                 teacher_logits, teacher_feats = teacher_logits.detach(), teacher_feats.detach()
 
         optimizer.zero_grad() 

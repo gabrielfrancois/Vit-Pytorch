@@ -5,6 +5,7 @@ import torch
 from torch import nn
 import torch.amp
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -25,7 +26,8 @@ def train_one_epoch(
     criterion: nn.Module,
     device: torch.device,
     epoch_index: int,
-    scaler: torch.amp.GradScaler
+    scaler: torch.amp.GradScaler,
+    dinov1: nn.Module,
 ) -> Tuple[float, float]:
     """
     Train the model for a single epoch.
@@ -47,6 +49,8 @@ def train_one_epoch(
             Index of the current epoch (used for logging).
         scaler (torch.amp.GradScaler): 
             Gradient scaler for mixed precision training.
+        dinov1: (nn.Module),
+            The model used for aply REPA
     Returns:
         Tuple[float, float]:
             - avg_loss: Average training loss over the epoch.
@@ -61,12 +65,24 @@ def train_one_epoch(
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
         optimizer.zero_grad(set_to_none=True)
+
+        # Get target representations from DINOv1
+        with torch.no_grad():
+            with torch.amp.autocast(device.type):
+                # DINOv1 returns (B, N+1, 384). Drop the CLS token and get patches.
+                features = dinov1.get_intermediate_layers(imgs, n=1)[0]
+                ssl_features = features[:, 1:, :] # (B, N, 384)
         
         with torch.amp.autocast(device.type):
-            outputs, _ = model(imgs)
-            loss = criterion(outputs, labels)
+            outputs, teacher_feats, repa_features = model(imgs)
+            loss_cls = criterion(outputs, labels)
+            sim = F.cosine_similarity(repa_features, ssl_features, dim=-1)
+            loss_repa = (1.0 - sim).mean()
+            loss = loss_cls + (lambda_repa * loss_repa)
 
         scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         scaler.step(optimizer)
         scaler.update()
 
@@ -81,7 +97,6 @@ def train_one_epoch(
     accuracy: float = 100.0 * correct / total
 
     return avg_loss, accuracy
-
 
 def validate_one_epoch(
     model: nn.Module,
@@ -124,7 +139,7 @@ def validate_one_epoch(
         for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
             
-            outputs, _ = model(imgs)
+            outputs, _, _ = model(imgs)
             loss = criterion(outputs, labels)
 
             running_loss += loss.item() * imgs.size(0)
@@ -243,21 +258,31 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
-        teacher.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state'])
-        scaler.load_state_dict(checkpoint['scaler_state'])
+        state_dict = checkpoint.get('model_state_dict', checkpoint)
+        clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
         
-        start_epoch = checkpoint['epoch']
-        best_val_acc = checkpoint.get('best_val_acc', 0.0)
-        history = checkpoint.get('history', history)
-        print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
-    teacher = torch.compile(teacher)# Add Just In Time compiler
+        teacher.load_state_dict(clean_state_dict, strict=False)
+        if 'optimizer_state_dict' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state'])
+            scaler.load_state_dict(checkpoint['scaler_state'])
+            start_epoch = checkpoint['epoch']
+            best_val_acc = checkpoint.get('best_val_acc', 0.0)
+            history = checkpoint.get('history', history)
+            print(green(f"Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
 
-    print(blue("Starting teacher training..."))
+    teacher = torch.compile(teacher) # Add Just In Time compiler
+
+    print(blue("Loading Frozen DINOv1 for REPA..."))
+    dino_v1 = torch.hub.load('facebookresearch/dino:main', 'dino_vits16').to(device)
+    dino_v1.eval()
+    for param in dino_v1.parameters():
+        param.requires_grad = False
+
+    print(blue("Starting teacher training with REPA..."))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
-        train_loss, train_acc = train_one_epoch(teacher, train_loader, optimizer, criterion, device, epoch, scaler)
+        train_loss, train_acc = train_one_epoch(teacher, train_loader, optimizer, criterion, device, epoch, scaler, dino_v1)
         val_loss, val_acc, _ = validate_one_epoch(teacher, val_loader, criterion, device, desc='Validating Teacher')
 
         history['train_loss'].append(train_loss)
@@ -299,7 +324,6 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             torch.save(checkpoint_dict, f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
         epoch_time = time.time()-first_time_epoch
         print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
-        
         
     print(green("\nTraining complete. Loading best model for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)

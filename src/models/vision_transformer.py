@@ -11,7 +11,7 @@ from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
 
 class VisionTransformer(nn.Module):
-    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers):
+    def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, repa_layer_index:int=7):
         super().__init__()
 
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "img_size dimensions must be divisible by patch_size dimensions"
@@ -38,7 +38,6 @@ class VisionTransformer(nn.Module):
         
         # Self Supervised Learning PRE-TRAINING COMPONENTS (MAE Style)
         self.mask_token = nn.Parameter(torch.zeros(1, 1, d_model))
-
         pixels_per_patch = patch_size[0] * patch_size[1] * n_channels
         self.pretrain_head = nn.Linear(self.d_model, pixels_per_patch)
 
@@ -50,7 +49,16 @@ class VisionTransformer(nn.Module):
         # Initialize the mask token
         torch.nn.init.normal_(self.mask_token, std=.02)
 
-    def forward(self, images,bool_masked_pos=None):
+        # Choose the explicit layer to align (e.g., 7)
+        self.repa_layer_index = repa_layer_index 
+        
+        self.ssl_dim = 384 # DINOv2-vits14 dimension
+        self.repa_proj = nn.Sequential(
+            nn.Linear(self.d_model, self.d_model * 2),
+            nn.GELU(),
+            nn.Linear(self.d_model * 2, self.ssl_dim)
+        )
+    def forward(self, images, bool_masked_pos=None): 
         """
         input :
         ------------------
@@ -75,17 +83,22 @@ class VisionTransformer(nn.Module):
 
         x = self.positional_encoding(x) # Add CLS AFTERWARD
         x = self.dropout(x)
-
-        x = self.transformer_encoder(x)
+        repa_features = None
 
         if bool_masked_pos is not None: # predict the pixels of the spatial patches.
+            x = self.transformer_encoder(x)
             # Strip off the CLS token (index 0)
             spatial_features = x[:, 1:, :] # (B, N, d_model)
 
             # Project d_model back into raw pixel dimension
             pixel_predictions = self.pretrain_head(spatial_features) 
             return pixel_predictions
-        else: # Standard behavior
+        else: # Apply REPA
+            for i, layer in enumerate(self.transformer_encoder):
+                x = layer(x) # Pass through the current Transformer layer
+                if i == self.repa_layer_index: # here we apply REPA
+                    repa_features = self.repa_proj(x[:, 1:, :])# Ignore CLS
+                    
             teacher_feats = x  # Capture the features (t_i' in the paper) before classification
             logits = self.classifier(x[:, 0]) # Classify using only the CLS token
-            return logits, teacher_feats
+            return logits, teacher_feats, repa_features

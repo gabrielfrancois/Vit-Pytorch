@@ -27,3 +27,6 @@ std_norm_imagenet = [0.229, 0.224, 0.225]
 # finetuneing option
 finetuning = 'LORA' # Enter: False, 'LORA'
 rank = 4
+
+# REPA
+lambda_repa = 1.0

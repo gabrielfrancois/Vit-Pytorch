@@ -25,3 +25,6 @@ lambda_distill = (1/2)
 # finetuneing option
 finetuning = 'LORA' # Enter: False, 'LORA'
 rank = 4
+
+# REPA
+lambda_repa = 1.0
