@@ -204,30 +204,28 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset')
-    parser.add_argument('--test_teacher', action='store_true', help='Flag to test the teacher model')
-    parser.add_argument('--test_student', action='store_true', help='Flag to test the student model')
+    parser.add_argument('--test_teacher', action='store_true', default=True, help='Flag to test the teacher model')
+    parser.add_argument('--test_student', action='store_true', default=True, help='Flag to test the student model')
     parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Override teacher checkpoint path')
     parser.add_argument('--student_checkpoint', type=str, default=None, help='Override student checkpoint path')
-    parser.add_argument('--visualize', action='store_true', help='Generate pruning visualization images')
+    parser.add_argument('--visualize', action='store_true', default=True, help='Generate pruning visualization images')
     parser.add_argument('--d_model', type=int, default=None)
     parser.add_argument('--n_layers', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--n_heads', type=int, default=None)
     args = parser.parse_args()
 
-    if not args.test_teacher and not args.test_student:
-        args.test_teacher = True
-        args.test_student = True
-
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * base_dir = "cifar10"
-        class_names = [str(i) for i in range(10)] # CIFAR classes
+        from configs.train_cifar10 import * 
+        base_dir = "cifar10"
+        class_names = [str(i) for i in range(10)] 
         print(blue(f"Loading {args.dataset} data..."))
         _, _, test_loader = load_CIFAR(CIFAR=10) 
     else:
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * base_dir = "imagenet"
+        from configs.train_imagenet1k import * 
+        base_dir = "imagenet"
         class_names = None # Will auto-generate Top K
         print(blue(f"Loading {args.dataset} data..."))
         _, _, test_loader = load_imagenet1k()
@@ -239,12 +237,14 @@ if __name__ == "__main__":
 
     results_dir = f"logs/{base_dir}/evaluation_results"
     os.makedirs(results_dir, exist_ok=True)
+    pruning_vis_dir = f"logs/{base_dir}/pruning_visualizations"
+    os.makedirs(pruning_vis_dir, exist_ok=True)
     
     default_teacher_ckpt = f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
     default_student_ckpt = f"checkpoints/{base_dir}/student_best.pth"
     
     t_ckpt_path = args.teacher_checkpoint if (args.teacher_checkpoint and os.path.exists(args.teacher_checkpoint)) else default_teacher_ckpt
-    s_ckpt_path = args.student_checkpoint if (args.student_checkpoint and ps.path.exists(args.student_checkpoint)) else default_student_ckpt
+    s_ckpt_path = args.student_checkpoint if (args.student_checkpoint and os.path.exists(args.student_checkpoint)) else default_student_ckpt
 
     t_acc, s_acc, t_speed, s_speed = 0.0, 0.0, 0.0, 0.0
     t_preds, t_labels, s_preds, s_labels = [], [], [], []
