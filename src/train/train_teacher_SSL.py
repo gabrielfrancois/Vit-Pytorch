@@ -180,7 +180,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
             best_val_loss = checkpoint.get('best_val_loss', float('inf'))
             print(green(f"--> Resumed SSL model already trained for {start_epoch} epochs with best val loss: {best_val_loss:.4f}"))
     
-    teacher = torch.compile(teacher)
+    teacher = torch.compile(teacher) # JIT 
 
     print(blue("Starting SSL teacher training..."))
     for epoch in range(start_epoch, epochs):

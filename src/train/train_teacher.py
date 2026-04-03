@@ -95,7 +95,6 @@ def train_one_epoch(
 
     avg_loss: float = running_loss / len(loader.dataset)
     accuracy: float = 100.0 * correct / total
-
     return avg_loss, accuracy
 
 def validate_one_epoch(
@@ -239,6 +238,7 @@ def save_training_plots(
 # ----------------------------------------- run Functions -----------------------------------------
 def run_training(args, device, train_loader, val_loader, test_loader, checkpoint_dir, graph_dir, writer):
     """Encapsulates the model initialization, resume logic, and main training loop."""
+
     start_time = time.time()
     print(blue("Initializing teacher ViT..."))
     
@@ -274,7 +274,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     teacher = torch.compile(teacher) # Add Just In Time compiler
 
     print(blue("Loading Frozen DINOv1 for REPA..."))
-    dino_v1 = torch.hub.load('facebookresearch/dino:main', 'dino_vits16').to(device)
+    dino_v1 = torch.hub.load('facebookresearch/dino:main', 'dino_vits16').to(device) # patch 16x16
     dino_v1.eval()
     for param in dino_v1.parameters():
         param.requires_grad = False
@@ -323,7 +323,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
         epoch_time = time.time()-first_time_epoch
-        print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
+        print(blue(f'Time for epoch {epoch}:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
         
     print(green("\nTraining complete. Loading best model for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)
@@ -348,13 +348,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
-    parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
     parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous chekpoint')
     parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
     parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
     parser.add_argument('--patch_size', type=int, nargs=2, default=None,help='choose the patch-size dimension (ex: 8 8)')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
+    parser.add_argument('--lambda_repa', type=int, default=None, help='Choose the representation factor')
     args = parser.parse_args()
 
     if args.n_heads is not None and args.d_model is not None:
@@ -386,7 +387,7 @@ if __name__ == "__main__":
     os.makedirs(graph_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)
 
-    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads']
+    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'lambda_repa']
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)
         if value is not None:

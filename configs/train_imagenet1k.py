@@ -29,4 +29,4 @@ finetuning = 'LORA' # Enter: False, 'LORA'
 rank = 4
 
 # REPA
-lambda_repa = 1.0
+lambda_repa = 2.0
