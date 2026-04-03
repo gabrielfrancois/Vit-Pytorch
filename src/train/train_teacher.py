@@ -261,15 +261,22 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         state_dict = checkpoint.get('model_state_dict', checkpoint)
         clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
         
+        # Load the weights (strict=False ignores the missing/new REPA layers)
         teacher.load_state_dict(clean_state_dict, strict=False)
+        print(green("--> Successfully loaded model weights."))
+
         if 'optimizer_state_dict' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            scheduler.load_state_dict(checkpoint['scheduler_state'])
-            scaler.load_state_dict(checkpoint['scaler_state'])
-            start_epoch = checkpoint['epoch']
-            best_val_acc = checkpoint.get('best_val_acc', 0.0)
-            history = checkpoint.get('history', history)
-            print(green(f"Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
+            try:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                scheduler.load_state_dict(checkpoint['scheduler_state'])
+                scaler.load_state_dict(checkpoint['scaler_state'])
+                start_epoch = checkpoint['epoch']
+                best_val_acc = checkpoint.get('best_val_acc', 0.0)
+                history = checkpoint.get('history', history)
+                print(green(f"--> Fully resumed training from epoch {start_epoch} with best val acc: {best_val_acc:.2f}%"))
+            except ValueError:
+                # This triggers when transitioning from SSL to REPA!
+                print(yellow("--> Optimizer mismatch detected (likely fine-tuning from SSL). Starting with fresh optimizer and scheduler at Epoch 0."))
 
     teacher = torch.compile(teacher) # Add Just In Time compiler
 
@@ -355,7 +362,7 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size', type=int, nargs=2, default=None,help='choose the patch-size dimension (ex: 8 8)')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
-    parser.add_argument('--lambda_repa', type=int, default=None, help='Choose the representation factor')
+    parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
     args = parser.parse_args()
 
     if args.n_heads is not None and args.d_model is not None:
