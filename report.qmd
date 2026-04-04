@@ -1,0 +1,112 @@
+---
+title: "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment"
+author: ""
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+bibliography: references.bib
+---
+
+# Introduction
+
+## Website overview:
+
+This website serves as the reproducibility and deployment reference for the Dynamic-Vit implemented by Gabriel François, Avner El Baz and Léo Leroy, inspired by [@rao2021dynamicvit]. 
+
+How to use, ...
+What it covers, what it doesnt cover from our implementation.
+Caveats: for training must use GPU, for ... etc...
+
+# Environment and dependencies
+
+## Requirements
+
+Our code requires Python 3.10+ and the dependencies listed in `requirements.txt` / `pyproject.toml`.
+
+What about Cuda ??
+
+```bash
+git clone 
+cd Vit-Pytorch
+python -m venv .venv
+source .venv/bin/activate  
+pip install -r requirements.txt
+```
+
+You can also use `uv`:
+```bash
+uv sync
+```
+
+## Hardware recommendation 
+
+GPU used: 
+
+# Project structure 
+<!-- on doit vraiment inclure ça dans le website ? -->
+
+Vit-Pytorch/
+├── src/
+│   ├── models/           # Architecture: ViT, DynamicViT, Patch Embedding, Predictor LG
+│   ├── train/            # Training loops for Teacher and Student (CIFAR & ImageNet)
+│   ├── test/             # Evaluation scripts and parameter computing
+│   └── finetuning/       # LoRA fine-tuning scripts for STL-10
+├── configs/              # Hyperparameters and data paths per dataset
+├── data/                 # Data loading logic and raw data storage
+├── logs/                 # TensorBoard events and generated plots
+├── checkpoints/          # Saved model weights (.pth)
+├── helper_function/      # Utility functions for printing and formatting
+├── pyproject.toml        # Project dependencies and metadata
+└── requirements.txt      # Traditional pip requirements
+
+<!-- décrire les codes principaux brièvement -->
+
+# Scientific content
+
+## Definitions
+Synthétiser les paragraphes de notre rapport. (token pruning, loss function, ...)
+
+## Data used
+
+## Training pipeline
+
+## Configuration used
+
+## Reproducibility of our code and experiments
+
+random seeds, checkpoint, ... 
+
+## Results
+
+dont métriques et images !!
+
+
+# Inference on a custom dataset (for new experiments)
+
+<!-- juste faire de l'inférence, pas ed l'entrainement car ça nécessite GPU blabla -->
+
+## Input data specification and output format
+
+## pre-processing pipeline
+
+(nous comment on gère ces nouvelles données, normalement les utilisateurs ne devraient rien faire)
+
+## Running forward pass
+
+# CI/CD 
+
+Entry point for Github actions?
+
+## GitHub Actions workflow
+
+## Tests
+
+# References
+
+::: {#refs}
+:::
