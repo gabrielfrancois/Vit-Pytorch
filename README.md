@@ -2,7 +2,7 @@
 
 ![Pruning Evolution](logs/imagenet/student/pruning/pruning_evolution.jpeg)
 
-**Dynamic Token Pruning: Overcoming the computational cost of Transformers to enable high-performance inference on CPU-limited devices by dynamically selecting only the most informative image tokens.**
+**Dynamic Token Pruning: Overcoming the computational cost of Transformers to enable high-performance inference on CPU-limited devices by dynamically selecting only the most informative image tokens.** 
 
 This repository contains a PyTorch implementation of Vision Transformers (ViT) and Dynamic Vision Transformers (DynamicViT) for datasets such as ImageNet-1K, STL-10, and CIFAR-10.
 For more details on the theory and implementation, please refer to the project report "**Projet_ViT.pdf**".
