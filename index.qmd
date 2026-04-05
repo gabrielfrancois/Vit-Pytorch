@@ -1,7 +1,8 @@
 ---
 title: "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment"
-author: ""
+author: Gabriel François et Léo Leroy
 date: today
+bibliography: references.bib
 format:
   html:
     toc: true
@@ -9,7 +10,6 @@ format:
     number-sections: true
     code-fold: true
     theme: cosmo
-bibliography: references.bib
 ---
 
 # Introduction

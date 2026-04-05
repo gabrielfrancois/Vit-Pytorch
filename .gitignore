@@ -8,14 +8,14 @@
 *.pyd
 
 # =========================
-# Datasets 
+# Datasets
 # =========================
 
 *.gz
 **/stl10_binary
 
 # =========================
-# ImageNet 
+# ImageNet
 # =========================
 
 data/raw
@@ -35,7 +35,7 @@ checkpoints/finetune/*
 *.ckpt
 
 # =========================
-# Environments 
+# Environments
 # =========================
 
 .venv/
@@ -49,3 +49,6 @@ env/
 
 .DS_Store
 Thumbs.db
+
+/.quarto/
+**/*.quarto_ipynb
