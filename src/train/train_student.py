@@ -259,12 +259,15 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     if os.path.exists(teacher_checkpoint):
         print(f"Loading Teacher weights from {teacher_checkpoint}")
         checkpoint = torch.load(teacher_checkpoint, map_location=device)
-        teacher.load_state_dict(checkpoint['model_state_dict'], strict=False)
-        teacher = torch.compile(teacher) # Add JIT compiler
+        state_dict = checkpoint.get('model_state_dict', checkpoint)
+        clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+        # Load the weights (strict=False ignores the missing/new REPA layers)
+        teacher.load_state_dict(clean_state_dict, strict=False)
         print(green(f"Teacher {teacher_checkpoint} successfully loaded."))
     else:
         raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
 
+    teacher = torch.compile(teacher) # Add JIT compiler
     teacher.eval() 
     for param in teacher.parameters():
         param.requires_grad = False # Freeze weights
@@ -322,9 +325,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
-            student, teacher, train_loader, 
-            optimizer, criterion, 
-            device, epoch, 
+            student, teacher, train_loader,
+            optimizer, criterion,
+            device, epoch,
             scaler
         )
         val_acc, _ = validate_one_epoch(student, val_loader, device)
@@ -417,6 +420,7 @@ def rho_schedule(
     s = 1 / (1 + np.exp(-steepness * (x - 0.5)))
     return rho_init + (rho_final - rho_init) * s
 
+# ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))

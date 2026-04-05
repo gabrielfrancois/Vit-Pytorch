@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from helper_function.print import *
+from helper_function.layer_wise import increasing_llrd
 from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Training Functions -----------------------------------------
@@ -247,14 +248,16 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
     ).to(device)
 
-    optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
+    # Layer-Wise LR 
+    param_groups = increasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
+    optimizer = torch.optim.AdamW(param_groups)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     criterion = nn.CrossEntropyLoss()
     scaler = torch.amp.GradScaler()
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'lrs': []}
     best_val_acc = 0.0
-    start_epoch = 0 
+    start_epoch = 0
 
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
@@ -330,7 +333,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/teacher_epoch_{epoch+1}.pth")
         epoch_time = time.time()-first_time_epoch
-        print(blue(f'Time for epoch {epoch}:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
+        print(blue(f'Time for epoch {epoch+1}:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
         
     print(green("\nTraining complete. Loading best model for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/teacher_checkpoint_best.pth", map_location=device)
@@ -347,6 +350,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     print(blue('Time taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
     writer.close()
 
+# ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))

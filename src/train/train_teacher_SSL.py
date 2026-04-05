@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 
 from helper_function.print import *
+from helper_function.layer_wise import decreasing_llrd
 from src.models.vision_transformer import VisionTransformer
 
 def random_masking(B: int, N: int, mask_ratio: float, device: torch.device) -> torch.Tensor:
@@ -156,7 +157,10 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
     ).to(device)
 
-    optimizer = torch.optim.AdamW(teacher.parameters(), lr=alpha, weight_decay=1e-4)
+
+    # LayeWise --> modify especially the firsts layers!
+    param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
+    optimizer = torch.optim.AdamW(param_groups)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     scaler = torch.amp.GradScaler()
 
@@ -232,6 +236,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     print(blue('Total Time taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
     writer.close()
 
+# ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))

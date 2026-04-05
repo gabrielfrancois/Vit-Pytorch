@@ -8,7 +8,8 @@ n_heads = 4
 n_layers = 12
 batch_size = 256
 epochs = 100
-alpha = 0.001
+alpha = 0.002
+layer_decay = 0.8
 
 # dynamic_Vit parameters
 pruning_index = [4,7,10]
