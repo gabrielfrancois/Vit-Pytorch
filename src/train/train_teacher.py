@@ -57,6 +57,7 @@ def train_one_epoch(
             - avg_loss: Average training loss over the epoch.
             - accuracy: Training accuracy in percentage.
     """
+    use_amp = device.type == "cuda"
     model.train()
     running_loss: float = 0.0
     correct: int = 0
@@ -69,7 +70,7 @@ def train_one_epoch(
 
         # Get target representations from DINOv1
         with torch.no_grad():
-            with torch.amp.autocast(device.type):
+            with torch.amp.autocast(device.type, enabled=use_amp):
                 # DINOv1 returns (B, N+1, 384). Drop the CLS token and get patches.
                 features = dinov1.get_intermediate_layers(imgs, n=1)[0]
                 ssl_features = features[:, 1:, :] # (B, N, 384)
@@ -77,6 +78,7 @@ def train_one_epoch(
         with torch.amp.autocast(device.type):
             outputs, teacher_feats, repa_features = model(imgs)
             loss_cls = criterion(outputs, labels)
+            assert repa_features.shape == ssl_features.shape, f"REPA shape mismatch: model output {repa_features.shape} vs DINOv1 {ssl_features.shape}"
             sim = F.cosine_similarity(repa_features, ssl_features, dim=-1)
             loss_repa = (1.0 - sim).mean()
             loss = loss_cls + (lambda_repa * loss_repa)
@@ -239,7 +241,7 @@ def save_training_plots(
 # ----------------------------------------- run Functions -----------------------------------------
 def run_training(args, device, train_loader, val_loader, test_loader, checkpoint_dir, graph_dir, writer):
     """Encapsulates the model initialization, resume logic, and main training loop."""
-
+    use_amp = device.type == "cuda"
     start_time = time.time()
     print(blue("Initializing teacher ViT..."))
     
@@ -253,7 +255,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     optimizer = torch.optim.AdamW(param_groups)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     criterion = nn.CrossEntropyLoss()
-    scaler = torch.amp.GradScaler()
+    scaler = torch.amp.GradScaler(enabled=use_amp)
 
     history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'lrs': []}
     best_val_acc = 0.0
@@ -284,6 +286,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     teacher = torch.compile(teacher) # Add Just In Time compiler
 
     print(blue("Loading Frozen DINOv1 for REPA..."))
+    assert patch_size == (16, 16), \
+    f"DINOv1 uses 16x16 patches but your config has patch_size={patch_size}. " \
+    f"Switch to dino_vits8 or adjust patch_size."
     dino_v1 = torch.hub.load('facebookresearch/dino:main', 'dino_vits16').to(device) # patch 16x16
     dino_v1.eval()
     for param in dino_v1.parameters():
@@ -352,10 +357,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    print(bold(f"Using device: {device}"))
     torch.backends.cudnn.benchmark = True
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
@@ -367,11 +369,16 @@ if __name__ == "__main__":
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
     parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
     args = parser.parse_args()
 
+    if args.device:
+        device = torch.device(args.device)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    print(bold(f"Using device: {device}"))
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
-
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR
         from configs.train_cifar10 import * 
@@ -388,11 +395,11 @@ if __name__ == "__main__":
 
         print(blue(f"Loading {args.dataset} Data...")) 
         train_loader, test_loader, val_loader = load_imagenet1k()
-    
+
     log_dir = f"./logs/{base_dir}/teacher/"
     checkpoint_dir = f"checkpoints/{base_dir}/teacher"
     graph_dir = f"./logs/{base_dir}/teacher/graphs"
-    
+
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(graph_dir, exist_ok=True)
@@ -405,7 +412,10 @@ if __name__ == "__main__":
             if param == 'patch_size':
                 value = tuple(value)
             globals()[param] = value
-
+    if args.lambda_repa is not None and args.lambda_repa < 0:
+        print(orange(f'lambda REPA {args.lambda_repa} should be a positive float, fallback solution :2'))
+        args.lambda_repa = 2.0
+    print(f"Lambda REPA: {args.lambda_repa if args.lambda_repa is not None else lambda_repa}")
     run_training(
         args=args, device=device,
         train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,

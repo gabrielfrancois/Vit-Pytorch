@@ -37,6 +37,7 @@ def patchify(imgs: torch.Tensor, patch_size: Tuple[int, int]) -> torch.Tensor:
     """
     p_h, p_w = patch_size
     B, C, H, W = imgs.shape
+    assert H % p_h == 0 and W % p_w == 0, f"Image size ({H}x{W}) not divisible by patch size ({p_h}x{p_w})"
     x = imgs.reshape(B, C, H // p_h, p_h, W // p_w, p_w)
     x = x.permute(0, 2, 4, 1, 3, 5)
     x = x.reshape(B, (H // p_h) * (W // p_w), C * p_h * p_w)
@@ -56,6 +57,8 @@ def train_one_epoch(
     """
     Self-Supervised MAE Pre-training loop.
     """
+    device = torch.device(device) if isinstance(device, str) else device
+    use_amp = device.type == "cuda"
     model.train()
     running_loss: float = 0.0
     loop = tqdm(loader, desc=f"SSL Train Epoch {epoch_index}")
@@ -68,7 +71,7 @@ def train_one_epoch(
         N = (H // patch_size[0]) * (W // patch_size[1])
         bool_masked_pos = random_masking(B, N, mask_ratio, device)
 
-        with torch.amp.autocast(device.type):
+        with torch.amp.autocast(device.type, enabled=use_amp):
             pixel_preds = model(imgs, bool_masked_pos=bool_masked_pos)
             target_patches = patchify(imgs, patch_size)
             
@@ -156,21 +159,20 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         d_model=d_model, n_classes=n_classes, img_size=img_size, 
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
     ).to(device)
-
+    use_amp = device.type == "cuda"
 
     # LayeWise --> modify especially the firsts layers!
     param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    scaler = torch.amp.GradScaler()
+    scaler = torch.amp.GradScaler(enabled=use_amp)
 
     history = {'train_loss': [], 'val_loss': [], 'lrs': []}
-    best_val_loss = float('inf') 
-    start_epoch = 0 
+    best_val_loss = float('inf')
+    start_epoch = 0
 
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
-        
         state_dict = checkpoint.get('model_state_dict', checkpoint)
         clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
         teacher.load_state_dict(clean_state_dict, strict=False)
@@ -183,14 +185,13 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
             start_epoch = checkpoint['epoch']
             best_val_loss = checkpoint.get('best_val_loss', float('inf'))
             print(green(f"--> Resumed SSL model already trained for {start_epoch} epochs with best val loss: {best_val_loss:.4f}"))
-    
-    teacher = torch.compile(teacher) # JIT 
+    teacher = torch.compile(teacher) # JIT
 
     print(blue("Starting SSL teacher training..."))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
         
-        train_loss = train_one_epoch(teacher, train_loader, optimizer, device, epoch, scaler, args.mask_ratio)
+        train_loss = train_one_epoch(teacher, train_loader, optimizer, device, epoch, scaler, mask_ratio)
         val_loss = validate_one_epoch(teacher, val_loader, device, desc='Validating SSL Teacher', mask_ratio=args.mask_ratio)
 
         history['train_loss'].append(train_loss)
@@ -227,7 +228,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
             torch.save(checkpoint_dict, f"{checkpoint_dir}/ssl_teacher_epoch_{epoch+1}.pth")
             
         epoch_time = time.time() - first_time_epoch
-        print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
+        print(blue(f'Time for epoch {epoch+1}:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
         
     print(green("\nSSL Training complete!"))
     save_training_plots(history['train_loss'], history['val_loss'], history['lrs'], graph_dir)
@@ -238,8 +239,6 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
 
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    print(bold(f"Using device: {device}"))
     torch.backends.cudnn.benchmark = True
 
     parser = argparse.ArgumentParser()
@@ -250,13 +249,22 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--patch_size', type=int, nargs=2, default=None)
-    parser.add_argument('--alpha', type=float, default=None)
+    parser.add_argument('--alpha', type=float, default=None, help='Learning rate')
     parser.add_argument('--n_heads', type=int, default=None)
     parser.add_argument('--mask_ratio', type=float, default=0.75, help='Percentage of image to mask out')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
     args = parser.parse_args()
 
+    if args.device:
+        device = torch.device(args.device)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    print(bold(f"Using device: {device}"))
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
+    if args.mask_ratio is None or args.mask_ratio <=0 or args.mask_ratio >=1:
+        print(orange(f"mask_ratio {args.mask_ratio} argument should be in (0,1) ! --> default 0.75"))
+        args.mask_ratio = 0.75
 
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR
@@ -280,14 +288,14 @@ if __name__ == "__main__":
     os.makedirs(graph_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)
 
-    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads']
+    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'mask_ratio']
     for param in param_selected: 
         value = getattr(args, param)
         if value is not None:
             if param == 'patch_size':
                 value = tuple(value)
             globals()[param] = value
-
+    assert len(patch_size) == 2 and all(p > 0 for p in patch_size), f"patch_size must be a pair of positive ints, got {patch_size}"
     run_training(
         args=args, device=device,
         train_loader=train_loader, val_loader=val_loader,

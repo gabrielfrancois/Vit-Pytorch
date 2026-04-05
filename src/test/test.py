@@ -248,7 +248,7 @@ def visualize_pruning_on_images(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset')
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset')
     parser.add_argument('--test_teacher', action='store_true', default=True, help='Flag to test the teacher model')
     parser.add_argument('--test_student', action='store_true', default=True, help='Flag to test the student model')
     parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Override teacher checkpoint path')

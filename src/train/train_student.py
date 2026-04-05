@@ -150,6 +150,7 @@ def train_one_epoch(
         avg_kl_loss: Average KL divergence loss.
         accuracy: Training accuracy in percentage.
     """
+    use_amp = device.type == "cuda"
     student.train() 
     running_loss = 0.0
     running_ratio_loss = 0.0
@@ -162,12 +163,12 @@ def train_one_epoch(
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
         with torch.no_grad():
-            with torch.amp.autocast(device.type):  # forward in float16
+            with torch.amp.autocast(device.type, enabled=use_amp):  # forward in float16
                 teacher_logits, teacher_feats, _ = teacher(imgs)
                 teacher_logits, teacher_feats = teacher_logits.detach(), teacher_feats.detach()
 
         optimizer.zero_grad() 
-        with torch.amp.autocast(device.type):  # forward in float16
+        with torch.amp.autocast(device.type, enabled=use_amp):  # forward in float16
             student_logits, student_feats, all_masks, all_scores = student(imgs)
             loss, metrics = criterion(
                 student_logits=student_logits,
@@ -267,10 +268,10 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     else:
         raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
 
-    teacher = torch.compile(teacher) # Add JIT compiler
     teacher.eval() 
     for param in teacher.parameters():
         param.requires_grad = False # Freeze weights
+    teacher = torch.compile(teacher) # Add JIT compiler
     
     print(blue("Initializing student..."))
     student = DynamicVisionTransformer(
@@ -286,8 +287,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         new_key = k.replace('transformer_encoder', 'transformer_encoders')
         if new_key in student_dict:
             new_student_dict[new_key] = v
-
-    student.load_state_dict(new_student_dict, strict=False) 
+    assert len(new_student_dict) > 0, "No teacher weights were transferred to student — check layer naming (transformer_encoder vs transformer_encoders)"
+    print(green(f"--> Transferred {len(new_student_dict)}/{len(student_dict)} weight tensors from teacher to student."))
+    student.load_state_dict(new_student_dict, strict=False)
 
     target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
     criterion = DynamicViTLoss(
@@ -296,9 +298,10 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         lambda_class=lambda_class
     )
 
+    use_amp = device.type == "cuda"
     optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    scaler = torch.amp.GradScaler() 
+    scaler = torch.amp.GradScaler(enabled=use_amp) 
 
     history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
     best_val_acc = 0.0
@@ -422,9 +425,6 @@ def rho_schedule(
 
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    print(bold(f"Using device: {device}"))
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous student chekpoint')
@@ -436,8 +436,15 @@ if __name__ == "__main__":
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
     parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Explicit path to the teacher checkpoint')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
     args = parser.parse_args()
 
+    if args.device:
+        device = torch.device(args.device)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    print(bold(f"Using device: {device}"))
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
     if args.dataset == "cifar10":
@@ -451,13 +458,11 @@ if __name__ == "__main__":
     else:
         from data.load.imagenet_loader import load_imagenet1k
         from configs.train_imagenet1k import * 
-
         base_dir = "imagenet"
-
         print(blue(f"Loading {args.dataset} data..."))
         train_loader, test_loader, val_loader = load_imagenet1k()
     
-    checkpoint_dir = f"checkpoints/{base_dir}/student_2th_try" if base_dir == "cifar10" else f"checkpoints/{base_dir}"
+    checkpoint_dir = f"checkpoints/{base_dir}/{args.run_name}"
     teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
     if args.teacher_checkpoint and os.path.exists(args.teacher_checkpoint):
         teacher_checkpoint = args.teacher_checkpoint

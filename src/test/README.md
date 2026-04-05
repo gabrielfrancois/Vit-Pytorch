@@ -17,6 +17,11 @@ or
 pip install -r requirements.txt
 ```
 
+Then:
+```bash
+source .venv/bin/activate
+```
+
 ## Checkpoints
 
 By default the script looks for:
@@ -32,41 +37,41 @@ You can override either path with `--teacher_checkpoint` / `--student_checkpoint
 
 ## Usage
 
-### Minimal — evaluate both models on CIFAR-10
+### Minimal — evaluate both models on imagenet
 ```bash
-python evaluate.py
+python -m src.test.test
 ```
 
 ### Evaluate on ImageNet-1k
 ```bash
-python evaluate.py --dataset imagenet
+python -m src.test.test --dataset imagenet
 ```
 
 ### Evaluate only the Student (skip Teacher)
 ```bash
-python evaluate.py --test_teacher False --test_student True
+python -m src.test.test --test_teacher False --test_student True
 ```
 
 ### Custom checkpoints
 ```bash
-python evaluate.py \
+python -m src.test.test \
   --teacher_checkpoint path/to/my_teacher.pth \
   --student_checkpoint path/to/my_student.pth
 ```
 
 ### Override model architecture (**must match your checkpoint**)
 ```bash
-python evaluate.py --d_model 384 --n_heads 6 --n_layers 12
+python -m src.test.test --d_model 384 --n_heads 6 --n_layers 12
 ```
 
 ### Control the number of pruning visualizations
 ```bash
-python evaluate.py --visualize --num_images 16
+python -m src.test.test --visualize --num_images 16
 ```
 
 ### Force a specific device
 ```bash
-python evaluate.py --device cuda   # or cpu / mps
+python -m src.test.test --device cuda   # or cpu / mps
 ```
 
 ---
@@ -111,7 +116,7 @@ The confusion matrix plot clips to the **top 10 classes** on CIFAR-10 and **top 
 
 ## Example — Full Run on CIFAR-10 with Custom Paths
 ```bash
-python evaluate.py \
+python -m src.test.test \
   --dataset cifar10 \
   --teacher_checkpoint checkpoints/cifar10/teacher_v2.pth \
   --student_checkpoint checkpoints/cifar10/student_v2.pth \
