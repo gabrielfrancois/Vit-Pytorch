@@ -68,7 +68,7 @@ class VisionTransformer(nn.Module):
         output :
         ------------------
             - logits: tensor: (B, nb_classes) (for instance, in cifar-10 = 10)
-            - teacher_feats: tensor: (B, N, d_model) (recall that d_model is actually d_model + 1, due to the cls token added)
+            - teacher_feats: tensor: (B, N, d_model) (recall that d_model is actually N + 1, due to the cls token added)
         """
         x = self.patch_embedding(images)
         B, N, D = x.shape
