@@ -74,6 +74,10 @@ def train_one_epoch(
         with torch.amp.autocast(device.type, enabled=use_amp):
             pixel_preds = model(imgs, bool_masked_pos=bool_masked_pos)
             target_patches = patchify(imgs, patch_size)
+            # Norlaize to prevent the model ti just predict the mean 
+            mean = target_patches.mean(dim=-1, keepdim=True)
+            var = target_patches.var(dim=-1, keepdim=True)
+            target_patches = (target_patches - mean) / (var + 1e-6).sqrt()
             
             # Compute MSE Loss ONLY on masked patches
             loss = (pixel_preds - target_patches).pow(2)
@@ -114,6 +118,9 @@ def validate_one_epoch(
 
             pixel_preds = model(imgs, bool_masked_pos=bool_masked_pos)
             target_patches = patchify(imgs, patch_size)
+            mean = target_patches.mean(dim=-1, keepdim=True)
+            var = target_patches.var(dim=-1, keepdim=True)
+            target_patches = (target_patches - mean) / (var + 1e-6).sqrt()
 
             loss = (pixel_preds - target_patches) ** 2
             loss = loss.mean(dim=-1)
