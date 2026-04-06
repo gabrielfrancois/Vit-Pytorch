@@ -62,7 +62,7 @@ def train_one_epoch(
     running_loss: float = 0.0
     correct: int = 0
     total: int = 0
-    loop = tqdm(loader, desc=f"Training Teacher Epoch {epoch_index}")
+    loop = tqdm(loader, desc=f"Training Teacher Epoch {epoch_index+1}")
 
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)

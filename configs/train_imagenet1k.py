@@ -1,5 +1,5 @@
 # train_imagenet1k.py
-d_model = 96
+d_model = 128
 n_classes = 1000
 img_size = (128, 128)
 patch_size = (16, 16)
@@ -8,7 +8,7 @@ n_heads = 4
 n_layers = 12
 batch_size = 256
 epochs = 120
-alpha = 0.002
+alpha = 0.0015
 layer_decay = 0.8
 
 # dynamic_Vit parameters

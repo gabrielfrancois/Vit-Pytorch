@@ -61,7 +61,7 @@ def train_one_epoch(
     use_amp = device.type == "cuda"
     model.train()
     running_loss: float = 0.0
-    loop = tqdm(loader, desc=f"SSL Train Epoch {epoch_index}")
+    loop = tqdm(loader, desc=f"SSL Train Epoch {epoch_index+1}")
 
     for imgs, _ in loop: 
         imgs = imgs.to(device)
