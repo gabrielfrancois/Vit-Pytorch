@@ -159,7 +159,7 @@ def train_one_epoch(
     correct = 0
     total = 0
     loop = tqdm(loader, desc=f'Training Student Epoch {epoch_index}')
-    
+
     for imgs, labels in loop:
         imgs, labels = imgs.to(device), labels.to(device)
         with torch.no_grad():
@@ -192,13 +192,13 @@ def train_one_epoch(
         running_ratio_loss += metrics['ratio'] * imgs.size(0)
         running_distill_loss += metrics["distill"] * imgs.size(0)
         running_kl_loss += metrics["kl"] * imgs.size(0)
-        
+
         _, predicted = torch.max(student_logits, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
         loop.set_postfix(loss=loss.item(), ratio=metrics['ratio'])
-    
+
     avg_loss = running_loss / len(loader.dataset)
     avg_ratio_loss = running_ratio_loss / len(loader.dataset)
     avg_distill_loss = running_distill_loss / len(loader.dataset)
@@ -272,7 +272,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     for param in teacher.parameters():
         param.requires_grad = False # Freeze weights
     teacher = torch.compile(teacher) # Add JIT compiler
-    
+
     print(blue("Initializing student..."))
     student = DynamicVisionTransformer(
         d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho
@@ -300,7 +300,17 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
     use_amp = device.type == "cuda"
     optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
+    warmup_epochs = min(args.warmup_epochs, epochs - 1)
+    warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+    )
+    cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=(epochs - warmup_epochs)
+    )
+    scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
+    )
     scaler = torch.amp.GradScaler(enabled=use_amp) 
 
     history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
@@ -335,7 +345,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         )
         val_acc, _ = validate_one_epoch(student, val_loader, device)
         scheduler.step() 
-        
+
         history['train_loss'].append(train_loss)
         history['ratio_loss'].append(ratio_loss)
         history['distill_loss'].append(distill_loss)
@@ -346,7 +356,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         print(bold(f"Epoch {epoch+1}/{epochs} | rho {rho:.3f} | Loss: {train_loss:.4f} | Ratio loss: {ratio_loss:.4f} | Distill: {distill_loss:.4f} | KL: {kl_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
-        
+
         writer.add_scalar('Student/Loss/total', train_loss, epoch)
         writer.add_scalar('Student/Loss/ratio', ratio_loss, epoch)
         writer.add_scalar('Student/Loss/distill', distill_loss, epoch)
@@ -377,14 +387,14 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             print(green(f"--> New Best Student Saved ({val_acc:.2f}%)"))
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/student_epoch_{epoch+1}.pth")
-            
+
         epoch_time = time.time()-first_time_epoch
         print(blue('Time for 1 epoch:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
 
     print(green("\nTraining complete. Loading best student for final testing..."))
     checkpoint = torch.load(f"{checkpoint_dir}/student_best.pth", map_location=device)
     student.load_state_dict(checkpoint['model_state_dict'])
-    
+
     test_acc, cm = validate_one_epoch(student, test_loader, device, desc="Testing Student")
     print(blue(f"Final Student Test Accuracy: {test_acc:.2f}%"))
 
@@ -393,7 +403,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         history['ratio_loss'], history["distill_loss"], history['kl_loss'],
         history['lrs'], history['rho'], cm, graph_dir
     )
-    
+
     seconds = time.time() - start_time
     print(blue('Time Taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
     writer.close()
@@ -438,6 +448,7 @@ if __name__ == "__main__":
     parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Explicit path to the teacher checkpoint')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
     parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
     args = parser.parse_args()
 
     if args.device:
@@ -461,7 +472,7 @@ if __name__ == "__main__":
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} data..."))
         train_loader, test_loader, val_loader = load_imagenet1k()
-    
+
     checkpoint_dir = f"checkpoints/{base_dir}/{args.run_name}"
     teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
     if args.teacher_checkpoint and os.path.exists(args.teacher_checkpoint):

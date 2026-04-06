@@ -244,7 +244,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     use_amp = device.type == "cuda"
     start_time = time.time()
     print(blue("Initializing teacher ViT..."))
-    
+
     teacher = VisionTransformer(
         d_model=d_model, n_classes=n_classes, img_size=img_size, 
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
@@ -253,7 +253,17 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     # Layer-Wise LR 
     param_groups = increasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
+    warmup_epochs = min(args.warmup_epochs, epochs - 1)
+    warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+    )
+    cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=(epochs - warmup_epochs)
+    )
+    scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
+    )
     criterion = nn.CrossEntropyLoss()
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
@@ -265,7 +275,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         checkpoint = torch.load(args.resume_from, map_location=device)
         state_dict = checkpoint.get('model_state_dict', checkpoint)
         clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
-        
+
         # Load the weights (strict=False ignores the missing/new REPA layers)
         teacher.load_state_dict(clean_state_dict, strict=False)
         print(green("--> Successfully loaded model weights."))
@@ -307,9 +317,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         scheduler.step()# Update Learning Rate
-        
+
         print(bold(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | Val Acc: {val_acc:.2f}%"))
-        
+
         writer.add_scalar('Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('Teacher/Loss/val', val_loss, epoch)
         writer.add_scalar('Teacher/Accuracy/train', train_acc, epoch)
@@ -370,6 +380,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
     parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
     args = parser.parse_args()
 
     if args.device:

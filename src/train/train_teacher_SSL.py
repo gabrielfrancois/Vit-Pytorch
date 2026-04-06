@@ -22,10 +22,10 @@ def random_masking(B: int, N: int, mask_ratio: float, device: torch.device) -> t
     noise = torch.rand(B, N, device=device)
     ids_shuffle = torch.argsort(noise, dim=1)
     len_keep = int(N * (1 - mask_ratio))
-    
+
     mask = torch.ones(B, N, device=device)
     mask[:, :len_keep] = 0
-    
+
     ids_restore = torch.argsort(ids_shuffle, dim=1)
     mask = torch.gather(mask, dim=1, index=ids_restore)
     return mask.bool()
@@ -164,7 +164,17 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     # LayeWise --> modify especially the firsts layers!
     param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
+    warmup_epochs = min(args.warmup_epochs, epochs - 1)
+    warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+    )
+    cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=(epochs - warmup_epochs)
+    )
+    scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
+    )
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
     history = {'train_loss': [], 'val_loss': [], 'lrs': []}
@@ -190,7 +200,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     print(blue("Starting SSL teacher training..."))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
-        
+
         train_loss = train_one_epoch(teacher, train_loader, optimizer, device, epoch, scaler, mask_ratio)
         val_loss = validate_one_epoch(teacher, val_loader, device, desc='Validating SSL Teacher', mask_ratio=args.mask_ratio)
 
@@ -199,9 +209,9 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         history['lrs'].append(optimizer.param_groups[0]['lr'])
 
         scheduler.step()
-        
+
         print(bold(f"Epoch {epoch+1}/{epochs} | Train MSE: {train_loss:.4f} | Val MSE: {val_loss:.4f}"))
-        
+
         writer.add_scalar('SSL_Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('SSL_Teacher/Loss/val', val_loss, epoch)
         writer.add_scalar('SSL_Teacher/LearningRate', optimizer.param_groups[0]['lr'], epoch)
@@ -226,13 +236,13 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
             print(green(f"--> New Best SSL Teacher Model saved at {save_path}"))
         elif (epoch + 1) % 10 == 0:
             torch.save(checkpoint_dict, f"{checkpoint_dir}/ssl_teacher_epoch_{epoch+1}.pth")
-            
+
         epoch_time = time.time() - first_time_epoch
         print(blue(f'Time for epoch {epoch+1}:'), blue(time.strftime("%H:%M:%S", time.gmtime(epoch_time))))
-        
+
     print(green("\nSSL Training complete!"))
     save_training_plots(history['train_loss'], history['val_loss'], history['lrs'], graph_dir)
-    
+
     seconds = time.time() - start_time
     print(blue('Total Time taken:'), blue(time.strftime("%H:%M:%S", time.gmtime(seconds))))
     writer.close()
@@ -253,6 +263,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_heads', type=int, default=None)
     parser.add_argument('--mask_ratio', type=float, default=0.75, help='Percentage of image to mask out')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
     args = parser.parse_args()
 
     if args.device:
@@ -278,11 +289,11 @@ if __name__ == "__main__":
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} Data...")) 
         train_loader, test_loader, val_loader = load_imagenet1k()
-    
+
     log_dir = f"./logs/{base_dir}/ssl_teacher/"
     checkpoint_dir = f"checkpoints/{base_dir}/ssl_teacher"
     graph_dir = f"./logs/{base_dir}/ssl_teacher/graphs"
-    
+
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(graph_dir, exist_ok=True)

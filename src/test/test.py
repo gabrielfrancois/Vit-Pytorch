@@ -178,7 +178,7 @@ def visualize_pruning_on_images(
         """
     print("\nGenerating Pruning Visualizations...")
     os.makedirs(save_dir, exist_ok=True)
-    
+
     student_model.train() # Put in train mode so patches aren't physically deleted
     for m in student_model.modules():
         if isinstance(m, nn.Dropout):
@@ -241,7 +241,7 @@ def visualize_pruning_on_images(
                 plt.savefig(os.path.join(save_dir, f"pruning_vis_{images_done}.png"))
                 plt.close()
                 images_done += 1
-    
+
     print(green(f"Saved {num_images} pruning visualizations to {save_dir}"))
 
 # ----------------------------------------- Main Execution -----------------------------------------
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default=None, choices = ["cpu", "cuda", "mps"], help='Choose your device')
     parser.add_argument('--num_images', type=int, default=None)
     args = parser.parse_args()
-    
+
     if args.device :
         device = args.device
         print(flash(bold(f"Using device: {device}")))
@@ -293,10 +293,10 @@ if __name__ == "__main__":
     os.makedirs(results_dir, exist_ok=True)
     pruning_vis_dir = f"logs/{base_dir}/pruning_visualizations"
     os.makedirs(pruning_vis_dir, exist_ok=True)
-    
+
     default_teacher_ckpt = f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
     default_student_ckpt = f"checkpoints/{base_dir}/student_best.pth"
-    
+
     t_ckpt_path = args.teacher_checkpoint if (args.teacher_checkpoint and os.path.exists(args.teacher_checkpoint)) else default_teacher_ckpt
     s_ckpt_path = args.student_checkpoint if (args.student_checkpoint and os.path.exists(args.student_checkpoint)) else default_student_ckpt
 
@@ -306,27 +306,27 @@ if __name__ == "__main__":
     if args.test_teacher:
         print("\nLoading Teacher...")
         teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
-        
+
         if not os.path.exists(t_ckpt_path):
             raise FileNotFoundError(red(f"Teacher checkpoint missing: {t_ckpt_path}"))
-            
+
         ckpt = torch.load(t_ckpt_path, map_location=device)
         teacher.load_state_dict(ckpt.get('model_state_dict', ckpt), strict=False)
-        
+
         t_acc, _, t_speed, t_preds, t_labels = evaluate_model(teacher, test_loader, device, "Teacher")
 
     if args.test_student:
         print("\nLoading Student...")
         student = DynamicVisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho).to(device)
-        
+
         if not os.path.exists(s_ckpt_path):
             raise FileNotFoundError(red(f"Student checkpoint missing: {s_ckpt_path}"))
-            
+
         ckpt = torch.load(s_ckpt_path, map_location=device)
         student.load_state_dict(ckpt.get('model_state_dict', ckpt), strict=False)
-        
+
         s_acc, _, s_speed, s_preds, s_labels = evaluate_model(student, test_loader, device, "Student")
-        
+
         if args.visualize:
             if args.num_images:
                 print(f"visualize the student's prunning of {args.num_images} images" )
@@ -337,18 +337,18 @@ if __name__ == "__main__":
 
     if args.test_teacher and args.test_student:
         print(cyan("\nGenerating Comparison Graphs..."))
-        
+
         # Determine Top K for Confusion Matrix (10 for CIFAR, 20 for ImageNet)
         top_k = 10 if args.dataset == "cifar10" else 20
-        
+
         plot_confusion_matrices(
             confusion_matrix(t_labels, t_preds),
             confusion_matrix(s_labels, s_preds),
             class_names, results_dir, top_k=top_k
         )
-        
+
         plot_performance_comparison(t_acc, s_acc, t_speed, s_speed, results_dir)
-        
+
         diff_speed = ((s_speed - t_speed) / t_speed) * 100
         print(bold(f"\n Student Speed-Up: {diff_speed:.2f}%"))
         print(bold(f" Accuracy Drop: {t_acc - s_acc:.2f}%"))
