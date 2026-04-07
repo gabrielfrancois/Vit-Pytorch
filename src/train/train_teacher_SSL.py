@@ -13,6 +13,7 @@ import numpy as np
 
 from helper_function.print import *
 from helper_function.layer_wise import decreasing_llrd
+from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 
 def random_masking(B: int, N: int, mask_ratio: float, device: torch.device) -> torch.Tensor:
@@ -162,12 +163,30 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     start_time = time.time()
     print(blue("Initializing SSL Teacher ViT..."))
     
+    use_amp = device.type == "cuda"
+    history = {'train_loss': [], 'val_loss': [], 'lrs': []}
+    best_val_loss = float('inf')
+    start_epoch = 0
+    
     teacher = VisionTransformer(
         d_model=d_model, n_classes=n_classes, img_size=img_size, 
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
     ).to(device)
-    use_amp = device.type == "cuda"
+    checkpoint = None
+    if args.resume_from is not None and os.path.exists(args.resume_from):
+        print(blue(f"Loading checkpoint from {args.resume_from}..."))
+        checkpoint = torch.load(args.resume_from, map_location=device)
+        hparams = checkpoint['hyperparameters']
+        teacher = VisionTransformer(**hparams).to(device) # Ensure we keep the same hparams
 
+        state_dict = checkpoint['model_state_dict']
+        verbose_load(teacher, state_dict)
+        
+        start_epoch = checkpoint.get('epoch', 0)
+        best_val_loss = checkpoint.get('best_val_loss', float('inf'))
+        history = checkpoint.get('history', history)
+    teacher = torch.compile(teacher) # JIT
+    
     # LayeWise --> modify especially the firsts layers!
     param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
@@ -184,25 +203,14 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     )
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
-    history = {'train_loss': [], 'val_loss': [], 'lrs': []}
-    best_val_loss = float('inf')
-    start_epoch = 0
-
-    if args.resume_from is not None and os.path.exists(args.resume_from):
-        checkpoint = torch.load(args.resume_from, map_location=device)
-        state_dict = checkpoint.get('model_state_dict', checkpoint)
-        clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
-        teacher.load_state_dict(clean_state_dict, strict=False)
-        
-        if 'optimizer_state_dict' in checkpoint:
+    if checkpoint is not None and 'optimizer_state_dict' in checkpoint:
+        try:
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             scheduler.load_state_dict(checkpoint['scheduler_state'])
             scaler.load_state_dict(checkpoint['scaler_state'])
-            history = checkpoint.get('history', history)
-            start_epoch = checkpoint['epoch']
-            best_val_loss = checkpoint.get('best_val_loss', float('inf'))
             print(green(f"--> Resumed SSL model already trained for {start_epoch} epochs with best val loss: {best_val_loss:.4f}"))
-    teacher = torch.compile(teacher) # JIT
+        except ValueError as e:
+            print(orange(f"--> Could not load optimizer state (likely due to added/removed layers). Starting with fresh optimizer. Error: {e}"))
 
     print(blue("Starting SSL teacher training..."))
     for epoch in range(start_epoch, epochs):

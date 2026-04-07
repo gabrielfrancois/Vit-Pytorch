@@ -16,6 +16,7 @@ import numpy as np
 
 from helper_function.print import *
 from helper_function.layer_wise import increasing_llrd
+from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Training Functions -----------------------------------------
@@ -241,59 +242,72 @@ def save_training_plots(
 # ----------------------------------------- run Functions -----------------------------------------
 def run_training(args, device, train_loader, val_loader, test_loader, checkpoint_dir, graph_dir, writer):
     """Encapsulates the model initialization, resume logic, and main training loop."""
-    use_amp = device.type == "cuda"
     start_time = time.time()
     print(blue("Initializing teacher ViT..."))
 
+    use_amp = device.type == "cuda"
+    history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'lrs': []}
+    best_val_acc = 0.0
+    start_epoch = 0
+    
     teacher = VisionTransformer(
         d_model=d_model, n_classes=n_classes, img_size=img_size, 
         patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
     ).to(device)
+    
+    checkpoint=None
+    is_ssl_checkpoint = False
+    if args.resume_from is not None and os.path.exists(args.resume_from):
+        print(blue(f"Loading checkpoint from {args.resume_from}..."))
+        checkpoint = torch.load(args.resume_from, map_location=device)
+        
+        is_ssl_checkpoint = 'best_val_acc' not in checkpoint
+        
+        hparams = checkpoint['hyperparameters']
+        teacher = VisionTransformer(**hparams).to(device) # Ensure we keep the same hparams
+        
+        state_dict = checkpoint['model_state_dict']
+        verbose_load(teacher, state_dict)
+        
+        if is_ssl_checkpoint:
+            print(green("--> SSL Checkpoint detected! Setting up for REPA fine-tuning (Epoch 0, fresh Optimizer)."))
+            start_epoch = 0
+        else:
+            print(green("--> REPA Checkpoint detected! Resuming REPA training."))
+            start_epoch = checkpoint.get('epoch', 0)
+            best_val_acc = checkpoint.get('best_val_acc', 0.0)
+            history = checkpoint.get('history', history)
 
+    teacher = torch.compile(teacher) # Add Just In Time compiler
+    
     # Layer-Wise LR 
     param_groups = increasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
+    
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
     )
+    
     cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=(epochs - warmup_epochs)
     )
     scheduler = torch.optim.lr_scheduler.SequentialLR(
         optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
     )
+    
     criterion = nn.CrossEntropyLoss()
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
-    history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'lrs': []}
-    best_val_acc = 0.0
-    start_epoch = 0
-
-    if args.resume_from is not None and os.path.exists(args.resume_from):
-        checkpoint = torch.load(args.resume_from, map_location=device)
-        state_dict = checkpoint.get('model_state_dict', checkpoint)
-        clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
-
-        # Load the weights (strict=False ignores the missing/new REPA layers)
-        teacher.load_state_dict(clean_state_dict, strict=False)
-        print(green("--> Successfully loaded model weights."))
-
-        if 'optimizer_state_dict' in checkpoint:
-            try:
-                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                scheduler.load_state_dict(checkpoint['scheduler_state'])
-                scaler.load_state_dict(checkpoint['scaler_state'])
-                start_epoch = checkpoint['epoch']
-                best_val_acc = checkpoint.get('best_val_acc', 0.0)
-                history = checkpoint.get('history', history)
-                print(green(f"--> Fully resumed training from epoch {start_epoch} with best val acc: {best_val_acc:.2f}%"))
-            except ValueError:
-                # This triggers when transitioning from SSL to REPA!
-                print(yellow("--> Optimizer mismatch detected (likely fine-tuning from SSL). Starting with fresh optimizer and scheduler at Epoch 0."))
-
-    teacher = torch.compile(teacher) # Add Just In Time compiler
+    if checkpoint is not None and not is_ssl_checkpoint and 'optimizer_state_dict' in checkpoint:
+        try:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state'])
+            scaler.load_state_dict(checkpoint['scaler_state'])
+            print(green(f"--> Fully resumed training from epoch {start_epoch} with best val acc: {best_val_acc:.2f}%"))
+        except ValueError as e:
+            print(orange(f"--> Optimizer mismatch detected. Starting with fresh optimizer. Error: {e}"))
 
     print(blue("Loading Frozen DINOv1 for REPA..."))
     assert patch_size == (16, 16), \
