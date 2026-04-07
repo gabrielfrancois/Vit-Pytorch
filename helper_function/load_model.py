@@ -7,8 +7,12 @@ def verbose_load(model, state_dict):
     """
     Load a model with strict=False and see which keys aren't loaded
     Take into account the _origin_mod created buy .compile and remove it
+    input :
+    ------------------
+        - model : nn.Module() 
+        - state_dict : the weights to plug in the model
     """
-    print("Remove _orig_mod. from the .compile to enable the weight loading")
+    # print("Remove _orig_mod. from the .compile to enable the weight loading")
     clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
     load_results = model.load_state_dict(clean_state_dict, strict=False)
     
@@ -30,7 +34,7 @@ def verbose_load(model, state_dict):
             
     model_keys = set(model.state_dict().keys())
     loaded_keys = set(clean_state_dict.keys()) & model_keys
-    print(blue(f"\n Successfully loaded {len(loaded_keys)} out of {len(model_keys)} parameter tensors."))
+    print(green(f"\n Successfully loaded {len(loaded_keys)} out of {len(model_keys)} parameter tensors."))
 
 def print_layer_shapes(state_dict):
     print("\n[Model Architecture Shapes]")

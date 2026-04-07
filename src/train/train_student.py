@@ -437,7 +437,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous student chekpoint')
     parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
-    parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
     parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
     parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
     parser.add_argument('--patch_size',type=int,nargs=2,default=None,help='choose the patch-size dimension (ex: 8 8)')

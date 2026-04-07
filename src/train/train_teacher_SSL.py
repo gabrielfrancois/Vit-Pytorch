@@ -269,7 +269,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--d_model', type=int, default=None)
-    parser.add_argument('--dataset', type=str, default="cifar10", choices=['cifar10', 'imagenet'])
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
     parser.add_argument('--resume-from', type=str, default=None)
     parser.add_argument('--n_layers', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
