@@ -1,16 +1,19 @@
-import torch
 import os
+from typing import Mapping
+
+import torch
+from torch import nn
 
 from .print import *
 
-def verbose_load(model, state_dict):
+def verbose_load(model: nn.Module(), state_dict: Mapping[str, torch.Tensor]):
     """
-    Load a model with strict=False and see which keys aren't loaded
-    Take into account the _origin_mod created buy .compile and remove it
-    input :
-    ------------------
-        - model : nn.Module() 
-        - state_dict : the weights to plug in the model
+    Load a state_dict into a model with strict=False and print a summary of missing
+    and unexpected keys. Automatically removes the "_orig_mod." prefix (from torch.compile).
+    
+    Args:
+        model (nn.Module): Target model to load weights into.
+        state_dict (Mapping[str, torch.Tensor]): Mapping of parameter names to tensors.
     """
     # print("Remove _orig_mod. from the .compile to enable the weight loading")
     clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}

@@ -12,6 +12,7 @@ from sklearn.metrics import confusion_matrix
 from typing import List, Tuple, Optional
 
 from helper_function.print import *
+from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 
@@ -179,7 +180,7 @@ def visualize_pruning_on_images(
     print("\nGenerating Pruning Visualizations...")
     os.makedirs(save_dir, exist_ok=True)
 
-    student_model.train() # Put in train mode so patches aren't physically deleted
+    student_model.train() # Put in train mode so patches ain't physically deleted
     for m in student_model.modules():
         if isinstance(m, nn.Dropout):
             m.eval() # manually freeze dropout so the image isn't ruined
@@ -207,6 +208,7 @@ def visualize_pruning_on_images(
 
             for i in range(B):
                 if images_done >= num_images:
+                    print(green(f"Saved {num_images} pruning visualizations to {save_dir}"))
                     return
 
                 img = imgs[i].cpu().numpy().transpose(1, 2, 0)
@@ -249,17 +251,13 @@ def visualize_pruning_on_images(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset')
-    parser.add_argument('--test_teacher', action='store_true', default=True, help='Flag to test the teacher model')
-    parser.add_argument('--test_student', action='store_true', default=True, help='Flag to test the student model')
-    parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Override teacher checkpoint path')
-    parser.add_argument('--student_checkpoint', type=str, default=None, help='Override student checkpoint path')
+    parser.add_argument('--test-teacher', action='store_true', help='Flag to test the teacher model')
+    parser.add_argument('--test-student', action='store_true', help='Flag to test the student model')
+    parser.add_argument('--teacher-checkpoint', type=str, default=None, help='Override teacher checkpoint path')
+    parser.add_argument('--student-checkpoint', type=str, default=None, help='Override student checkpoint path')
     parser.add_argument('--visualize', action='store_true', default=True, help='Generate pruning visualization images')
-    parser.add_argument('--d_model', type=int, default=None)
-    parser.add_argument('--n_layers', type=int, default=None)
-    parser.add_argument('--batch_size', type=int, default=None)
-    parser.add_argument('--n_heads', type=int, default=None)
     parser.add_argument('--device', type=str, default=None, choices = ["cpu", "cuda", "mps"], help='Choose your device')
-    parser.add_argument('--num_images', type=int, default=None)
+    parser.add_argument('--num_images', type=int, default=8)
     args = parser.parse_args()
 
     if args.device :
@@ -284,11 +282,6 @@ if __name__ == "__main__":
         print(blue(f"Loading {args.dataset} data..."))
         _, _, test_loader = load_imagenet1k()
 
-    for param in ['d_model', 'n_layers', 'batch_size', 'n_heads']:
-        val = getattr(args, param)
-        if val is not None:
-            globals()[param] = val
-
     results_dir = f"logs/{base_dir}/evaluation_results"
     os.makedirs(results_dir, exist_ok=True)
     pruning_vis_dir = f"logs/{base_dir}/pruning_visualizations"
@@ -305,40 +298,41 @@ if __name__ == "__main__":
 
     if args.test_teacher:
         print("\nLoading Teacher...")
-        teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
+        ckpt = torch.load(t_ckpt_path, map_location=device)
+        hparams = ckpt["hyperparameters"]
+        teacher = VisionTransformer(**hparams).to(device)
 
         if not os.path.exists(t_ckpt_path):
             raise FileNotFoundError(red(f"Teacher checkpoint missing: {t_ckpt_path}"))
 
-        ckpt = torch.load(t_ckpt_path, map_location=device)
-        teacher.load_state_dict(ckpt.get('model_state_dict', ckpt), strict=False)
-
+        state_dict = ckpt.get('model_state_dict', ckpt)
+        verbose_load(teacher, state_dict)
+        
         t_acc, _, t_speed, t_preds, t_labels = evaluate_model(teacher, test_loader, device, "Teacher")
 
     if args.test_student:
         print("\nLoading Student...")
-        student = DynamicVisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho).to(device)
+        ckpt = torch.load(s_ckpt_path, map_location=device)
+        hparams = ckpt["hyperparameters"]
+        student = DynamicVisionTransformer(**hparams).to(device)
 
         if not os.path.exists(s_ckpt_path):
             raise FileNotFoundError(red(f"Student checkpoint missing: {s_ckpt_path}"))
 
-        ckpt = torch.load(s_ckpt_path, map_location=device)
-        student.load_state_dict(ckpt.get('model_state_dict', ckpt), strict=False)
-
+        state_dict = ckpt.get('model_state_dict', ckpt)
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            k = k.replace("_orig_mod.", "")
+            k = k.replace("transformer_encoderss", "transformer_encoders")
+            new_state_dict[k] = v   
+        verbose_load(model=student, state_dict=new_state_dict)
         s_acc, _, s_speed, s_preds, s_labels = evaluate_model(student, test_loader, device, "Student")
-
         if args.visualize:
-            if args.num_images:
-                print(f"visualize the student's prunning of {args.num_images} images" )
-                visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir, args.num_images)
-            else:
-                print("visualize the student's prunning of 8 images")
-                visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir)
-
+            print(f"visualize the student's prunning of {args.num_images} images" )
+            visualize_pruning_on_images(student, test_loader, device, pruning_vis_dir, args.num_images)
+ 
     if args.test_teacher and args.test_student:
-        print(cyan("\nGenerating Comparison Graphs..."))
-
-        # Determine Top K for Confusion Matrix (10 for CIFAR, 20 for ImageNet)
+        print(blue("\nGenerating Comparison Graphs..."))
         top_k = 10 if args.dataset == "cifar10" else 20
 
         plot_confusion_matrices(

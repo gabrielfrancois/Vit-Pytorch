@@ -54,8 +54,8 @@ def polynomial_increasing(model: nn.Module, alpha: float) -> list[dict]:
             lr = alpha ** 3
         param_groups.append({"params": [param], "lr": lr, "weight_decay": 1e-4})
 
-    for g in param_groups:
-        print(g["lr"])
+    for layer, g in enumerate(param_groups):
+        print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
 
 
