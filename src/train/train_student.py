@@ -14,6 +14,7 @@ import numpy as np
 from typing import List, Tuple, Dict, Any
 
 from helper_function.print import *
+from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss import DynamicViTLoss
@@ -255,41 +256,40 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     start_time = time.time()
 
     print(blue("Initializing teacher..."))
-    teacher = VisionTransformer(d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers).to(device)
+    use_amp = device.type == "cuda"
 
     if os.path.exists(teacher_checkpoint):
         print(f"Loading Teacher weights from {teacher_checkpoint}")
         checkpoint = torch.load(teacher_checkpoint, map_location=device)
-        state_dict = checkpoint.get('model_state_dict', checkpoint)
-        clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
-        # Load the weights (strict=False ignores the missing/new REPA layers)
-        teacher.load_state_dict(clean_state_dict, strict=False)
-        print(green(f"Teacher {teacher_checkpoint} successfully loaded."))
+        hparams = checkpoint['hyperparameters']
+        teacher = VisionTransformer(**hparams).to(device) # Ensure we keep the same hparams
+        state_dict = checkpoint['model_state_dict']
+        verbose_load(teacher, state_dict) # Strict load should also work here
     else:
         raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
 
     teacher.eval() 
     for param in teacher.parameters():
         param.requires_grad = False # Freeze weights
-    teacher = torch.compile(teacher) # Add JIT compiler
 
     print(blue("Initializing student..."))
-    student = DynamicVisionTransformer(
-        d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, pruning_index, rho
-    ).to(device)
+    new_args = {"pruning_index": pruning_index, "rho": rho}
+    args_student = {**hparams, **new_args}
+    student = DynamicVisionTransformer(**args_student).to(device)
 
     print("Copying backbone weights from teacher to student...")
     teacher_dict = teacher.state_dict()
     student_dict = student.state_dict()
+    
     new_student_dict = {}
-
     for k, v in teacher_dict.items():
         new_key = k.replace('transformer_encoder', 'transformer_encoders')
         if new_key in student_dict:
             new_student_dict[new_key] = v
     assert len(new_student_dict) > 0, "No teacher weights were transferred to student — check layer naming (transformer_encoder vs transformer_encoders)"
     print(green(f"--> Transferred {len(new_student_dict)}/{len(student_dict)} weight tensors from teacher to student."))
-    student.load_state_dict(new_student_dict, strict=False)
+    verbose_load(model=student, new_student_dict)
+    teacher = torch.compile(teacher) # Add JIT compiler
 
     target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
     criterion = DynamicViTLoss(
@@ -298,33 +298,32 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         lambda_class=lambda_class
     )
 
-    use_amp = device.type == "cuda"
+    history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
+    best_val_acc = 0.0
+    start_epoch = 0
+    
+    student = torch.compile(student) # Add JIT
+    
     optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
     )
+    
     cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=(epochs - warmup_epochs)
     )
     scheduler = torch.optim.lr_scheduler.SequentialLR(
         optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
     )
+    
     scaler = torch.amp.GradScaler(enabled=use_amp) 
-
-    history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
-    best_val_acc = 0.0
-    start_epoch = 0
-
+    
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
         state_dict = checkpoint['model_state_dict']
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            new_key = k.replace("_orig_mod.", "") 
-            new_state_dict[new_key] = v
-        student.load_state_dict(new_state_dict, strict=False)
+        verbose_load(model=student, state_dict) # strict=True should work so no missings/unexpected is expected
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state'])
         scaler.load_state_dict(checkpoint['scaler_state'])
@@ -333,7 +332,6 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         start_epoch = checkpoint['epoch']
         best_val_acc = checkpoint.get('best_val_acc', 0.0)
         print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
-    student = torch.compile(student) # Add JIT
 
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
