@@ -53,7 +53,7 @@ def polynomial_increasing(model: nn.Module, alpha: float) -> list[dict]:
         else:
             lr = alpha ** 3
         param_groups.append({"params": [param], "lr": lr, "weight_decay": 1e-4})
-
+    print(blue("LAYER-WISE:"))
     for layer, g in enumerate(param_groups):
         print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
@@ -87,9 +87,9 @@ def increasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_laye
         {"params": params, "lr": lr, "weight_decay": 1e-4}
         for lr, params in group_dict.items()
     ]
-
+    print(blue("LAYER-WISE:"))
     for g in param_groups:
-        print(g["lr"], len(g["params"]))
+        print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
 
 
@@ -121,9 +121,9 @@ def decreasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_laye
         {"params": params, "lr": lr, "weight_decay": 1e-4}
         for lr, params in group_dict.items()
     ]
-
+    print(blue("LAYER-WISE:"))
     for g in param_groups:
-        print(g["lr"], len(g["params"]))
+        print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
 
 
@@ -165,7 +165,7 @@ def valley_llrd(model: nn.Module, alpha: float, layer_decay: float, num_layers: 
         {"params": params, "lr": lr, "weight_decay": 1e-4}
         for lr, params in group_dict.items()
     ]
-
+    print(blue("LAYER-WISE:"))
     for g in param_groups:
-        print(g["lr"], len(g["params"]))
+        print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
