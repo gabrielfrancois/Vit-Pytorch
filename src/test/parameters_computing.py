@@ -1,123 +1,107 @@
+import argparse
 import os
-import time
+from typing import Tuple
+
 import torch
-import numpy as np
-from torch import nn
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
+import torch.nn as nn
+import calflops 
+
+from helper_function.print import *
+from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
-from data.imagenet_loader import load_imagenet1k
-from configs.train_imagenet1k import *
-from helper_function.print import *
-from typing import List, Tuple, Optional, Any
 
-import calflops
+# ----------------------------------------- Device setup -----------------------------------------
 
-device = torch.device("cpu")
-print(bold(f"Using device: {device}"))
+def parse_args():
+    parser = argparse.ArgumentParser(description="Calculate FLOPs and MACs for Teacher vs Student")
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
+    parser.add_argument('--teacher-checkpoint', type=str, default=None, help='Override teacher checkpoint path')
+    parser.add_argument('--student-checkpoint', type=str, default=None, help='Override student checkpoint path')
+    parser.add_argument('--device', type=str, default=None, choices=["cpu", "cuda", "mps"], help='Choose your device')
+    args = parser.parse_args()
+    return args
 
-checkpoint_dir = "checkpoints/imagenet"
-teacher_path = f"{checkpoint_dir}/teacher_checkpoint_best.pth"
-student_path = f"{checkpoint_dir}/student_best.pth"
-
-results_dir = "logs/imagenet/student/graphs/best/Evaluation_Graphs_Test"
-pruning_vis_dir = "logs/imagenet/student/pruning/Pruning_Images"
-os.makedirs(results_dir, exist_ok=True)
-os.makedirs(pruning_vis_dir, exist_ok=True)
-
-# -------------------- FLOPs Calculation --------------------
-
-from typing import Tuple
-import torch.nn as nn
+# ----------------------------------------- FLOPs Calculation -----------------------------------------
 
 def compute_model_flops(
     model: nn.Module,
     img_size: Tuple[int, int],
-    batch_size: int = 1
+    n_channels: int = 3,
+    device: torch.device = torch.device('cpu')
 ) -> Tuple[float, float, float]:
     """
     Compute and display the computational cost of a vision model.
-
-    This function estimates the number of parameters, FLOPs, and MACs
-    for a single forward pass given an input image resolution. It also
-    reports scaled FLOPs for a full batch and provides a rough estimate
-    of training cost by approximating the backward pass as twice the
-    forward cost.
-
-    FLOPs and MACs are computed using a dummy input tensor and rely on
-    the underlying FLOPs calculation utility.
-
-    Notes:
-        - FLOPs correspond to a single forward pass unless stated otherwise.
-        - Results may vary slightly depending on the FLOPs estimation backend.
-
-    Args:
-        model (nn.Module):
-            PyTorch model to be analyzed.
-        img_size (Tuple[int, int]):
-            Input image size as (height, width).
-        batch_size (int, optional):
-            Batch size used to scale FLOPs estimation. Defaults to 1.
-
-    Returns:
-        Tuple[float, float, float]:
-            - flops: Number of floating-point operations per image.
-            - macs: Number of multiply–accumulate operations per image.
-            - params: Number of trainable parameters.
     """
-
+    model.eval()
+    model.to(device)
+    
     input_shape = (1, n_channels, img_size[0], img_size[1])
 
+    print(blue(f"Calculating FLOPs for input shape: {input_shape}..."))
+    
     flops, macs, params = calflops.calculate_flops(
         model=model,
         input_shape=input_shape,
         output_as_string=False,
-        output_precision=4
+        output_precision=4,
+        print_results=False 
     )
 
     flops_g: float = flops / 1e9
     macs_g: float = macs / 1e9
     params_m: float = params / 1e6
 
-    print(red(f"Model Parameters: {params_m:.2f} M"))
-    print(cyan(f"FLOPs per image (forward): {flops_g:.2f} GFLOPs"))
-    print(green(f"MACs per image: {macs_g:.2f} GMacs"))
-
-    print("-" * 40)
+    print(blue(f" ↳ Model Parameters:       {params_m:.2f} M"))
+    print(bold(f" ↳ FLOPs per img (forward): {flops_g:.2f} GFLOPs"))
+    print(bold(f" ↳ MACs per image:         {macs_g:.2f} GMACs"))
+    print("-" * 50)
 
     return flops, macs, params
 
-
+# ----------------------------------------- Main Execution -----------------------------------------
 
 if __name__ == "__main__":
-    class_names = None
+    args = parse_args()
 
-    print(yellow("Loading Test Data..."))
-    _, _, test_loader = load_imagenet1k()
+    if args.device:
+        device = torch.device(args.device)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(bold(f"Using device: {device}"))
 
-    # -------------------- Teacher --------------------
-    print(yellow("Loading Teacher Model..."))
-    teacher = VisionTransformer(
-        d_model, n_classes, img_size, patch_size,
-        n_channels, n_heads, n_layers
-    ).to(device)
-    teacher.load_state_dict(torch.load(teacher_path, map_location=device))
+    base_dir = "cifar10" if args.dataset == "cifar10" else "imagenet"
+    
+    default_teacher_ckpt = f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
+    default_student_ckpt = f"checkpoints/{base_dir}/student_best.pth"
 
-    # -------------------- Student --------------------
-    print(blue("Loading Student Model..."))
-    student = DynamicVisionTransformer(
-        d_model, n_classes, img_size, patch_size,
-        n_channels, n_heads, n_layers,
-        pruning_index=pruning_index, rho=0.709
-    ).to(device)
-    student.load_state_dict(torch.load(student_path, map_location=device))
+    t_ckpt_path = args.teacher_checkpoint if args.teacher_checkpoint else default_teacher_ckpt
+    s_ckpt_path = args.student_checkpoint if args.student_checkpoint else default_student_ckpt
 
-    print(yellow("Computing FLOPs for Teacher..."))
-    compute_model_flops(teacher, img_size=img_size, batch_size=batch_size)
+    if not os.path.exists(t_ckpt_path):
+        raise FileNotFoundError(red(f"Teacher checkpoint missing: {t_ckpt_path}"))
+    if not os.path.exists(s_ckpt_path):
+        raise FileNotFoundError(red(f"Student checkpoint missing: {s_ckpt_path}"))
 
-    print(yellow("Computing FLOPs for Student..."))
-    compute_model_flops(student, img_size=img_size, batch_size=batch_size)
+    print(blue("\n--- Loading Teacher Model ---"))
+    t_ckpt = torch.load(t_ckpt_path, map_location=device)
+    t_hparams = t_ckpt["hyperparameters"]
+    teacher = VisionTransformer(**t_hparams).to(device)
+    
+    t_state_dict = t_ckpt.get('model_state_dict', t_ckpt)
+    verbose_load(teacher, t_state_dict)
 
+    print(blue("\n--- Loading Student Model ---"))
+    s_ckpt = torch.load(s_ckpt_path, map_location=device)
+    s_hparams = s_ckpt["hyperparameters"]
+    student = DynamicVisionTransformer(**s_hparams).to(device)
+
+    s_state_dict = s_ckpt.get('model_state_dict', s_ckpt)
+    s_state_dict = {k.replace("_orig_mod.", "").replace("transformer_encoderss", "transformer_encoders"): v for k, v in s_state_dict.items()}
+    verbose_load(student, s_state_dict)
+
+    print(bold("\n=== Teacher Computational Cost ==="))
+    compute_model_flops(teacher, img_size=t_hparams['img_size'], n_channels=t_hparams['n_channels'], device=device)
+
+    print(bold("=== Student Computational Cost ==="))
+    compute_model_flops(student, img_size=s_hparams['img_size'], n_channels=s_hparams['n_channels'], device=device)
