@@ -1,141 +1,102 @@
-# test.py — Model Evaluation & Visualization
+# Model Evaluation, Comparison & Analysis
 
-Evaluate and compare a **Teacher** ViT against a **Student** DynamicViT on CIFAR-10 or ImageNet-1k.
-Produces accuracy/speed comparison charts, confusion matrices, and per-layer pruning visualizations.
+This directory contains scripts for evaluating, benchmarking, and visualizing the performance of your Vision Transformers (ViT) and DynamicViTs. The pipeline is optimized for **ImageNet-1k (128x128)**, focusing on accuracy, inference speed, and computational efficiency.
 
 ---
 
 ## Requirements
 
-Install dependencies before running:
-```bash
-uv sync
-```
-or 
+Ensure your environment is set up and dependencies are installed:
 
 ```bash
+uv sync
+# or
 pip install -r requirements.txt
 ```
 
-Then:
-```bash
-source .venv/bin/activate
-```
-
-## Checkpoints
-
-By default the script looks for:
-
-| Model   | Default path                                    |
-|---------|-------------------------------------------------|
-| Teacher | `checkpoints/{dataset}/teacher_checkpoint_best.pth` |
-| Student | `checkpoints/{dataset}/student_best.pth`        |
-
-You can override either path with `--teacher_checkpoint` / `--student_checkpoint`.
-
 ---
 
-## Usage
+## Usage & Scripts
 
-### Minimal — evaluate both models on imagenet
-```bash
-python -m src.test.test
-```
+### 1. Teacher vs. Student Comparison (`compare_st-te.py`)
+This is the primary evaluation script. It compares a **Teacher** (Standard ViT) and a **Student** (DynamicViT) across several metrics.
 
-### Evaluate on ImageNet-1k
-```bash
-python -m src.test.test --dataset imagenet
-```
+- **Metrics**: Top-1 Accuracy, Loss, and Throughput (img/sec).
+- **Visuals**: Generates side-by-side Confusion Matrices and Performance Comparison bar charts.
+- **DynamicViT Insights**: Produces per-layer pruning visualizations to show which patches the Student model "drops."
 
-### Evaluate only the Student (skip Teacher)
+**Example CLI**:
 ```bash
-python -m src.test.test --test_teacher False --test_student True
-```
+# Evaluate both models with default checkpoints
+python -m src.test.compare_st-te --test-teacher --test-student
 
-### Custom checkpoints
-```bash
-python -m src.test.test \
-  --teacher_checkpoint path/to/my_teacher.pth \
-  --student_checkpoint path/to/my_student.pth
-```
+# Evaluate only the Student with a custom checkpoint
+python -m src.test.compare_st-te --test-student --student-checkpoint checkpoints/imagenet/student_best.pth
 
-### Override model architecture (**must match your checkpoint**)
-```bash
-python -m src.test.test --d_model 384 --n_heads 6 --n_layers 12
-```
-
-### Control the number of pruning visualizations
-```bash
-python -m src.test.test --visualize --num_images 16
-```
-
-### Force a specific device
-```bash
-python -m src.test.test --device cuda   # or cpu / mps
+# Run with custom visualization settings
+python -m src.test.compare_st-te --test-student --visualize --num_images 12 --device cuda
 ```
 
 ---
 
-## All Arguments
+### 2. Computational Cost Analysis (`parameters_computing.py`)
+Use this script to analyze the structural complexity and theoretical speed of your models. It uses `calflops` to provide precise measurements.
 
-| Argument               | Type    | Default          | Description |
-|------------------------|---------|------------------|-------------|
-| `--dataset`            | `str`   | `cifar10`        | Dataset to load. Choices: `cifar10`, `imagenet`. |
-| `--test_teacher`       | flag    | `True`           | Run evaluation on the Teacher model. |
-| `--test_student`       | flag    | `True`           | Run evaluation on the Student model. |
-| `--teacher_checkpoint` | `str`   | `None`           | Path to Teacher `.pth` checkpoint. Falls back to default if not set or missing. |
-| `--student_checkpoint` | `str`   | `None`           | Path to Student `.pth` checkpoint. Falls back to default if not set or missing. |
-| `--visualize`          | flag    | `True`           | Generate per-image pruning mask visualizations for the Student. |
-| `--num_images`         | `int`   | `8`              | Number of images to visualize when `--visualize` is set. |
-| `--d_model`            | `int`   | from config      | Embedding dimension. Overrides the value in the config file. |
-| `--n_layers`           | `int`   | from config      | Number of Transformer layers. |
-| `--n_heads`            | `int`   | from config      | Number of attention heads. |
-| `--batch_size`         | `int`   | from config      | Batch size for the DataLoader. |
-| `--device`             | `str`   | auto-detect      | Force a specific device. Choices: `cpu`, `cuda`, `mps`. |
+- **Metrics**: Total Parameters (M), FLOPs (G), and MACs (G).
 
----
-
-## Outputs
-
-All outputs are written relative to the project root:
-```
-logs/
-├── {dataset}/
-│   ├── evaluation_results/
-│   │   ├── compare_confusion_matrices.png   # Side-by-side confusion matrices
-│   │   └── compare_performance.png          # Accuracy & throughput bar charts
-│   └── pruning_visualizations/
-│       ├── pruning_vis_0.png                # Original + masked image per pruning layer
-│       ├── pruning_vis_1.png
-│       └── ...
-```
-
-The confusion matrix plot clips to the **top 10 classes** on CIFAR-10 and **top 20** on ImageNet for readability.
-
----
-
-## Example — Full Run on CIFAR-10 with Custom Paths
+**Example CLI**:
 ```bash
-python -m src.test.test \
-  --dataset cifar10 \
-  --teacher_checkpoint checkpoints/cifar10/teacher_v2.pth \
-  --student_checkpoint checkpoints/cifar10/student_v2.pth \
-  --num_images 12 \
-  --device cuda
+# Calculate costs for default ImageNet checkpoints
+python -m src.test.parameters_computing --dataset imagenet
+
+# Specify custom checkpoint paths
+python -m src.test.parameters_computing \
+  --teacher-checkpoint checkpoints/imagenet/teacher_checkpoint_best.pth \
+  --student-checkpoint checkpoints/imagenet/student_best.pth
 ```
 
-Expected terminal output per model:
-```
-------------------------------
-Results for Teacher:
-  Accuracy:   94.31%
-  Loss:       0.1823
-  Throughput: 3412 img/sec
-------------------------------
+---
+
+### 3. SSL Teacher Reconstruction (`test_SSLteacher.py`)
+Evaluates the Self-Supervised Learning (SSL) performance of a Teacher model trained with Masked Autoencoder (MAE) objectives.
+
+- **Metrics**: MSE, MAE, PSNR (Peak Signal-to-Noise Ratio), and Threshold Accuracy.
+- **Visuals**: Generates triple-panel images: Original vs. Masked Input vs. Model Reconstruction.
+
+**Example CLI**:
+```bash
+# Standard SSL evaluation
+python -m src.test.test_SSLteacher --dataset imagenet
+
+# Evaluate with a specific mask ratio and visualization count
+python -m src.test.test_SSLteacher \
+  --checkpoint checkpoints/imagenet/ssl_teacher/ssl_teacher_best.pth \
+  --mask_ratio 0.75 \
+  --num_images 10
 ```
 
-At the end of a joint run, a summary is printed:
-```
- Student Speed-Up: +47.23%
- Accuracy Drop: 1.15%
-```
+---
+
+## Outputs & Logs
+
+All results are automatically saved to the `logs/imagenet/` directory:
+
+- **Performance Graphs**: `logs/imagenet/evaluation_results/`
+  - `compare_performance.png`: Accuracy & Throughput bars.
+  - `compare_confusion_matrices.png`: Top-20 class confusion matrices.
+- **Pruning Visuals**: `logs/imagenet/pruning_visualizations/`
+  - `pruning_vis_X.png`: Visualizes patch dropping at each `pruning_index` [4, 7, 10].
+- **SSL Visuals**: `logs/imagenet/ssl_teacher/visualizations/`
+  - `ssl_reconstruction_X.png`: MAE reconstruction quality samples.
+
+---
+
+## Key Arguments (Common)
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--dataset` | Dataset selection (focus on `imagenet`) | `imagenet` |
+| `--device` | Force device (`cpu`, `cuda`, `mps`) | Auto-detect |
+| `--num_images` | Number of visualization samples to generate | `8` (or `5` for SSL) |
+| `--teacher-checkpoint` | Path to Teacher `.pth` | `checkpoints/imagenet/...` |
+| `--student-checkpoint` | Path to Student `.pth` | `checkpoints/imagenet/...` |
