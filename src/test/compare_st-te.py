@@ -15,6 +15,7 @@ from helper_function.print import *
 from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
+from configs.train_imagenet1k import std_norm_imagenet, mean_norm_imagenet
 
 # ----------------------------------------- Core Evaluation Function -----------------------------------------
 
@@ -187,8 +188,8 @@ def visualize_pruning_on_images(
 
     images_done = 0
     # ImageNet normalization stats
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
+    mean = np.array(mean_norm_imagenet)
+    std = np.array(std_norm_imagenet)
 
     with torch.no_grad():
         for imgs, _ in loader:

@@ -17,6 +17,25 @@ from helper_function.load_model import verbose_load
 from helper_function.MAE_tools import random_masking, patchify
 from src.models.vision_transformer import VisionTransformer
 
+# ----------------------------------------- Device setup -----------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=None)
+    parser.add_argument('--d_model', type=int, default=None)
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
+    parser.add_argument('--resume-from', type=str, default=None)
+    parser.add_argument('--n_layers', type=int, default=None)
+    parser.add_argument('--batch_size', type=int, default=None)
+    parser.add_argument('--patch_size', type=int, nargs=2, default=None)
+    parser.add_argument('--alpha', type=float, default=None, help='Learning rate')
+    parser.add_argument('--n_heads', type=int, default=None)
+    parser.add_argument('--mask_ratio', type=float, default=0.75, help='Percentage of image to mask out')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
+    args = parser.parse_args()
+    return args
+
 # ----------------------------------------- Training Functions -----------------------------------------
 
 def train_one_epoch(
@@ -161,6 +180,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     teacher = torch.compile(teacher) # JIT
     
     # LayeWise --> modify especially the firsts layers!
+    alpha = alpha*batch_size/256
     param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
@@ -238,21 +258,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=None)
-    parser.add_argument('--d_model', type=int, default=None)
-    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
-    parser.add_argument('--resume-from', type=str, default=None)
-    parser.add_argument('--n_layers', type=int, default=None)
-    parser.add_argument('--batch_size', type=int, default=None)
-    parser.add_argument('--patch_size', type=int, nargs=2, default=None)
-    parser.add_argument('--alpha', type=float, default=None, help='Learning rate')
-    parser.add_argument('--n_heads', type=int, default=None)
-    parser.add_argument('--mask_ratio', type=float, default=0.75, help='Percentage of image to mask out')
-    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
-    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
-    args = parser.parse_args()
+    args = parse_args()
 
     if args.device:
         device = torch.device(args.device)

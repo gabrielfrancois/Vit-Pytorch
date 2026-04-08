@@ -15,6 +15,19 @@ from helper_function.print import *
 from helper_function.MAE_tools import random_masking, patchify
 from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
+from configs.train_imagenet1k import std_norm_imagenet, mean_norm_imagenet
+
+# ----------------------------------------- Device setup -----------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
+    parser.add_argument('--checkpoint', type=str, default=None, help='Path to SSL Teacher checkpoint')
+    parser.add_argument('--mask_ratio', type=float, default=0.75, help='Mask ratio for evaluation')
+    parser.add_argument('--threshold', type=float, default=0.10, help='Max pixel variance for Threshold Accuracy')
+    parser.add_argument('--num_images', type=int, default=5, help='Images to visualize')
+    args = parser.parse_args()
+    return args
 
 # ----------------------------------------- Core Evaluation -----------------------------------------
 
@@ -82,8 +95,8 @@ def visualize_reconstruction(
     images_done = 0
 
     # ImageNet stats for numpy denormalization
-    mean_np = np.array([0.485, 0.456, 0.406])
-    std_np = np.array([0.229, 0.224, 0.225])
+    mean_np = np.array(mean_norm_imagenet)
+    std_np = np.array(std_norm_imagenet)
 
     os.makedirs(save_dir, exist_ok=True)
 
@@ -168,14 +181,7 @@ def visualize_reconstruction(
 # ----------------------------------------- Main Execution -----------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'])
-    parser.add_argument('--checkpoint', type=str, default=None, help='Path to SSL Teacher checkpoint')
-    parser.add_argument('--mask_ratio', type=float, default=0.75, help='Mask ratio for evaluation')
-    parser.add_argument('--threshold', type=float, default=0.10, help='Max pixel variance for Threshold Accuracy')
-    parser.add_argument('--num_images', type=int, default=5, help='Images to visualize')
-    args = parser.parse_args()
-
+    args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(bold(f"Using device: {device}"))
 

@@ -19,6 +19,23 @@ from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss import DynamicViTLoss
 
+# ----------------------------------------- Device setup -----------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Explicit path to the teacher checkpoint')
+    parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous student chekpoint')
+    parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
+    parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
+    parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
+    parser.add_argument('--rho', type=float, default=None, help='choose the pruning factor')
+    args = parser.parse_args()
+    return args
+
 # ----------------------------------------- Test Functions -----------------------------------------
 
 def save_training_plots(
@@ -304,6 +321,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     
     student = torch.compile(student) # Add JIT
     
+    alpha = alpha*batch_size/256
     optimizer = torch.optim.AdamW(student.parameters(), lr=alpha, weight_decay=1e-4)
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
@@ -433,35 +451,17 @@ def rho_schedule(
 
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
-    parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous student chekpoint')
-    parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
-    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
-    parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
-    parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
-    parser.add_argument('--patch_size',type=int,nargs=2,default=None,help='choose the patch-size dimension (ex: 8 8)')
-    parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
-    parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
-    parser.add_argument('--teacher_checkpoint', type=str, default=None, help='Explicit path to the teacher checkpoint')
-    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
-    parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
-    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
-    args = parser.parse_args()
-
+    args = parse_args()
     if args.device:
         device = torch.device(args.device)
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))
-    if args.n_heads is not None and args.d_model is not None:
-        assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
+    
     if args.dataset == "cifar10":
         from data.load.load_data import load_CIFAR 
         from configs.train_cifar10 import * 
-
         base_dir = "cifar10"
-
         print(blue(f"Loading {args.dataset} data..."))
         train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
     else:
@@ -488,16 +488,12 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir)
 
     param_selected = [
-        'epochs', 'd_model',
-        'dataset','n_layers',
-        'batch_size','patch_size',
-        'alpha','n_heads'
+        'epochs', 'dataset',
+        'batch_size','alpha'
         ]
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)
         if value is not None:
-            if param == 'patch_size':
-                value = tuple(value)
             globals()[param] = value
 
     run_training(

@@ -19,6 +19,25 @@ from helper_function.layer_wise import increasing_llrd
 from helper_function.load_model import verbose_load
 from src.models.vision_transformer import VisionTransformer
 
+# ----------------------------------------- Device setup -----------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
+    parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
+    parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous chekpoint')
+    parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
+    parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
+    parser.add_argument('--patch_size', type=int, nargs=2, default=None,help='choose the patch-size dimension (ex: 8 8)')
+    parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
+    parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
+    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
+    args = parser.parse_args()
+    return args
+
 # ----------------------------------------- Training Functions -----------------------------------------
 
 def train_one_epoch(
@@ -382,20 +401,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 # ----------------------------------------- Main -----------------------------------------
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
-    parser.add_argument('--d_model', type=int, default=None, help='choose the patch-embedding dimension')
-    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset on which you want to train the teacher. Possible choices: ["cifar10", "imagenet"]')
-    parser.add_argument('--resume-from', type=str, default=None, help='Choose if you want to resume the training of a previous chekpoint')
-    parser.add_argument('--n_layers', type=int, default=None, help='Choose the number of layers')
-    parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
-    parser.add_argument('--patch_size', type=int, nargs=2, default=None,help='choose the patch-size dimension (ex: 8 8)')
-    parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
-    parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
-    parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
-    parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
-    parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
-    args = parser.parse_args()
+    args = parse_args()
 
     if args.device:
         device = torch.device(args.device)
