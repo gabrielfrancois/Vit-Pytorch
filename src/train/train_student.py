@@ -305,7 +305,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             new_student_dict[new_key] = v
     assert len(new_student_dict) > 0, "No teacher weights were transferred to student — check layer naming (transformer_encoder vs transformer_encoders)"
     print(green(f"--> Transferred {len(new_student_dict)}/{len(student_dict)} weight tensors from teacher to student."))
-    verbose_load(model=student, new_student_dict)
+    verbose_load(model=student, state_dict=new_student_dict)
     teacher = torch.compile(teacher) # Add JIT compiler
 
     target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
@@ -341,7 +341,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
         state_dict = checkpoint['model_state_dict']
-        verbose_load(model=student, state_dict) # strict=True should work so no missings/unexpected is expected
+        verbose_load(model=student, state_dict=state_dict) # strict=True should work so no missings/unexpected is expected
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state'])
         scaler.load_state_dict(checkpoint['scaler_state'])
