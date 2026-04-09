@@ -1,10 +1,10 @@
 # train_imagenet1k.py
-d_model = 200
+d_model = 192
 n_classes = 1000
 img_size = (128, 128)
 patch_size = (16, 16)
 n_channels = 3
-n_heads = 4
+n_heads = 6
 n_layers = 12
 batch_size = 256
 epochs = 120

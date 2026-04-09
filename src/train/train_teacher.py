@@ -300,11 +300,11 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     teacher = torch.compile(teacher) # Add Just In Time compiler
     
     # Layer-Wise LR 
-    param_groups = increasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
+    normalized_alpha = alpha*batch_size/256
+    param_groups = increasing_llrd(teacher, normalized_alpha, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
     
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
-    alpha = alpha*batch_size/256
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
