@@ -8,6 +8,8 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -31,4 +33,4 @@ jobs:
         with:
           target: gh-pages
         env:
-          GITHUB_TOKEN: ${{secrets.TOKEN_ACCESS}}
+          GITHUB_TOKEN: ${{ secrets.TOKEN_ACCESS }}
