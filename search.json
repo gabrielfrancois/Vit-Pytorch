@@ -1,0 +1,107 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "",
+    "text": "This website serves as the reproducibility and deployment reference for the Dynamic-Vit implemented by Gabriel François, Avner El Baz and Léo Leroy, inspired by (Rao et al. 2021).\nHow to use, … What it covers, what it doesnt cover from our implementation. Caveats: for training must use GPU, for … etc…"
+  },
+  {
+    "objectID": "index.html#website-overview",
+    "href": "index.html#website-overview",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "",
+    "text": "This website serves as the reproducibility and deployment reference for the Dynamic-Vit implemented by Gabriel François, Avner El Baz and Léo Leroy, inspired by (Rao et al. 2021).\nHow to use, … What it covers, what it doesnt cover from our implementation. Caveats: for training must use GPU, for … etc…"
+  },
+  {
+    "objectID": "index.html#requirements",
+    "href": "index.html#requirements",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "2.1 Requirements",
+    "text": "2.1 Requirements\nOur code requires Python 3.10+ and the dependencies listed in requirements.txt / pyproject.toml.\nWhat about Cuda ??\ngit clone \ncd Vit-Pytorch\npython -m venv .venv\nsource .venv/bin/activate  \npip install -r requirements.txt\nYou can also use uv:\nuv sync"
+  },
+  {
+    "objectID": "index.html#hardware-recommendation",
+    "href": "index.html#hardware-recommendation",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "2.2 Hardware recommendation",
+    "text": "2.2 Hardware recommendation\nGPU used:"
+  },
+  {
+    "objectID": "index.html#definitions",
+    "href": "index.html#definitions",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.1 Definitions",
+    "text": "4.1 Definitions\nSynthétiser les paragraphes de notre rapport. (token pruning, loss function, …)"
+  },
+  {
+    "objectID": "index.html#data-used",
+    "href": "index.html#data-used",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.2 Data used",
+    "text": "4.2 Data used"
+  },
+  {
+    "objectID": "index.html#training-pipeline",
+    "href": "index.html#training-pipeline",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.3 Training pipeline",
+    "text": "4.3 Training pipeline"
+  },
+  {
+    "objectID": "index.html#configuration-used",
+    "href": "index.html#configuration-used",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.4 Configuration used",
+    "text": "4.4 Configuration used"
+  },
+  {
+    "objectID": "index.html#reproducibility-of-our-code-and-experiments",
+    "href": "index.html#reproducibility-of-our-code-and-experiments",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.5 Reproducibility of our code and experiments",
+    "text": "4.5 Reproducibility of our code and experiments\nrandom seeds, checkpoint, …"
+  },
+  {
+    "objectID": "index.html#results",
+    "href": "index.html#results",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "4.6 Results",
+    "text": "4.6 Results\ndont métriques et images !!"
+  },
+  {
+    "objectID": "index.html#input-data-specification-and-output-format",
+    "href": "index.html#input-data-specification-and-output-format",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "5.1 Input data specification and output format",
+    "text": "5.1 Input data specification and output format"
+  },
+  {
+    "objectID": "index.html#pre-processing-pipeline",
+    "href": "index.html#pre-processing-pipeline",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "5.2 pre-processing pipeline",
+    "text": "5.2 pre-processing pipeline\n(nous comment on gère ces nouvelles données, normalement les utilisateurs ne devraient rien faire) (en fait peut-être enlever cette partie : il semble que quarto ne puisse pas éxécuter du nouveau code et ingérer de nouvelles données !)"
+  },
+  {
+    "objectID": "index.html#running-forward-pass",
+    "href": "index.html#running-forward-pass",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "5.3 Running forward pass",
+    "text": "5.3 Running forward pass"
+  },
+  {
+    "objectID": "index.html#github-actions-workflow",
+    "href": "index.html#github-actions-workflow",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "6.1 GitHub Actions workflow",
+    "text": "6.1 GitHub Actions workflow"
+  },
+  {
+    "objectID": "index.html#tests",
+    "href": "index.html#tests",
+    "title": "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment",
+    "section": "6.2 Tests",
+    "text": "6.2 Tests"
+  }
+]
