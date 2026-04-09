@@ -7,7 +7,7 @@ from src.models.patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding  
 from .transformer_encoder import TransformerEncoder
 from helper_function.print import *
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict
 
 class DynamicVisionTransformer(nn.Module):
     def __init__(self, d_model: int, n_classes: int, 
