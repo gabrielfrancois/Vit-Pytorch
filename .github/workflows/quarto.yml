@@ -34,4 +34,4 @@ jobs:
           target: gh-pages
           render: true
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_ACCESS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
