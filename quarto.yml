@@ -1,0 +1,32 @@
+name: Quarto publish
+
+on:
+push: 
+  branches: [reprod] #continuous integration
+  workflow_dispatch:
+
+jobs:
+build-deploy:
+runs-on: ubuntu-latest
+
+setps:
+  - name: Checkout repository
+    uses: actions/checkout@v4 #other git hub actions on the web
+  
+  - name: Set up Quarto
+    uses: quarto-dev/quarto-actions/setup@v2 #actions from quarto
+  
+  - name: Install dependencies
+    run: |
+    uv sync && source .venv/bin/activate
+    pip install -r requirements.txt |
+
+  - name: Render Quarto website
+    run: quarto render
+
+  - name: Deploy to GitHub Pages
+    uses: quarto-dev/quarto-actions/publish@v2
+    with:
+      target: gh-pages
+    env:
+      GITHUB_TOKEN: ${{secrets.TOKEN_ACCESS}}
