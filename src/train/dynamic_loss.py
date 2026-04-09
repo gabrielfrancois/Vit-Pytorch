@@ -56,7 +56,7 @@ class DynamicViTLoss(nn.Module):
             labels: Ground-truth labels (B,).
             student_feats: Features from student model (B, N, d_model).
             teacher_feats: Features from teacher model (B, N, d_model).
-            all_masks: List of binary pruning masks applied at each pruned layer [(B, N), ...].
+            all_masks: List of binary pruning masks applied at each pruned layer [(B, N+1), ...].
 
         Returns:
             total_loss: Weighted sum of classification, KL, distillation, and ratio losses.
@@ -73,22 +73,25 @@ class DynamicViTLoss(nn.Module):
         final_mask = all_masks[-1]
 
         loss_cls = self.ce_loss(student_logits, labels)
-
+        
+        T = 2.0 # temperature
         loss_kl = F.kl_div(
             F.log_softmax(student_logits, dim=1),
-            F.log_softmax(teacher_logits.detach(), dim=1),
+            F.softmax(teacher_logits.detach(), dim=1),
             reduction='batchmean',
             log_target=True
-        )
+        )*(T*T)
 
         d_model = student_feats.size(-1)
-        token_diff = (student_feats - teacher_feats).pow(2).sum(dim=-1)  # sum over d_model
+        teacher_feats_masked = teacher_feats * final_mask.unsqueeze(-1)# don't compare where it's pruned
+        token_diff = (student_feats - teacher_feats_masked).pow(2).sum(dim=-1)  # sum over d_model
         masked_diff = token_diff * final_mask
         loss_distill = (masked_diff.sum() / (final_mask.sum() + 1e-6))/d_model # To avoid blowing up of distill
 
         # Ratio loss for each pruning step, S = time step of the paper
-        all_masks_tensor = torch.stack(all_masks, dim=0)  # (S, B, N) 
-        actual_ratios = all_masks_tensor.float().mean(dim=-1)  # (S, B), mean over all patches
+        all_masks_tensor = torch.stack(all_masks, dim=0)  # (S, B, N+1) 
+        mask_wo_cls = all_masks_tensor[:, :, 1:] # exclude cls from reatio loss
+        actual_ratios = mask_wo_cls.float().mean(dim=-1)  # (S, B), mean over all patches
         targets = torch.tensor(self.target_ratios, device=actual_ratios.device).unsqueeze(1)  # broadcasting (S, 1)
         loss_ratio = ((targets - actual_ratios)**2).mean()
 
