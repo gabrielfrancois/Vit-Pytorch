@@ -1,5 +1,5 @@
 # train_imagenet1k.py
-d_model = 128
+d_model = 200
 n_classes = 1000
 img_size = (128, 128)
 patch_size = (16, 16)

@@ -180,8 +180,8 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
     teacher = torch.compile(teacher) # JIT
     
     # LayeWise --> modify especially the firsts layers!
-    alpha = alpha*batch_size/256
-    param_groups = decreasing_llrd(teacher, alpha, layer_decay, num_layers=n_layers)
+    #alpha = alpha*batch_size/256
+    param_groups = decreasing_llrd(teacher, alpha*batch_size/256, layer_decay, num_layers=n_layers)
     optimizer = torch.optim.AdamW(param_groups)
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
