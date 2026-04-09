@@ -95,6 +95,7 @@ dont métriques et images !!
 ## pre-processing pipeline
 
 (nous comment on gère ces nouvelles données, normalement les utilisateurs ne devraient rien faire)
+(en fait peut-être enlever cette partie : il semble que quarto ne puisse pas éxécuter du nouveau code et ingérer de nouvelles données !)
 
 ## Running forward pass
 
