@@ -4,5 +4,4 @@ project:
 website: 
   title:"Dynamic Vision Transformer"
   navbar:
-    left:
-      - index.qdm
+    left: index.qdm
