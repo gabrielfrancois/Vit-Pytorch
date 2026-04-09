@@ -4,7 +4,10 @@ on:
   push: 
     branches: [reprod] #continuous integration
     
-
+permissions:
+  contents: write
+  pages: write
+  
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
