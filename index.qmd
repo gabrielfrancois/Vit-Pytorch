@@ -1,5 +1,5 @@
 ---
-title: "Vit-Pytorch: Dynamic Vision Transformers — Reproducibility & Deployment"
+title: "Vit-Pytorch: Hierarchical Feature Distillation: — Reproducibility & Deployment"
 author: Gabriel François et Léo Leroy
 date: today
 bibliography: references.bib
