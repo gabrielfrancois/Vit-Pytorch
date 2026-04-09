@@ -28,11 +28,11 @@ jobs:
           source .venv/bin/activate
           pip install -r requirements.txt
 
-      - name: Render Quarto website
-        run: uv run quarto render
+      #- name: Render Quarto website
+      #  run: uv run quarto render
 
       - name: Deploy to GitHub Pages
-        uses: quarto-dev/quarto-actions/publish@v2
+        uses: quarto-dev/quarto-actions/publish@v2 #it also renders actually
         with:
           target: gh-pages
           render: true
