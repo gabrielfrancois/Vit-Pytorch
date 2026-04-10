@@ -17,6 +17,21 @@ from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 from configs.train_imagenet1k import std_norm_imagenet, mean_norm_imagenet
 
+# ----------------------------------------- Device setup -----------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset')
+    parser.add_argument('--test-teacher', action='store_true', help='Flag to test the teacher model')
+    parser.add_argument('--test-student', action='store_true', help='Flag to test the student model')
+    parser.add_argument('--teacher-checkpoint', type=str, default=None, help='Override teacher checkpoint path')
+    parser.add_argument('--student-checkpoint', type=str, default=None, help='Override student checkpoint path')
+    parser.add_argument('--visualize', action='store_true', default=True, help='Generate pruning visualization images')
+    parser.add_argument('--device', type=str, default=None, choices = ["cpu", "cuda", "mps"], help='Choose your device')
+    parser.add_argument('--num_images', type=int, default=8)
+    args = parser.parse_args()
+    return args
+
 # ----------------------------------------- Core Evaluation Function -----------------------------------------
 
 def evaluate_model(
@@ -250,16 +265,7 @@ def visualize_pruning_on_images(
 # ----------------------------------------- Main Execution -----------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="imagenet", choices=['cifar10', 'imagenet'], help='Choose the dataset')
-    parser.add_argument('--test-teacher', action='store_true', help='Flag to test the teacher model')
-    parser.add_argument('--test-student', action='store_true', help='Flag to test the student model')
-    parser.add_argument('--teacher-checkpoint', type=str, default=None, help='Override teacher checkpoint path')
-    parser.add_argument('--student-checkpoint', type=str, default=None, help='Override student checkpoint path')
-    parser.add_argument('--visualize', action='store_true', default=True, help='Generate pruning visualization images')
-    parser.add_argument('--device', type=str, default=None, choices = ["cpu", "cuda", "mps"], help='Choose your device')
-    parser.add_argument('--num_images', type=int, default=8)
-    args = parser.parse_args()
+    args = parse_args()
 
     if args.device :
         device = args.device
@@ -316,6 +322,7 @@ if __name__ == "__main__":
         ckpt = torch.load(s_ckpt_path, map_location=device)
         hparams = ckpt["hyperparameters"]
         student = DynamicVisionTransformer(**hparams).to(device)
+        print(hparams)
 
         if not os.path.exists(s_ckpt_path):
             raise FileNotFoundError(red(f"Student checkpoint missing: {s_ckpt_path}"))

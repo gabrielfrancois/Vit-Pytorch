@@ -298,20 +298,30 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     print(blue("Initializing student..."))
     new_args = {"pruning_index": pruning_index, "rho": rho}
     args_student = {**hparams, **new_args}
+    is_resuming = args.resume_from is not None and os.path.exists(args.resume_from)
+    if is_resuming:
+        checkpoint_student = torch.load(args.resume_from, map_location=device)
+        args_student = checkpoint_student.get('hyperparameters', args_student)
+        print(blue(f"=== Resuming Student from {args.resume_from} with parameters: {args_student} ==="))
+        
     student = DynamicVisionTransformer(**args_student).to(device)
-
-    print("Copying backbone weights from teacher to student...")
-    teacher_dict = teacher.state_dict()
-    student_dict = student.state_dict()
-
-    new_student_dict = {}
-    for k, v in teacher_dict.items():
-        new_key = k.replace('transformer_encoder', 'transformer_encoders')
-        if new_key in student_dict:
-            new_student_dict[new_key] = v
-    assert len(new_student_dict) > 0, "No teacher weights were transferred to student — check layer naming (transformer_encoder vs transformer_encoders)"
-    print(green(f"--> Transferred {len(new_student_dict)}/{len(student_dict)} weight tensors from teacher to student."))
-    verbose_load(model=student, state_dict=new_student_dict)
+    
+    if is_resuming:
+        verbose_load(model=student, state_dict=checkpoint_student['model_state_dict']) # strict=True should work so no missings/unexpected is expected
+    else:
+        print("Copying backbone weights from teacher to student...")
+        teacher_dict = teacher.state_dict()
+        student_dict = student.state_dict()
+    
+        new_student_dict = {}
+        for k, v in teacher_dict.items():
+            new_key = k.replace('transformer_encoder', 'transformer_encoders')
+            if new_key in student_dict:
+                new_student_dict[new_key] = v
+        assert len(new_student_dict) > 0, "No teacher weights were transferred to student — check layer naming (transformer_encoder vs transformer_encoders)"
+        print(green(f"--> Transferred {len(new_student_dict)}/{len(student_dict)} weight tensors from teacher to student."))
+        verbose_load(model=student, state_dict=new_student_dict)
+        
     teacher = torch.compile(teacher) # Add JIT compiler
 
     target_ratios = [rho**(i+1) for i in range(len(pruning_index))]
@@ -346,14 +356,10 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
 
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
-    if args.resume_from is not None and os.path.exists(args.resume_from):
-        checkpoint = torch.load(args.resume_from, map_location=device)
-        state_dict = checkpoint['model_state_dict']
-        verbose_load(model=student, state_dict=state_dict) # strict=True should work so no missings/unexpected is expected
+    if is_resuming:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state'])
         scaler.load_state_dict(checkpoint['scaler_state'])
-
         history = checkpoint.get('history', history)
         start_epoch = checkpoint['epoch']
         best_val_acc = checkpoint.get('best_val_acc', 0.0)
@@ -400,11 +406,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             'scaler_state': scaler.state_dict(),
             'history': history,
             'best_val_acc': best_val_acc if val_acc <= best_val_acc else val_acc,
-            'hyperparameters': {
-                'd_model': d_model, 'n_classes': n_classes, 'img_size': img_size,
-                'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads,
-                'n_layers': n_layers, 'pruning_index': pruning_index, 'rho': rho
-            }
+            'hyperparameters': args_student
         }
 
         if val_acc > best_val_acc:
