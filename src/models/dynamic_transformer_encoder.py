@@ -67,8 +67,6 @@ class DynamicTransformerEncoder(nn.Module):
                 new_policy = new_policy*hard_keep_decision 
                 new_policy = new_policy.clone() # clone to avoid in-place pb like Calls into the C++ engine to run the backward pass
                 new_policy[:, 0] = 1.0 
-                
-                attn_mask = (1.0 - new_policy) * -1e9 # exp(0) = 1 --> exp(-1e9) 
 
                 # Calculate attention with MASK, x is still (B, N, C) to keep GPU computational advantages
                 attn_out = self.mha(self.ln1(x), mask=attn_mask)
