@@ -260,9 +260,14 @@ def save_training_plots(
     plt.close()
 
 # ----------------------------------------- run Functions -----------------------------------------
+
 def run_training(args, device, train_loader, val_loader, test_loader, checkpoint_dir, graph_dir, writer):
     """Encapsulates the model initialization, resume logic, and main training loop."""
     start_time = time.time()
+    args_teacher = {
+            'd_model': d_model, 'n_classes': n_classes, 'img_size': img_size,
+            'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads, 'n_layers': n_layers
+        }
     print(blue("Initializing teacher ViT..."))
 
     use_amp = device.type == "cuda"
@@ -270,25 +275,20 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     best_val_acc = 0.0
     start_epoch = 0
     
-    teacher = VisionTransformer(
-        d_model=d_model, n_classes=n_classes, img_size=img_size, 
-        patch_size=patch_size, n_channels=n_channels, n_heads=n_heads, n_layers=n_layers
-    ).to(device)
-    
     checkpoint=None
     is_ssl_checkpoint = False
     if args.resume_from is not None and os.path.exists(args.resume_from):
         print(blue(f"Loading checkpoint from {args.resume_from}..."))
         checkpoint = torch.load(args.resume_from, map_location=device)
-        
         is_ssl_checkpoint = 'best_val_acc' not in checkpoint
-        
-        hparams = checkpoint['hyperparameters']
-        teacher = VisionTransformer(**hparams).to(device) # Ensure we keep the same hparams
-        
+        args_teacher = checkpoint['hyperparameters']
+        print(blue(f"=== Resuming with parameters: {args_teacher} ==="))
+    
+    teacher = VisionTransformer(**args_teacher).to(device)
+    
+    if checkpoint is not None:
         state_dict = checkpoint['model_state_dict']
         verbose_load(teacher, state_dict)
-        
         if is_ssl_checkpoint:
             print(green("--> SSL Checkpoint detected! Setting up for REPA fine-tuning (Epoch 0, fresh Optimizer)."))
             start_epoch = 0
@@ -302,7 +302,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     
     # Layer-Wise LR 
     normalized_alpha = alpha*batch_size/256
-    param_groups = increasing_llrd(teacher, normalized_alpha, layer_decay, num_layers=n_layers)
+    param_groups = increasing_llrd(teacher, normalized_alpha, layer_decay, num_layers=args_teacher['n_layers'])
     optimizer = torch.optim.AdamW(param_groups)
     
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
@@ -369,10 +369,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             'scheduler_state': scheduler.state_dict(),
             'scaler_state': scaler.state_dict(),
             'history': history,
-            'hyperparameters': {
-                'd_model': d_model, 'n_classes': n_classes, 'img_size': img_size,
-                'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads, 'n_layers': n_layers
-            }
+            'hyperparameters': args_teacher
         }
 
         if val_acc > best_val_acc:
