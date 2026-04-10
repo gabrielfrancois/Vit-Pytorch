@@ -90,7 +90,7 @@ class DynamicViTLoss(nn.Module):
 
         # Ratio loss for each pruning step, S = time step of the paper
         all_masks_tensor = torch.stack(all_masks, dim=0)  # (S, B, N+1) 
-        mask_wo_cls = all_masks_tensor[:, :, 1:] # exclude cls from reatio loss
+        mask_wo_cls = all_masks_tensor[:, :, 1:] # (S, B, N) exclude cls from reatio loss
         actual_ratios = mask_wo_cls.float().mean(dim=-1)  # (S, B), mean over all patches
         targets = torch.tensor(self.target_ratios, device=actual_ratios.device).unsqueeze(1)  # broadcasting (S, 1)
         loss_ratio = ((targets - actual_ratios)**2).mean()

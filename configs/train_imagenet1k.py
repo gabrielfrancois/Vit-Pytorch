@@ -16,10 +16,10 @@ pruning_index = [4,7,10]
 rho = 0.7
 rho_init = 1
 steepness = 10.0
-lambda_class = 1
-lambda_kl = 1
-lambda_ratio = (1/2)
-lambda_distill = 2
+lambda_class = 1.0
+lambda_kl = 1.0
+lambda_ratio = 2.0
+lambda_distill = 0.2
 
 # Normalisation parameters
 mean_norm_imagenet = [0.485, 0.456, 0.406]

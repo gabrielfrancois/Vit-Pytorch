@@ -29,6 +29,10 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--lambda_class', type=float, default=None, help='choose the classification loss')
+    parser.add_argument('--lambda_kl', type=float, default=None, help='choose KL loss')
+    parser.add_argument('--lambda_ratio', type=float, default=None, help='choose the ratio factor (how much we want the model prune exactly what we expect at each stage)')
+    parser.add_argument('--lambda_distill', type=float, default=None, help='choose the distillation factor (how much we do not want the student gets away from the teacher)')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
     parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
@@ -361,6 +365,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         )
         val_acc, _ = validate_one_epoch(student, val_loader, device)
         scheduler.step() 
+        # class_loss = train_loss - ratio_loss - distill_loss - kl_loss
 
         history['train_loss'].append(train_loss)
         history['ratio_loss'].append(ratio_loss)
