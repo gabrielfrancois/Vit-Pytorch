@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
     parser.add_argument('--epochs', type=int, default=None, help='Choose the number of epochs')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--layer-decay', type=float, default=None, help='choose the layer decay.')
     parser.add_argument('--lambda_class', type=float, default=None, help='choose the classification loss')
     parser.add_argument('--lambda_kl', type=float, default=None, help='choose KL loss')
     parser.add_argument('--lambda_ratio', type=float, default=None, help='choose the ratio factor (how much we want the model prune exactly what we expect at each stage)')
@@ -501,7 +502,8 @@ if __name__ == "__main__":
         'epochs', 'dataset',
         'batch_size','alpha', 
         'lambda_class', 'lambda_kl', 
-        'lambda_distill', 'lambda_ratio'
+        'lambda_distill', 'lambda_ratio',
+        'layer_decay'
         ]
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)

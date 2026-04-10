@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--patch_size', type=int, nargs=2, default=None)
     parser.add_argument('--alpha', type=float, default=None, help='Learning rate')
+    parser.add_argument('--layer-decay', type=float, default=None, help='choose the layer decay.')
     parser.add_argument('--n_heads', type=int, default=None)
     parser.add_argument('--mask_ratio', type=float, default=0.75, help='Percentage of image to mask out')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
@@ -294,7 +295,7 @@ if __name__ == "__main__":
     os.makedirs(graph_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)
 
-    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'mask_ratio']
+    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'mask_ratio', 'layer_decay']
     for param in param_selected: 
         value = getattr(args, param)
         if value is not None:

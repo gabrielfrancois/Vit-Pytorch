@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=None, help='Choose the batch size')
     parser.add_argument('--patch_size', type=int, nargs=2, default=None,help='choose the patch-size dimension (ex: 8 8)')
     parser.add_argument('--alpha', type=float, default=None, help='choose the learning rate')
+    parser.add_argument('--layer-decay', type=float, default=None, help='choose the layer decay.')
     parser.add_argument('--n_heads', type=int, default=None, help='choose the number of attentions head, BE CAREFUL: n_head MUST be a multiple of d_model!')
     parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
@@ -438,7 +439,7 @@ if __name__ == "__main__":
     os.makedirs(graph_dir, exist_ok=True)
     writer = SummaryWriter(log_dir)
 
-    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'lambda_repa']
+    param_selected = ['epochs', 'd_model', 'n_layers', 'batch_size', 'patch_size', 'alpha', 'n_heads', 'lambda_repa', 'layer_decay']
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)
         if value is not None:
