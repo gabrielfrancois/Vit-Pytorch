@@ -15,6 +15,7 @@ from typing import List, Tuple, Dict, Any
 
 from helper_function.print import *
 from helper_function.load_model import verbose_load
+from helper_function.layer_wise import increasing_llrd
 from src.models.vision_transformer import VisionTransformer
 from src.models.dynamicViT import DynamicVisionTransformer
 from .dynamic_loss import DynamicViTLoss
@@ -326,7 +327,9 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     student = torch.compile(student) # Add JIT
 
     normalized_alpha = alpha*batch_size/256
-    optimizer = torch.optim.AdamW(student.parameters(), lr=normalized_alpha, weight_decay=1e-4)
+    param_groups = increasing_llrd(student, normalized_alpha, layer_decay, num_layers=n_layers)
+    optimizer = torch.optim.AdamW(param_groups)
+    
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
     warmup_epochs = min(args.warmup_epochs, epochs - 1)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(

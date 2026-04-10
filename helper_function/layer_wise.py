@@ -20,6 +20,8 @@ def get_layer_id(name: str) -> int:
     """
     if "transformer_encoder." in name:
         return int(name.split("transformer_encoder.")[1].split(".")[0]) + 1
+    elif "transformer_encoders." in name:
+            return int(name.split("transformer_encoders.")[1].split(".")[0]) + 1
     return 0
 
 # ─────────────────────────────────────────────────────────────────────────────
