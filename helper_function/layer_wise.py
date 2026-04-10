@@ -7,7 +7,7 @@ from helper_function.print import *
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_layer_id(name: str) -> int:
+def get_layer_id(name: str, is_increasing: bool = True) -> int:
     """
     Map a parameter name to its layer index.
     Transformer encoder layers are indexed from 1.
@@ -18,10 +18,13 @@ def get_layer_id(name: str) -> int:
     Returns:
         layer_id (int): Layer index >= 0.
     """
-    if "transformer_encoder." in name:
+    if "classifier" in name or "pretrain_head" in name: # catch randomly initialized prediction heads
+        return 999 if is_increasing else 0
+    elif "transformer_encoder." in name:
         return int(name.split("transformer_encoder.")[1].split(".")[0]) + 1
     elif "transformer_encoders." in name:
             return int(name.split("transformer_encoders.")[1].split(".")[0]) + 1
+    
     return 0
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,7 +116,7 @@ def decreasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_laye
         if not param.requires_grad:
             continue
 
-        layer_id = min(get_layer_id(name), num_layers)
+        layer_id = min(get_layer_id(name, is_increasing=False), num_layers)
         lr = alpha * (layer_decay ** layer_id)
         group_dict[lr].append(param)
 
@@ -149,7 +152,7 @@ def valley_llrd(model: nn.Module, alpha: float, layer_decay: float, num_layers: 
         if not param.requires_grad:
             continue
 
-        layer_id = min(get_layer_id(name), num_layers)
+        layer_id = min(get_layer_id(name, is_increasing=False), num_layers)
 
         if layer_id <= band:
             lr = alpha # early: high
