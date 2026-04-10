@@ -16,7 +16,7 @@ Trains a standard Teacher ViT using **Self-Supervised Learning (SSL)** via a Mas
 
 **Example CLI**:
 ```bash
-python -m src.train.train_teacher_SSL --dataset imagenet --epochs 100 --mask_ratio 0.75
+python -m src.train.train_teacher_SSL --epochs 400 --mask_ratio 0.75
 ```
 
 ---
