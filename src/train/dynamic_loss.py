@@ -76,8 +76,8 @@ class DynamicViTLoss(nn.Module):
         
         T = 2.0 # temperature
         loss_kl = F.kl_div(
-            F.log_softmax(student_logits, dim=1),
-            F.softmax(teacher_logits.detach(), dim=1),
+            F.log_softmax(student_logits/T, dim=1),
+            F.log_softmax(teacher_logits.detach()/T, dim=1),
             reduction='batchmean',
             log_target=True
         )*(T*T)

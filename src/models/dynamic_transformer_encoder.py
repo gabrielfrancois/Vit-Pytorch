@@ -5,7 +5,7 @@ from .multi_head_attention import MultiHeadAttention
 from .predictor_LG import PredictorLG
 from helper_function.print import *
 
-# r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :) 
+# r_mlp correspond to the degre of expansion (and compression) of our MLP succeding to the multi head attention. Try to change this, but no longer too big :)
 class DynamicTransformerEncoder(nn.Module):
     def __init__(self, d_model, n_heads, r_mlp=4, has_predictor=False, keep_ratio=0.7):
         super().__init__()
@@ -67,9 +67,11 @@ class DynamicTransformerEncoder(nn.Module):
                 new_policy = new_policy*hard_keep_decision 
                 new_policy = new_policy.clone() # clone to avoid in-place pb like Calls into the C++ engine to run the backward pass
                 new_policy[:, 0] = 1.0 
+                
+                attn_mask = (1.0 - new_policy) * -1e9 # exp(0) = 1 --> exp(-1e9) 
 
                 # Calculate attention with MASK, x is still (B, N, C) to keep GPU computational advantages
-                attn_out = self.mha(self.ln1(x), mask=new_policy)
+                attn_out = self.mha(self.ln1(x), mask=attn_mask)
                 x = x + self.dropout1(attn_out)
                 x = x + self.mlp(self.ln2(x))
                 return x, new_policy, pred_score, None
