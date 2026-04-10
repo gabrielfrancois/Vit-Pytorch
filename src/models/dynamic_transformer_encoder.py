@@ -69,7 +69,7 @@ class DynamicTransformerEncoder(nn.Module):
                 new_policy[:, 0] = 1.0 
 
                 # Calculate attention with MASK, x is still (B, N, C) to keep GPU computational advantages
-                attn_out = self.mha(self.ln1(x), mask=attn_mask)
+                attn_out = self.mha(self.ln1(x), mask=new_policy)
                 x = x + self.dropout1(attn_out)
                 x = x + self.mlp(self.ln2(x))
                 return x, new_policy, pred_score, None
