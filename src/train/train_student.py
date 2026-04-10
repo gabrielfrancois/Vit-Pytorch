@@ -135,7 +135,7 @@ def save_training_plots(
     plt.close()
 
     plt.figure(figsize=(12, 10))
-    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Oranges')  
+    sns.heatmap(confusion_mat, annot=False, fmt='d', cmap='Oranges')
     plt.title('Student Test Confusion Matrix')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
@@ -173,7 +173,7 @@ def train_one_epoch(
         accuracy: Training accuracy in percentage.
     """
     use_amp = device.type == "cuda"
-    student.train() 
+    student.train()
     running_loss = 0.0
     running_ratio_loss = 0.0
     running_distill_loss = 0.0
@@ -189,7 +189,7 @@ def train_one_epoch(
                 teacher_logits, teacher_feats, _ = teacher(imgs)
                 teacher_logits, teacher_feats = teacher_logits.detach(), teacher_feats.detach()
 
-        optimizer.zero_grad() 
+        optimizer.zero_grad()
         with torch.amp.autocast(device.type, enabled=use_amp):  # forward in float16
             student_logits, student_feats, all_masks, all_scores = student(imgs)
             loss, metrics = criterion(
@@ -259,14 +259,14 @@ def validate_one_epoch(
         for imgs, labels in loop:
             imgs, labels = imgs.to(device), labels.to(device)
             student_logits, _, _, _ = student(imgs) # We only need logits here
-            
+
             _, predicted = torch.max(student_logits, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
             all_preds.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
-            
+
     accuracy = 100 * correct / total
     cm = confusion_matrix(all_labels, all_preds)
 
@@ -289,7 +289,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     else:
         raise FileNotFoundError(red(f"Teacher checkpoint not found at {teacher_checkpoint}. Run train_teacher.py first!"))
 
-    teacher.eval() 
+    teacher.eval()
     for param in teacher.parameters():
         param.requires_grad = False # Freeze weights
 
@@ -301,7 +301,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     print("Copying backbone weights from teacher to student...")
     teacher_dict = teacher.state_dict()
     student_dict = student.state_dict()
-    
+
     new_student_dict = {}
     for k, v in teacher_dict.items():
         new_key = k.replace('transformer_encoder', 'transformer_encoders')
@@ -312,19 +312,19 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     verbose_load(model=student, state_dict=new_student_dict)
     teacher = torch.compile(teacher) # Add JIT compiler
 
-    target_ratios = [rho**(i+1) for i in range(len(pruning_index))] 
+    target_ratios = [rho**(i+1) for i in range(len(pruning_index))]
     criterion = DynamicViTLoss(
-        lambda_kl=lambda_kl, lambda_distill=lambda_distill, 
-        lambda_ratio=lambda_ratio, target_ratios=target_ratios, 
+        lambda_kl=lambda_kl, lambda_distill=lambda_distill,
+        lambda_ratio=lambda_ratio, target_ratios=target_ratios,
         lambda_class=lambda_class
     )
 
     history = {'train_loss': [], 'ratio_loss': [], "distill_loss": [], "kl_loss": [], 'train_acc': [], 'val_acc': [], 'lrs': [], 'rho': []}
     best_val_acc = 0.0
     start_epoch = 0
-    
+
     student = torch.compile(student) # Add JIT
-    
+
     normalized_alpha = alpha*batch_size/256
     optimizer = torch.optim.AdamW(student.parameters(), lr=normalized_alpha, weight_decay=1e-4)
     # Warmup: start at 1% of the target LR and ramp up linearly over 'warmup_epochs'
@@ -332,16 +332,16 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
     )
-    
+
     cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=(epochs - warmup_epochs)
     )
     scheduler = torch.optim.lr_scheduler.SequentialLR(
         optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
     )
-    
-    scaler = torch.amp.GradScaler(enabled=use_amp) 
-    
+
+    scaler = torch.amp.GradScaler(enabled=use_amp)
+
     if args.resume_from is not None and os.path.exists(args.resume_from):
         checkpoint = torch.load(args.resume_from, map_location=device)
         state_dict = checkpoint['model_state_dict']
@@ -355,6 +355,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         best_val_acc = checkpoint.get('best_val_acc', 0.0)
         print(green(f"--> Resumed model already trained for {start_epoch} epochs with best val acc: {best_val_acc:.2f}%"))
 
+    print(bold(f"learning rate : {alpha} === parametter selected : \n lambda_class: {lambda_class} | lambda_distill: {lambda_distill} | lambda_kl {lambda_kl} | lambda_ratio: {lambda_ratio}"), blue("\n [Start Training]"))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
         train_loss, ratio_loss, distill_loss, kl_loss, train_acc = train_one_epoch(
@@ -364,7 +365,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             scaler
         )
         val_acc, _ = validate_one_epoch(student, val_loader, device)
-        scheduler.step() 
+        scheduler.step()
         # class_loss = train_loss - ratio_loss - distill_loss - kl_loss
 
         history['train_loss'].append(train_loss)
@@ -397,8 +398,8 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
             'best_val_acc': best_val_acc if val_acc <= best_val_acc else val_acc,
             'hyperparameters': {
                 'd_model': d_model, 'n_classes': n_classes, 'img_size': img_size,
-                'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads, 
-                'n_layers': n_layers, 'pruning_index': pruning_index, 'rho': rho 
+                'patch_size': patch_size, 'n_channels': n_channels, 'n_heads': n_heads,
+                'n_layers': n_layers, 'pruning_index': pruning_index, 'rho': rho
             }
         }
 
@@ -462,16 +463,16 @@ if __name__ == "__main__":
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(bold(f"Using device: {device}"))
-    
+
     if args.dataset == "cifar10":
-        from data.load.load_data import load_CIFAR 
-        from configs.train_cifar10 import * 
+        from data.load.load_data import load_CIFAR
+        from configs.train_cifar10 import *
         base_dir = "cifar10"
         print(blue(f"Loading {args.dataset} data..."))
-        train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
+        train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10)
     else:
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
+        from configs.train_imagenet1k import *
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} data..."))
         train_loader, test_loader, val_loader = load_imagenet1k()
@@ -502,8 +503,8 @@ if __name__ == "__main__":
             globals()[param] = value
 
     run_training(
-        args=args, device=device, 
-        train_loader=train_loader, val_loader=val_loader, test_loader=test_loader, 
+        args=args, device=device,
+        train_loader=train_loader, val_loader=val_loader, test_loader=test_loader,
         checkpoint_dir=checkpoint_dir, graph_dir=graph_dir, writer=writer,
         teacher_checkpoint=teacher_checkpoint
     )

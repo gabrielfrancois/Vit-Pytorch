@@ -3,7 +3,6 @@ from collections import defaultdict
 
 from helper_function.print import *
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +21,6 @@ def get_layer_id(name: str) -> int:
     if "transformer_encoder." in name:
         return int(name.split("transformer_encoder.")[1].split(".")[0]) + 1
     return 0
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer-wise LR Schedules
@@ -60,7 +58,6 @@ def polynomial_increasing(model: nn.Module, alpha: float) -> list[dict]:
         print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
 
-
 def increasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_layers: int) -> list[dict]:
     """
     Layer-wise LR decay where early layers get the lowest LR and later layers get higher LR.
@@ -94,7 +91,6 @@ def increasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_laye
         print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
 
-
 def decreasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_layers: int) -> list[dict]:
     """
     Standard LLRD: early layers get the highest LR and later layers get lower LR.
@@ -127,7 +123,6 @@ def decreasing_llrd(model: nn.Module, alpha: float, layer_decay: float, num_laye
     for layer, g in enumerate(param_groups):
         print(f'learning rate for layer {layer+1}: {g["lr"]}')
     return param_groups
-
 
 def valley_llrd(model: nn.Module, alpha: float, layer_decay: float, num_layers: int) -> list[dict]:
     """
