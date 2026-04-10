@@ -426,7 +426,8 @@ if __name__ == "__main__":
         base_dir = "imagenet"
 
         print(blue(f"Loading {args.dataset} Data...")) 
-        train_loader, test_loader, val_loader = load_imagenet1k()
+        batch_size = args.batch_size if args.batch_size else batch_size
+        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size)
 
     log_dir = f"./logs/{base_dir}/teacher/"
     checkpoint_dir = f"checkpoints/{base_dir}/teacher"
@@ -444,6 +445,7 @@ if __name__ == "__main__":
             if param == 'patch_size':
                 value = tuple(value)
             globals()[param] = value
+            
     if args.lambda_repa is not None and args.lambda_repa < 0:
         print(orange(f'lambda REPA {args.lambda_repa} should be a positive float, fallback solution :2'))
         args.lambda_repa = 2.0

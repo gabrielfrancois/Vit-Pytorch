@@ -475,7 +475,8 @@ if __name__ == "__main__":
         from configs.train_imagenet1k import *
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} data..."))
-        train_loader, test_loader, val_loader = load_imagenet1k()
+        batch_size = args.batch_size if args.batch_size else batch_size
+        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size)
 
     checkpoint_dir = f"checkpoints/{base_dir}/{args.run_name}"
     teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"
@@ -495,7 +496,9 @@ if __name__ == "__main__":
 
     param_selected = [
         'epochs', 'dataset',
-        'batch_size','alpha'
+        'batch_size','alpha', 
+        'lambda_class', 'lambda_kl', 
+        'lambda_distill', 'lambda_ratio'
         ]
     for param in param_selected: # Set up CLI param if specified...
         value = getattr(args, param)

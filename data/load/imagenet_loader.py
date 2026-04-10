@@ -84,6 +84,6 @@ def load_imagenet1k(
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True,persistent_workers=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True,persistent_workers=True)
 
-    print(f"ImageNet-1k chargé : train={len(train_dataset)}, val={len(val_dataset)}, test={len(test_dataset)}")
+    print(f"ImageNet-1k loaded : train={len(train_dataset)}, val={len(val_dataset)}, test={len(test_dataset)}")
 
     return train_loader, val_loader, test_loader

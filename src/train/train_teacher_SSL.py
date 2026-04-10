@@ -282,7 +282,8 @@ if __name__ == "__main__":
         from configs.train_imagenet1k import * 
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} Data...")) 
-        train_loader, test_loader, val_loader = load_imagenet1k()
+        batch_size = args.batch_size if args.batch_size else batch_size
+        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size)
 
     log_dir = f"./logs/{base_dir}/ssl_teacher/"
     checkpoint_dir = f"checkpoints/{base_dir}/ssl_teacher"
