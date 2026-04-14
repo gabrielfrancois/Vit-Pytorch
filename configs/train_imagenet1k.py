@@ -2,14 +2,14 @@
 d_model = 192
 n_classes = 1000
 img_size = (128, 128)
-patch_size = (16, 16)
+patch_size = (8, 8)
 n_channels = 3
 n_heads = 6
 n_layers = 12
 batch_size = 256
-epochs = 120
-alpha = 0.0015
-layer_decay = 0.8
+epochs = 200
+alpha = 0.00015
+layer_decay = 0.9
 
 # dynamic_Vit parameters
 pruning_index = [4,7,10]

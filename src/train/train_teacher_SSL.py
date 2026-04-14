@@ -217,6 +217,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
             print(orange(f"--> Could not load optimizer state (likely due to added/removed layers). Starting with fresh optimizer. Error: {e}"))
 
     print(blue("Starting SSL teacher training..."))
+    print(bold(f"learning rate : {alpha} === parametter selected : \n warmup epochs: {args.warmup_epochs} | epochs: {epochs} | patch_size {patch_size} | layer_decay: {layer_decay} | n_layers: {n_layers}"), blue("\n [Start Training]"))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
 

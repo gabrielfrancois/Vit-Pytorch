@@ -340,6 +340,7 @@ def run_training(args, device, train_loader, val_loader, test_loader, checkpoint
         param.requires_grad = False
 
     print(blue("Starting teacher training with REPA..."))
+    print(bold(f"learning rate : {alpha} === parametter selected : \n lambda_class: {lambda_repa} | warmup_epochs: {args.warmup_epochs} | patch_size: {patch_size} | d_model: {d_model} | layer_decay: {layer_decay} | batch_size: {batch_size}"), blue("\n [Start Training]"))
     for epoch in range(start_epoch, epochs):
         first_time_epoch = time.time()
         train_loss, train_acc = train_one_epoch(teacher, train_loader, optimizer, criterion, device, epoch, scaler, dino_v1)
