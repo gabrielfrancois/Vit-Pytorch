@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('--lambda_repa', type=float, default=None, help='Choose the representation factor')
     parser.add_argument('--device', type=str, default=None, choices=['cuda', 'mps', 'cpu'])
     parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
+    parser.add_argument('--num_workers', type=int, default=8, help='Number of worker for dataloader')
     args = parser.parse_args()
     return args
 
@@ -426,7 +427,7 @@ if __name__ == "__main__":
 
         print(blue(f"Loading {args.dataset} Data...")) 
         batch_size = args.batch_size if args.batch_size else batch_size
-        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size)
+        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size, num_workers=args.num_workers)
 
     log_dir = f"./logs/{base_dir}/teacher/"
     checkpoint_dir = f"checkpoints/{base_dir}/teacher"
