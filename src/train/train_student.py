@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument('--run_name', type=str, default="student", help='Subfolder name for this run checkpoints')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='Number of epochs for learning rate warmup')
     parser.add_argument('--rho', type=float, default=None, help='choose the pruning factor')
+    parser.add_argument('--num_workers', type=int, default=8, help='Number of worker for dataloader')
     args = parser.parse_args()
     return args
 
@@ -482,7 +483,7 @@ if __name__ == "__main__":
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} data..."))
         batch_size = args.batch_size if args.batch_size else batch_size
-        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size)
+        train_loader, test_loader, val_loader = load_imagenet1k(batch_size=batch_size, num_workers=args.num_workers)
 
     checkpoint_dir = f"checkpoints/{base_dir}/{args.run_name}"
     teacher_checkpoint = f"checkpoints/{base_dir}/teacher_2th_try/teacher_checkpoint_best.pth" if base_dir == "cifar10" else f"checkpoints/{base_dir}/teacher_checkpoint_best.pth"

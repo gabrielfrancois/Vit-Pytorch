@@ -188,7 +188,7 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         best_val_loss = checkpoint.get('best_val_loss', float('inf'))
         history = checkpoint.get('history', history)
         
-    teacher = torch.compile(teacher) # JIT
+    # teacher = torch.compile(teacher) # JIT
     
     # LayeWise --> modify especially the firsts layers!
     normalized_alpha = alpha*batch_size/256
