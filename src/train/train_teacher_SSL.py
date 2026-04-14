@@ -176,6 +176,9 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         print(blue(f"=== Resuming with parameters: {args_ssl} ==="))
         
     teacher = VisionTransformer(**args_ssl).to(device) 
+    if torch.cuda.device_count() > 1:
+        print(blue(f"Using DataParallel with {torch.cuda.device_count()} GPUs"))
+        teacher = nn.DataParallel(teacher, device_ids=[0, 1]) 
     
     if checkpoint is not None:
         state_dict = checkpoint['model_state_dict']
@@ -235,10 +238,13 @@ def run_training(args, device, train_loader, val_loader, checkpoint_dir, graph_d
         writer.add_scalar('SSL_Teacher/Loss/train', train_loss, epoch)
         writer.add_scalar('SSL_Teacher/Loss/val', val_loss, epoch)
         writer.add_scalar('SSL_Teacher/LearningRate', optimizer.param_groups[0]['lr'], epoch)
-
+        
+        state_dict_to_save = teacher.state_dict()
+        if isinstance(teacher, nn.DataParallel):
+            state_dict_to_save = {k.replace("module.", ""): v for k, v in state_dict_to_save.items()}
         checkpoint_dict = {
             'epoch': epoch + 1,
-            'model_state_dict': teacher.state_dict(),
+            'model_state_dict': state_dict_to_save,
             'optimizer_state_dict': optimizer.state_dict(),
             'best_val_loss': best_val_loss if val_loss >= best_val_loss else val_loss,
             'scheduler_state': scheduler.state_dict(),

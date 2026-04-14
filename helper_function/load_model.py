@@ -17,6 +17,7 @@ def verbose_load(model: nn.Module(), state_dict: Mapping[str, torch.Tensor]):
     """
     # print("Remove _orig_mod. from the .compile to enable the weight loading")
     clean_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
+    clean_state_dict = {k.replace("module.", ""): v for k, v in clean_state_dict.items()}  # adapt to multi-GPU nn.DataParallel
     load_results = model.load_state_dict(clean_state_dict, strict=False)
     
     print("\n[Weight Loading Summary]")
