@@ -1,23 +1,24 @@
 import argparse
 import os
 import time
+from typing import Any, List, Tuple
 
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 import torch
 import torch.amp
+from sklearn.metrics import confusion_matrix
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
-import numpy as np
-from typing import List, Tuple, Dict, Any
 
-from helper_function.print import *
-from helper_function.load_model import verbose_load
 from helper_function.layer_wise import increasing_llrd
-from src.models.vision_transformer import VisionTransformer
+from helper_function.load_model import verbose_load
+from helper_function.print import *
 from src.models.dynamicViT import DynamicVisionTransformer
+from src.models.vision_transformer import VisionTransformer
+
 from .dynamic_loss import DynamicViTLoss
 
 # ----------------------------------------- Device setup -----------------------------------------
@@ -472,14 +473,14 @@ if __name__ == "__main__":
     print(bold(f"Using device: {device}"))
 
     if args.dataset == "cifar10":
-        from data.load.load_data import load_CIFAR
         from configs.train_cifar10 import *
+        from data.load.load_data import load_CIFAR
         base_dir = "cifar10"
         print(blue(f"Loading {args.dataset} data..."))
         train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10)
     else:
-        from data.load.imagenet_loader import load_imagenet1k
         from configs.train_imagenet1k import *
+        from data.load.imagenet_loader import load_imagenet1k
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} data..."))
         batch_size = args.batch_size if args.batch_size else batch_size

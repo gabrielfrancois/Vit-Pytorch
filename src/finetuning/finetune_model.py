@@ -6,23 +6,22 @@ STL-10 dataset: https://cs.stanford.edu/~acoates/stl10/
 - 96x96 images (resized to 32x32 to match CIFAR-10 pretrained model) 
 [this is just for test]
 """
-import torch
-from torch import nn
-from torchvision import transforms as T
-from torchvision.datasets import STL10
-from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 import os
-from sklearn.metrics import confusion_matrix
-import seaborn as sns
 
-# ours
-from src.models.vision_transformer import VisionTransformer
-from src.models.dynamicViT import DynamicVisionTransformer
-from src.models.finetune import inject_lora, propor_params
+import matplotlib.pyplot as plt
+import seaborn as sns
+import torch
+from sklearn.metrics import confusion_matrix
+from torch import nn
+from tqdm import tqdm
+
 from configs.finetune_STL import *
 from data.load.STL_data import load_STL10
+from src.models.dynamicViT import DynamicVisionTransformer
+from src.models.finetune import inject_lora
+
+# ours
+
 
 def load_pretrained(model, checkpoint):
     state = torch.load(checkpoint, map_location="cpu")

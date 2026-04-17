@@ -3,12 +3,14 @@ This Vision transformer will be the 'teacher' model, he'll trained the dynamic V
 """
 
 import torch
-from torch import nn as nn 
+from torch import nn as nn
+
+from helper_function.print import *
 
 from .patch_embed import PatchEmbedding
 from .positional_embedding import PositionalEmbedding
 from .transformer_encoder import TransformerEncoder
-from helper_function.print import *
+
 
 class VisionTransformer(nn.Module):
     def __init__(self, d_model, n_classes, img_size, patch_size, n_channels, n_heads, n_layers, repa_layer_index:int=7):

@@ -2,14 +2,14 @@ import argparse
 import os
 from typing import Tuple
 
+import calflops
 import torch
 import torch.nn as nn
-import calflops 
 
-from helper_function.print import *
 from helper_function.load_model import verbose_load
-from src.models.vision_transformer import VisionTransformer
+from helper_function.print import *
 from src.models.dynamicViT import DynamicVisionTransformer
+from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Device setup -----------------------------------------
 

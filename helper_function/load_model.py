@@ -1,10 +1,10 @@
-import os
 from typing import Mapping
 
 import torch
 from torch import nn
 
 from .print import *
+
 
 def verbose_load(model: nn.Module(), state_dict: Mapping[str, torch.Tensor]):
     """

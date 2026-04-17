@@ -1,5 +1,6 @@
-import torch 
-from torch import nn as nn 
+import torch
+from torch import nn as nn
+
 
 class AttentionHead(nn.Module):
     def __init__(self, d_model, head_size):

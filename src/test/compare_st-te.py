@@ -1,21 +1,21 @@
 import argparse
 import os
 import time
+from typing import List, Optional, Tuple
 
-import torch
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+import torch
+from sklearn.metrics import confusion_matrix
 from torch import nn
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
-from typing import List, Tuple, Optional
 
-from helper_function.print import *
+from configs.train_imagenet1k import mean_norm_imagenet, std_norm_imagenet
 from helper_function.load_model import verbose_load
-from src.models.vision_transformer import VisionTransformer
+from helper_function.print import *
 from src.models.dynamicViT import DynamicVisionTransformer
-from configs.train_imagenet1k import std_norm_imagenet, mean_norm_imagenet
+from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Device setup -----------------------------------------
 
@@ -275,15 +275,15 @@ if __name__ == "__main__":
         print(bold(f"Using device: {device}"))
 
     if args.dataset == "cifar10":
+        from configs.train_cifar10 import *
         from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * 
         base_dir = "cifar10"
         class_names = [str(i) for i in range(10)] 
         print(blue(f"Loading {args.dataset} data..."))
         _, _, test_loader = load_CIFAR(CIFAR=10) 
     else:
+        from configs.train_imagenet1k import *
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
         base_dir = "imagenet"
         class_names = None # Will auto-generate Top K
         print(blue(f"Loading {args.dataset} data..."))

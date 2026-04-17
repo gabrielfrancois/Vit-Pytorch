@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+
 class LORA(nn.Module):
     """ Class to fine-tune the model using Low Raw Adaptation"""
 

@@ -1,10 +1,12 @@
+from typing import Dict, List, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from helper_function.print import *
 from configs.train_imagenet1k import *
-from typing import List, Tuple, Dict
+from helper_function.print import *
+
 
 class DynamicViTLoss(nn.Module):
     def __init__(

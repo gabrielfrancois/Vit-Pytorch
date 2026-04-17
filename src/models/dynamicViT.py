@@ -1,13 +1,14 @@
-import torch
-from torch import nn as nn 
+from typing import Dict, List, Tuple
 
-from src.models.dynamic_transformer_encoder import DynamicTransformerEncoder
-from src.models.predictor_LG import PredictorLG
-from src.models.patch_embed import PatchEmbedding
-from .positional_embedding import PositionalEmbedding  
-from .transformer_encoder import TransformerEncoder
+import torch
+from torch import nn as nn
+
 from helper_function.print import *
-from typing import List, Tuple, Dict
+from src.models.dynamic_transformer_encoder import DynamicTransformerEncoder
+from src.models.patch_embed import PatchEmbedding
+
+from .positional_embedding import PositionalEmbedding
+
 
 class DynamicVisionTransformer(nn.Module):
     def __init__(self, d_model: int, n_classes: int, 

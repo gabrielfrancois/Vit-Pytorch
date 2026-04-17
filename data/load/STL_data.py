@@ -7,16 +7,13 @@ STL-10 dataset: https://cs.stanford.edu/~acoates/stl10/
 [this is just for test]
 """
 import torch
-from torch import nn
+from torch.utils.data import DataLoader, Dataset, random_split
 from torchvision import transforms as T
 from torchvision.datasets import STL10
-from torch.utils.data import Dataset, DataLoader, random_split
-from tqdm import tqdm
+
+from configs.train_cifar10 import *
 
 # ours
-from src.models.vision_transformer import VisionTransformer
-from src.models.finetune import LORA
-from configs.train_cifar10 import *
 
 # Remark : we have to find a way to handle data classes number imbalance for other datasets (changing the last layer)
 transform = T.Compose([
@@ -74,7 +71,7 @@ def load_STL10(data_dir, batch_size, val_split=0.1):
         num_workers=4, pin_memory=True
     )
 
-    print(f"STL10 Dataset loaded:")
+    print("STL10 Dataset loaded:")
     print(f" - Train size: {len(train_dataset)}")
     print(f" - Val size:   {len(val_dataset)}")
     print(f" - Test size:  {len(test_dataset)}")

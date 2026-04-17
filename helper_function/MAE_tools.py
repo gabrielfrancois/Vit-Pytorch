@@ -1,6 +1,6 @@
-import torch
+from typing import Tuple
 
-from typing import Tuple, List
+import torch
 
 
 def random_masking(B: int, N: int, mask_ratio: float, device: torch.device) -> torch.Tensor:

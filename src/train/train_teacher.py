@@ -1,22 +1,23 @@
 import argparse
 import os
 import time
-import torch
-from torch import nn
-import torch.amp
-from torch.utils.tensorboard import SummaryWriter
-import torch.nn.functional as F
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
-from typing import Tuple, List
-from torch.utils.data import DataLoader
-import numpy as np
+from typing import List, Tuple
 
-from helper_function.print import *
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import torch
+import torch.amp
+import torch.nn.functional as F
+from sklearn.metrics import confusion_matrix
+from torch import nn
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+
 from helper_function.layer_wise import increasing_llrd
 from helper_function.load_model import verbose_load
+from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Device setup -----------------------------------------
@@ -412,16 +413,16 @@ if __name__ == "__main__":
     if args.n_heads is not None and args.d_model is not None:
         assert args.d_model % args.n_heads == 0, "d_model must be divisible by n_heads"
     if args.dataset == "cifar10":
+        from configs.train_cifar10 import *
         from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * 
 
         base_dir = "cifar10"
 
         print(blue(f"Loading {args.dataset} Data..."))
         train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
     else:
+        from configs.train_imagenet1k import *
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
 
         base_dir = "imagenet"
 

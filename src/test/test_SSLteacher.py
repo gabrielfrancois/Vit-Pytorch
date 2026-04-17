@@ -1,21 +1,20 @@
 import argparse
 import os
-import time
+from typing import Tuple
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.amp
-import numpy as np
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from typing import Tuple, List
 
-from helper_function.print import *
-from helper_function.MAE_tools import random_masking, patchify
+from configs.train_imagenet1k import mean_norm_imagenet, std_norm_imagenet
 from helper_function.load_model import verbose_load
+from helper_function.MAE_tools import patchify, random_masking
+from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
-from configs.train_imagenet1k import std_norm_imagenet, mean_norm_imagenet
 
 # ----------------------------------------- Device setup -----------------------------------------
 
@@ -186,13 +185,13 @@ if __name__ == "__main__":
     print(bold(f"Using device: {device}"))
 
     if args.dataset == "cifar10":
+        from configs.train_cifar10 import *
         from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * 
         base_dir = "cifar10"
         _, _, test_loader = load_CIFAR(CIFAR=10) 
     else:
+        from configs.train_imagenet1k import *
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
         base_dir = "imagenet"
         _, _, test_loader = load_imagenet1k()
 

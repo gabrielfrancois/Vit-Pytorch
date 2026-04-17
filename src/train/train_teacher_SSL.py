@@ -1,20 +1,20 @@
 import argparse
 import os
 import time
+from typing import List
+
+import matplotlib.pyplot as plt
 import torch
-from torch import nn
 import torch.amp
+from torch import nn
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from typing import Tuple, List
-from torch.utils.data import DataLoader
-import numpy as np
 
-from helper_function.print import *
 from helper_function.layer_wise import decreasing_llrd
 from helper_function.load_model import verbose_load
-from helper_function.MAE_tools import random_masking, patchify
+from helper_function.MAE_tools import patchify, random_masking
+from helper_function.print import *
 from src.models.vision_transformer import VisionTransformer
 
 # ----------------------------------------- Device setup -----------------------------------------
@@ -289,14 +289,14 @@ if __name__ == "__main__":
         args.mask_ratio = 0.75
 
     if args.dataset == "cifar10":
+        from configs.train_cifar10 import *
         from data.load.load_data import load_CIFAR
-        from configs.train_cifar10 import * 
         base_dir = "cifar10"
         print(blue(f"Loading {args.dataset} Data..."))
         train_loader, test_loader, val_loader = load_CIFAR(CIFAR=10) 
     else:
+        from configs.train_imagenet1k import *
         from data.load.imagenet_loader import load_imagenet1k
-        from configs.train_imagenet1k import * 
         base_dir = "imagenet"
         print(blue(f"Loading {args.dataset} Data...")) 
         batch_size = args.batch_size if args.batch_size else batch_size

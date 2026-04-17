@@ -1,6 +1,7 @@
+import numpy as np
 import torch
 from torch import nn as nn
-import numpy as np
+
 
 class PositionalEmbedding(nn.Module):
     def __init__(self, d_model, max_seq_length):

@@ -18,6 +18,7 @@ and return the new policy to compute the net mask.
 import torch
 from torch import nn as nn
 
+
 class PredictorLG(nn.Module):
     """ 
     Lightweight module to predict token importance scores. 

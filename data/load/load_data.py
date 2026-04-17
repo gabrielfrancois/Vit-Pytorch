@@ -1,13 +1,14 @@
 import os
-import numpy as np 
 from typing import Tuple
+
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms as T
-from torchvision.datasets import CIFAR100, CIFAR10
+from torchvision.datasets import CIFAR10, CIFAR100
 
-from configs.train_cifar10 import * 
+from configs.train_cifar10 import *
+
 
 def load_CIFAR(CIFAR: int) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Loads CIFAR-10 or CIFAR-100 data and returns train / validation / test dataloaders"""
