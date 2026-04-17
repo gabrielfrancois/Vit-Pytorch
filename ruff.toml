@@ -1,0 +1,9 @@
+line-length = 88
+
+[lint]
+select = ["E", "F", "I"] # erreurs, bugs, imports
+ignore = []
+
+[format]
+quote-style = "double"
+indent-style = "space"
