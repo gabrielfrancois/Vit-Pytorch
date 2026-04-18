@@ -1,7 +1,7 @@
 ---
 title: "Multi-Stage Pipeline for Vision Transformer Compression"
 subtitle: "Combining SSL, REPA and Dynamic Token Pruning"
-author: "ViT PyTorch Project"
+author: "Gabriel François, Alban Géron, Léo Leroy, Marie Maignant, Siméon Tsang"
 date: today
 format:
   revealjs:
