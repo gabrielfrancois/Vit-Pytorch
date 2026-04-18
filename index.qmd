@@ -1,6 +1,6 @@
 ---
-title: "Vit-Pytorch: Hierarchical Feature Distillation: — Reproducibility & Deployment"
-author: Gabriel François et Léo Leroy
+title: "Vit-Pytorch: Hierarchical Feature Distillation — Reproducibility & Deployment"
+author: "Gabriel François, Alban Géron, Léo Leroy, Marie Maignant, Siméon Tsang"
 date: today
 bibliography: references.bib
 format:
@@ -9,103 +9,665 @@ format:
     toc-depth: 4
     number-sections: true
     code-fold: true
+    code-summary: "Show code"
+    highlight-style: github
     theme: cosmo
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+jupyter: python3
 ---
+
+```{python}
+#| label: setup
+#| echo: false
+import os
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from PIL import Image
+
+plt.rcParams.update({
+    "figure.dpi": 110,
+    "savefig.bbox": "tight",
+    "axes.titlesize": 11,
+    "axes.labelsize": 10,
+    "font.size": 10,
+})
+
+ROOT = Path.cwd()
+LOGS = ROOT / "logs" / "imagenet"
+DATA_IMAGES = ROOT / "data" / "images"
+
+def show(path, figsize=(10, 4), title=None):
+    """Display a pre-rendered figure stored in the repo."""
+    path = Path(path)
+    if not path.exists():
+        print(f"[missing] {path}")
+        return
+    img = Image.open(path)
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.imshow(img)
+    ax.axis("off")
+    if title:
+        ax.set_title(title)
+    plt.show()
+```
 
 # Introduction
 
-## Website overview:
+## Website overview
 
-This website serves as the reproducibility and deployment reference for the Dynamic-Vit implemented by Gabriel François, Avner El Baz and Léo Leroy, inspired by [@rao2021dynamicvit]. 
+This website is the **reproducibility and deployment reference** for the
+*Dynamic Vision Transformer* (Dynamic-ViT) pipeline originally implemented by
+Gabriel François, Avner El Baz and Léo Leroy, inspired by
+@rao2021dynamicvit and built on top of the standard ViT of @dosovitskiy2021vit.
+It was then augmented with an MAE-style self-supervised stage [@he2022mae]
+and a semantic alignment stage (REPA) distilling features from a frozen
+DINOv2 backbone [@oquab2024dinov2].
 
-How to use, ...
-What it covers, what it doesnt cover from our implementation.
-Caveats: for training must use GPU, for ... etc...
+The goal of this site is **not** to retrain the models from scratch —
+training the full pipeline on ImageNet-1k requires a multi-GPU setup
+that is incompatible with a CI runner. Instead, this document:
+
+- documents the project structure, its dependencies, and the configuration used;
+- re-renders the figures and checkpoints produced by the training scripts so
+  that readers can inspect the results without having a GPU;
+- describes how to reproduce a **single forward pass** of the lightweight
+  Student on any 128×128 RGB image, locally or from a fresh clone of the repo;
+- acts as the public entry point for CI/CD (GitHub Actions auto-publishes
+  this site on every push to the `reprod` branch).
+
+::: {.callout-important}
+## Caveats
+- **Training** the Teacher and Student models requires a CUDA-capable GPU
+  with at least ~16 GB of VRAM and several hours of compute — it is **not**
+  re-executed when this Quarto report is rendered.
+- All figures below are loaded from `logs/imagenet/` and
+  `checkpoints/public/imagenet/`, which are produced by the training
+  scripts under `src/train/`.
+- The dataset (ImageNet-1k 128×128, `benjamin-paine/imagenet-1k-128x128`
+  on Hugging Face) is public but heavy (~30 GB); the inference demo at the
+  end of this report only needs a handful of sample images, bundled in
+  `data/images/`.
+:::
 
 # Environment and dependencies
 
 ## Requirements
 
-Our code requires Python 3.10+ and the dependencies listed in `requirements.txt` / `pyproject.toml`.
+The code requires **Python 3.11+** and the dependencies pinned in
+`requirements.txt` and `pyproject.toml`. A CUDA-enabled build of PyTorch is
+strongly recommended for training; inference works on CPU.
 
-What about Cuda ??
+::: {.panel-tabset}
+
+### With `uv` (recommended)
 
 ```bash
-git clone 
+git clone https://github.com/<your-org>/Vit-Pytorch.git
+cd Vit-Pytorch
+uv sync
+source .venv/bin/activate     # on Windows: .venv\Scripts\activate
+```
+
+### With `pip` + `venv`
+
+```bash
+git clone https://github.com/<your-org>/Vit-Pytorch.git
 cd Vit-Pytorch
 python -m venv .venv
-source .venv/bin/activate  
+source .venv/bin/activate     # on Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-You can also use `uv`:
+:::
+
+A `.env` file is expected at the project root to redirect the Hugging Face
+dataset cache (the raw dataset is gitignored):
+
 ```bash
-uv sync
+# .env
+HF_DATASETS_CACHE=path/to/your/dataset_cache
 ```
 
-## Hardware recommendation 
+The most relevant dependencies, extracted directly from `pyproject.toml`:
 
-GPU used: 
+```{python}
+#| label: deps-table
+#| code-fold: true
+import tomllib
 
-# Project structure 
-<!-- on doit vraiment inclure ça dans le website ? -->
+with open(ROOT / "pyproject.toml", "rb") as f:
+    pyproject = tomllib.load(f)
 
+runtime = pyproject["project"]["dependencies"]
+dev = pyproject["dependency-groups"]["dev"]
+
+deps = pd.DataFrame({
+    "package": runtime + dev,
+    "group":   ["runtime"] * len(runtime) + ["dev"] * len(dev),
+})
+deps
+```
+
+## Hardware recommendation
+
+| Component    | Training (full pipeline)                | Inference only               |
+|--------------|------------------------------------------|------------------------------|
+| GPU          | NVIDIA GPU, ≥ 16 GB VRAM (A100/V100/3090) | Not required (CPU works)     |
+| CUDA         | 11.8 or 12.x                             | —                            |
+| RAM          | ≥ 32 GB                                  | ≥ 4 GB                       |
+| Disk         | ~50 GB for the cached ImageNet-128×128   | ~200 MB for checkpoints + code |
+| OS           | Linux / macOS / Windows                  | Linux / macOS / Windows      |
+
+The reference runs underlying the figures of this report were executed on a
+single NVIDIA A100 GPU. Apple Silicon users can select the `mps` backend via
+`--device mps`; it is slower but functional for small batches.
+
+# Project structure
+
+The repository follows a standard `cookiecutter`-like layout, with a clean
+separation between **code** (`src/`, `helper_function/`), **configuration**
+(`configs/`), **data plumbing** (`data/load/`), and **artefacts**
+(`logs/`, `checkpoints/`). Raw data is *never* committed.
+
+```text
 Vit-Pytorch/
 ├── src/
-│   ├── models/           # Architecture: ViT, DynamicViT, Patch Embedding, Predictor LG
-│   ├── train/            # Training loops for Teacher and Student (CIFAR & ImageNet)
-│   ├── test/             # Evaluation scripts and parameter computing
-│   └── finetuning/       # LoRA fine-tuning scripts for STL-10
-├── configs/              # Hyperparameters and data paths per dataset
-├── data/                 # Data loading logic and raw data storage
-├── logs/                 # TensorBoard events and generated plots
-├── checkpoints/          # Saved model weights (.pth)
-├── helper_function/      # Utility functions for printing and formatting
-├── pyproject.toml        # Project dependencies and metadata
-└── requirements.txt      # Traditional pip requirements
+│   ├── models/           # Architecture: ViT, DynamicViT, Patch Embed, Predictor LG
+│   ├── train/            # Training loops: SSL teacher, REPA teacher, student
+│   ├── test/             # Evaluation, FLOPs, MAE reconstruction quality
+│   └── finetuning/       # LoRA fine-tuning scripts (STL-10)
+├── configs/              # Hyper-parameters per dataset (ImageNet, CIFAR-10, STL-10)
+├── data/
+│   ├── load/             # HF dataset loaders (ImageNet, CIFAR, STL)
+│   ├── raw/              # Local dataset cache (gitignored)
+│   └── images/           # A few sample images for the website and inference demo
+├── logs/                 # TensorBoard events and generated plots (committed)
+├── checkpoints/
+│   └── public/imagenet/  # Public .pth checkpoints served by this site
+├── helper_function/      # LLRD, MAE helpers, colored logging, model loaders
+├── .github/workflows/    # Quarto publish + Ruff CI
+├── pyproject.toml        # Project metadata & dependencies (uv-compatible)
+├── requirements.txt      # Pinned dependencies for pip
+├── ruff.toml             # Linter configuration
+├── _quarto.yml           # Quarto website configuration
+├── index.qmd             # This report
+└── LICENSE               # MIT License
+```
 
-<!-- décrire les codes principaux brièvement -->
+The three main training scripts under `src/train/` (`train_teacher_SSL.py`,
+`train_teacher.py`, `train_student.py`) correspond to the three stages
+described in @sec-pipeline. The evaluation scripts in `src/test/`
+(`compare_st-te.py`, `parameters_computing.py`, `test_SSLteacher.py`)
+regenerate every figure displayed below.
 
 # Scientific content
 
 ## Definitions
-Synthétiser les paragraphes de notre rapport. (token pruning, loss function, ...)
+
+A Vision Transformer processes an image as a short sequence of patch tokens
+rather than a dense grid. Given an image $I \in \mathbb{R}^{H\times W\times C}$
+split into $N = HW / p^2$ non-overlapping patches of side $p$, the model
+computes a sequence of $N+1$ $d$-dimensional tokens (including a learnable
+`[CLS]` token) and applies $L$ transformer blocks on top [@dosovitskiy2021vit].
+
+Three concepts are central to our pipeline:
+
+- **Masked Autoencoder (MAE).** During stage 1, we randomly mask a large
+  fraction $m$ of the patches (here $m = 0.75$) and train the Teacher to
+  reconstruct the *normalised* pixels of the masked patches [@he2022mae].
+  This yields strong **local** features without any labels.
+
+- **REPA (Representation Alignment).** During stage 2, while fine-tuning with
+  ImageNet labels, we additionally force an intermediate ViT layer to align
+  with the features of a frozen DINOv2 backbone [@oquab2024dinov2]. The
+  alignment loss is computed through a small MLP projection head and acts as
+  a *semantic* bottleneck, distilling global structure into the Teacher.
+
+- **Dynamic token pruning.** Following @rao2021dynamicvit, the Student
+  (DynamicViT) inserts lightweight prediction modules ("Predictor-LG") at
+  layers $\{4, 7, 10\}$. Each predictor outputs a keep/drop score per token;
+  uninformative patches are progressively pruned, compressing the
+  computation. The target cumulative keep ratio at layer $\ell_k$ is
+  $\rho^k$, with base ratio $\rho = 0.7$.
+
+The Student is trained with the composite loss from `src/train/dynamic_loss.py`:
+
+$$
+\mathcal{L}
+  = \lambda_{\text{cls}}\,\mathcal{L}_{\text{CE}}
+  + \lambda_{\text{kl}}\,\mathcal{L}_{\text{KL}}(s / T, t / T)
+  + \lambda_{\text{distill}}\,\mathcal{L}_{\text{feat}}
+  + \lambda_{\text{ratio}}\,\mathcal{L}_{\rho},
+$$
+
+where $\mathcal{L}_{\text{CE}}$ is the classification loss,
+$\mathcal{L}_{\text{KL}}$ is a temperature-scaled Kullback–Leibler divergence
+between the Student logits $s$ and the Teacher logits $t$ [@hinton2015distillation],
+$\mathcal{L}_{\text{feat}}$ distills token-wise features on the *surviving*
+tokens, and $\mathcal{L}_{\rho}$ penalises deviations from the target keep
+ratios.
 
 ## Data used
 
-## Training pipeline
+All experiments target **ImageNet-1k at 128×128** resolution, loaded from the
+Hugging Face hub dataset `benjamin-paine/imagenet-1k-128x128` through
+`data/load/imagenet_loader.py`. The loader:
+
+1. downloads (once) the train/validation splits into the `HF_DATASETS_CACHE`
+   directory specified in `.env`;
+2. applies a `RandomResizedCrop(128, scale=(0.7, 1.0))` + horizontal flip +
+   ImageNet normalisation on the training set, and a plain resize +
+   normalisation on validation/test;
+3. splits the official train split into 90 % train / 10 % validation using
+   a fixed seed (`generator=torch.Generator().manual_seed(50)`), so the
+   split is deterministic across machines.
+
+A few samples are bundled under `data/images/` so the site can render
+thumbnails without touching the Hugging Face hub:
+
+```{python}
+#| label: fig-samples
+#| fig-cap: "A few training samples from `data/images/`. The number in the filename is the integer ImageNet class id."
+sample_files = sorted(DATA_IMAGES.glob("sample_*.png"))
+
+if sample_files:
+    fig, axes = plt.subplots(1, len(sample_files), figsize=(14, 3))
+    if len(sample_files) == 1:
+        axes = [axes]
+    for ax, img_path in zip(axes, sample_files):
+        ax.imshow(Image.open(img_path))
+        label = img_path.stem.replace("sample_", "")
+        ax.set_title(f"class id: {label}", fontsize=9)
+        ax.axis("off")
+    plt.suptitle("ImageNet-1k 128×128 — a few samples", fontweight="bold")
+    plt.show()
+else:
+    print("No sample image found in data/images/")
+```
+
+To make the tokenisation step tangible, we can split one of these samples
+into the same 16×16 patch grid that the ViT actually sees, and then display
+what a random 75 % MAE mask looks like:
+
+```{python}
+#| label: fig-patch-mask
+#| fig-cap: "Left: the original image. Center: the 8×8 patch grid used by the Teacher (128/16 = 8 patches per side). Right: a random 75 % MAE-style mask applied at the *patch* level — this is the actual input the SSL Teacher is trained to reconstruct."
+
+rng = np.random.default_rng(seed=0)
+patch = 16
+img_path = sample_files[0] if sample_files else None
+
+if img_path is not None:
+    img = np.asarray(Image.open(img_path).convert("RGB").resize((128, 128)))
+    H, W, _ = img.shape
+    nh, nw = H // patch, W // patch
+
+    grid = img.copy()
+    for i in range(1, nh):
+        grid[i * patch - 1 : i * patch + 1, :, :] = 255
+    for j in range(1, nw):
+        grid[:, j * patch - 1 : j * patch + 1, :] = 255
+
+    n_tokens = nh * nw
+    keep_mask = rng.random(n_tokens) >= 0.75
+    masked = img.copy()
+    for k, keep in enumerate(keep_mask):
+        if keep:
+            continue
+        i, j = divmod(k, nw)
+        masked[i * patch : (i + 1) * patch, j * patch : (j + 1) * patch] = 128
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+    for ax, im, title in zip(
+        axes,
+        [img, grid, masked],
+        ["Original 128×128", f"{nh}×{nw} patch grid", "MAE mask (75%)"],
+    ):
+        ax.imshow(im)
+        ax.set_title(title)
+        ax.axis("off")
+    plt.show()
+```
+
+## Training pipeline {#sec-pipeline}
+
+The pipeline is a three-stage *hierarchical feature distillation* scheme:
+
+1. **Stage 1 — SSL pre-training (`train_teacher_SSL.py`).** A ViT-Base
+   Teacher is trained with an MAE objective on 75 %-masked patches, with a
+   *decreasing* layer-wise learning-rate decay to prioritise early layers
+   and capture **local** textures.
+2. **Stage 2 — Supervised + REPA fine-tuning (`train_teacher.py`).** The
+   SSL Teacher is fine-tuned with ImageNet labels, while an intermediate
+   layer is aligned with frozen DINOv2 features through a small MLP head
+   and a cosine similarity loss. Layer-wise learning-rate decay is now
+   *increasing*, prioritising deep layers and the classification head.
+3. **Stage 3 — Student distillation + dynamic pruning
+   (`train_student.py`).** A DynamicViT Student is initialised from the
+   Teacher's weights and trained with the composite loss defined above.
+   Predictor modules at layers 4, 7, 10 learn which tokens to drop so that
+   the per-image compute decreases while classification accuracy is
+   preserved as much as possible.
+
+Running the full pipeline from the project root:
+
+```bash
+python -m src.train.train_teacher_SSL  --dataset imagenet --mask_ratio 0.75
+python -m src.train.train_teacher      --dataset imagenet \
+    --resume-from checkpoints/imagenet/ssl_teacher/ssl_teacher_best.pth
+python -m src.train.train_student      --dataset imagenet --rho 0.7 \
+    --run_name tiny_dynamic_vit
+```
+
+### Stage 1 — MAE reconstructions
+
+```{python}
+#| label: fig-mae
+#| fig-cap: "Stage 1: reconstructions produced by the SSL Teacher on held-out 128×128 ImageNet images. For each row: **left** = original image, **center** = the 75 %-masked input fed to the ViT, **right** = reconstructed image assembled from the predicted patch pixels."
+ssl_vis_dir = LOGS / "ssl_teacher" / "visualizations"
+if ssl_vis_dir.exists():
+    for i, p in enumerate(sorted(ssl_vis_dir.glob("ssl_reconstruction_*.png"))[:3]):
+        show(p, figsize=(12, 4), title=f"MAE reconstruction example {i + 1}")
+else:
+    print(f"[missing] {ssl_vis_dir}")
+```
+
+The MAE reconstruction loss and learning-rate schedule over SSL pre-training:
+
+```{python}
+#| label: fig-ssl-curves
+#| fig-cap: "MAE training curves: (left) reconstruction loss, (right) learning-rate schedule."
+ssl_graphs = LOGS / "ssl_teacher" / "graphs"
+show(ssl_graphs / "ssl_loss_curve.png", figsize=(10, 4), title="SSL reconstruction loss")
+show(ssl_graphs / "ssl_lr_curve.png",  figsize=(10, 4), title="SSL learning-rate schedule")
+```
+
+### Stage 2 — Teacher with REPA
+
+```{python}
+#| label: fig-teacher-curves
+#| fig-cap: "Stage 2: Teacher fine-tuning (supervised + REPA) on ImageNet-1k 128×128."
+teacher_graphs = LOGS / "teacher" / "Teacher_ViT_imagenet1K-graphs"
+show(teacher_graphs / "loss_curve.png",     figsize=(10, 4), title="Teacher training & validation loss")
+show(teacher_graphs / "accuracy_curve.png", figsize=(10, 4), title="Teacher training & validation accuracy")
+show(teacher_graphs / "lr_curve.png",       figsize=(10, 4), title="Teacher learning-rate schedule (increasing LLRD)")
+```
+
+A raw 1000×1000 confusion matrix is available on disk
+(`logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs/confusion_matrix.png`)
+but is not rendered here: at ImageNet-1k scale the individual cells collapse
+to less than a pixel and the off-diagonal confusions are dwarfed by the
+diagonal. A readable top-20 variant is displayed in @fig-compare-cm of the
+Results section, where the Teacher and the Student are compared side-by-side.
+
+### Stage 3 — Student DynamicViT
+
+The Student is optimised with four simultaneous objectives. Their individual
+evolution across training is logged separately:
+
+```{python}
+#| label: fig-student-curves
+#| fig-cap: "Stage 3: Student training curves. Top row: total loss and accuracy. Middle row: KL divergence with the Teacher logits (left) and feature-distillation loss on surviving tokens (right). Bottom row: ratio (sparsity) loss and the *effective* cumulative keep rate ρ produced by the Predictor-LG modules."
+student_graphs = LOGS / "student" / "graphs"
+
+panels = [
+    ("student_loss_curve.png",      "Total student loss"),
+    ("student_accuracy_curve.png",  "Student train/val accuracy"),
+    ("student_kl_loss.png",         "KL divergence loss"),
+    ("student_distill_loss.png",    "Feature distillation loss"),
+    ("student_ratio_loss.png",      "Ratio (sparsity) loss"),
+    ("student_rho.png",             "Effective cumulative ρ"),
+]
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+for ax, (fname, title) in zip(axes.ravel(), panels):
+    p = student_graphs / fname
+    if p.exists():
+        ax.imshow(Image.open(p))
+    ax.set_title(title)
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+A few qualitative **pruning visualisations** show which patches the Student
+chooses to keep at each pruning stage (rows correspond to layers 4, 7, 10):
+
+```{python}
+#| label: fig-pruning
+#| fig-cap: "Dynamic token pruning at layers 4, 7 and 10 for three held-out images. Bright patches are kept, dark patches are dropped. The model clearly concentrates its compute around object-salient regions."
+prune_dir = LOGS / "pruning_visualizations"
+if prune_dir.exists():
+    for i, p in enumerate(sorted(prune_dir.glob("pruning_vis_*.png"))[:3]):
+        show(p, figsize=(14, 5), title=f"Pruning visualisation — batch {i + 1}")
+```
+
+A companion figure summarises the *average* evolution of the pruning mask
+across transformer layers:
+
+```{python}
+#| label: fig-pruning-evolution
+#| fig-cap: "Average pruning mask per transformer layer (Student, ImageNet-1k). Token density visibly decreases at each pruning index (4, 7, 10)."
+show(LOGS / "student" / "pruning" / "pruning_evolution.jpeg", figsize=(12, 4))
+```
 
 ## Configuration used
 
+Stage-wise hyper-parameters live under `configs/`. Committing them to Git
+guarantees that each run is reproducible from a single file. Below is a
+programmatic dump of the **ImageNet** configuration — these are the exact
+numbers that produced the figures above:
+
+```{python}
+#| label: tbl-config
+#| tbl-cap: "Configuration `configs/train_imagenet1k.py` (ImageNet-1k 128×128)."
+import runpy
+cfg_raw = runpy.run_path(str(ROOT / "configs" / "train_imagenet1k.py"))
+cfg = {k: v for k, v in cfg_raw.items() if not k.startswith("_") and not callable(v)}
+
+categories = {
+    "Architecture": ["d_model", "n_classes", "img_size", "patch_size", "n_channels", "n_heads", "n_layers"],
+    "Optimisation": ["batch_size", "epochs", "alpha", "layer_decay"],
+    "DynamicViT":   ["pruning_index", "rho", "rho_init", "steepness",
+                     "lambda_class", "lambda_kl", "lambda_ratio", "lambda_distill"],
+    "Normalisation": ["mean_norm_imagenet", "std_norm_imagenet"],
+    "Fine-tuning":  ["finetuning", "rank"],
+    "REPA":         ["lambda_repa"],
+}
+
+rows = []
+for section, keys in categories.items():
+    for k in keys:
+        if k in cfg:
+            rows.append({"section": section, "parameter": k, "value": str(cfg[k])})
+
+pd.DataFrame(rows)
+```
+
+Secrets (Hugging Face tokens, data paths) are loaded at runtime from a local
+`.env` file through `python-dotenv` and are **never** committed to Git.
+
 ## Reproducibility of our code and experiments
 
-random seeds, checkpoint, ... 
+The project implements the reproducibility guarantees expected by the
+course checklist:
+
+- **Deterministic train/val split.** The 90/10 split is performed with
+  `torch.Generator().manual_seed(50)` in `data/load/imagenet_loader.py`,
+  so two different machines produce the exact same split.
+- **Pinned dependencies.** `requirements.txt` lists every transitive
+  dependency with an exact version; `uv.lock` plays the same role for the
+  `uv` resolver.
+- **Versioned configuration.** All hyper-parameters are Python modules
+  under `configs/`, versioned alongside the code. Changes to these files
+  are visible through `git blame` / `git log`.
+- **Versioned checkpoints.** A curated subset of trained weights is
+  committed to `checkpoints/public/imagenet/` (SSL Teacher, Teacher, and
+  Student at $d_{\text{model}} = 128$, $p = 16$), so that any reader can
+  bypass training and run inference directly.
+- **Versioned artefacts.** The TensorBoard event files, loss curves and
+  pruning visualisations displayed in this report live under `logs/` and
+  are part of the repository, hence the figures above are regenerated by
+  the CI at every push.
+- **Continuous publication.** A GitHub Actions workflow
+  (`.github/workflows/quarto.yml`) renders this `.qmd` on every push to
+  the `reprod` branch and publishes the result to GitHub Pages.
 
 ## Results
 
-dont métriques et images !!
+Final Teacher vs. Student comparison, aggregated by the
+`compare_st-te.py` script:
 
+```{python}
+#| label: fig-compare-perf
+#| fig-cap: "Top-1 accuracy and throughput (images/second) for the Teacher (standard ViT) and the Student (DynamicViT with ρ = 0.7). The Student trades a small accuracy drop for a substantial speed-up."
+show(LOGS / "evaluation_results" / "compare_performance.png", figsize=(12, 5))
+```
+
+```{python}
+#| label: fig-compare-cm
+#| fig-cap: "Side-by-side confusion matrices for the Teacher (left) and the Student (right) — top-20 classes only. Diagonal mass is preserved under token pruning."
+show(LOGS / "evaluation_results" / "compare_confusion_matrices.png", figsize=(14, 5))
+```
+
+To give a self-contained high-level summary, the table below consolidates
+the per-stage outputs available in the repo:
+
+```{python}
+#| label: tbl-artefacts
+#| tbl-cap: "Key artefacts produced by each stage, all tracked in Git and used to build this page."
+
+artefacts = [
+    ("Stage 1 — SSL MAE", "checkpoint",   "checkpoints/public/imagenet/d128patch16/teacher_SSL/d_model128.pth"),
+    ("Stage 1 — SSL MAE", "reconstructions", "logs/imagenet/ssl_teacher/visualizations/ssl_reconstruction_*.png"),
+    ("Stage 1 — SSL MAE", "training curves", "logs/imagenet/ssl_teacher/graphs/ssl_*.png"),
+    ("Stage 2 — Teacher", "checkpoint",   "checkpoints/public/imagenet/d128patch16/teacher/teacher_d128patch16.pth"),
+    ("Stage 2 — Teacher", "training curves", "logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs/*.png"),
+    ("Stage 3 — Student", "checkpoint",   "checkpoints/public/imagenet/d128patch16/student/student_epoch_120.pth"),
+    ("Stage 3 — Student", "training curves", "logs/imagenet/student/graphs/student_*.png"),
+    ("Stage 3 — Student", "pruning maps", "logs/imagenet/pruning_visualizations/pruning_vis_*.png"),
+    ("Evaluation",        "Teacher vs Student", "logs/imagenet/evaluation_results/compare_*.png"),
+]
+pd.DataFrame(artefacts, columns=["stage", "kind", "path"])
+```
 
 # Inference on a custom dataset (for new experiments)
 
-<!-- juste faire de l'inférence, pas ed l'entrainement car ça nécessite GPU blabla -->
+::: {.callout-note}
+This section documents the *contract* that a user must respect to push a new
+image through the trained Student. Because Quarto renders this page in a CI
+environment without a GPU, we do **not** execute the forward pass live — we
+describe the pre-processing, checkpoint loading and inference code a user
+can paste into a notebook.
+:::
 
 ## Input data specification and output format
 
-## pre-processing pipeline
+- **Input.** A single image (PIL, NumPy or Torch tensor) with three RGB
+  channels, **any** resolution. The preprocessing pipeline will resize it
+  to 128×128 and standardise it with the ImageNet statistics used during
+  training.
+- **Output.** A Python dictionary:
+  - `logits`: `torch.Tensor` of shape `(1, 1000)` — raw class scores over
+    ImageNet-1k.
+  - `top5`: a list of `(class_id, probability)` pairs, sorted by
+    probability, with class ids matching the ImageNet-1k ordering.
+  - `keep_masks`: a list of three binary masks (one per pruning index)
+    of shape `(1, N)` with $N = (128/p)^2$ tokens. Useful to visualise
+    which regions the Student actually looked at.
 
-(nous comment on gère ces nouvelles données, normalement les utilisateurs ne devraient rien faire)
-(en fait peut-être enlever cette partie : il semble que quarto ne puisse pas éxécuter du nouveau code et ingérer de nouvelles données !)
+## Pre-processing pipeline
 
-## Running forward pass
+The same `torchvision` transforms used at test time (see
+`data/load/imagenet_loader.py`) must be applied:
 
-# CI/CD 
+```python
+from torchvision import transforms as T
 
-Entry point for Github actions?
+IMAGE_SIZE = 128
+MEAN = [0.485, 0.456, 0.406]
+STD  = [0.229, 0.224, 0.225]
+
+preprocess = T.Compose([
+    T.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    T.ToTensor(),
+    T.Normalize(mean=MEAN, std=STD),
+])
+```
+
+## Running a forward pass
+
+```python
+import torch
+from PIL import Image
+
+from src.models.dynamicViT import DynamicVisionTransformer
+
+# 1. Load the public Student checkpoint shipped with this repo.
+ckpt_path = "checkpoints/public/imagenet/d128patch16/student/student_epoch_120.pth"
+ckpt = torch.load(ckpt_path, map_location="cpu")
+
+# 2. Rebuild the exact architecture the checkpoint was trained with.
+#    Hyperparameters are persisted inside the .pth by train_student.py.
+student = DynamicVisionTransformer(**ckpt["hyperparameters"])
+student.load_state_dict(
+    {k.replace("_orig_mod.", ""): v for k, v in ckpt["model_state_dict"].items()},
+    strict=False,
+)
+student.eval()
+
+# 3. Run on a new image.
+img = Image.open("data/images/sample_7.png").convert("RGB")
+x   = preprocess(img).unsqueeze(0)                 # (1, 3, 128, 128)
+
+with torch.inference_mode():
+    logits, _feats, keep_masks, _scores = student(x)
+
+probs   = torch.softmax(logits, dim=-1)
+top5_p, top5_i = probs.topk(5)
+print(list(zip(top5_i[0].tolist(), top5_p[0].tolist())))
+```
+
+The returned `keep_masks` can be overlaid on the input to reproduce the
+style of visualisation shown in @fig-pruning.
+
+# CI/CD
 
 ## GitHub Actions workflow
 
+Two workflows live under `.github/workflows/`:
+
+- **`quarto.yml`** — renders this report with Quarto on every push to the
+  `reprod` branch, then publishes the resulting static site to the
+  `gh-pages` branch. The build installs dependencies with `uv sync`, so
+  the CI uses the exact same lockfile as contributors.
+- **`ruff.yml`** — runs the `ruff` linter/formatter on every push and PR
+  to `main`, using the configuration in `ruff.toml` (88-char line length,
+  double quotes, imports sorted).
+
 ## Tests
+
+The `src/test/` directory acts as a small integration-test suite that can
+be run manually after training:
+
+- `parameters_computing.py` — loads both checkpoints and computes the exact
+  FLOPs, MACs and parameter counts with `calflops`.
+- `compare_st-te.py` — evaluates Teacher and Student on the ImageNet-1k
+  test split, then regenerates the performance and confusion-matrix
+  figures displayed above.
+- `test_SSLteacher.py` — reports MSE, MAE and PSNR for the MAE Teacher and
+  re-renders the `ssl_reconstruction_*.png` visualisations.
+
+A light-weight `pytest` entry point is declared in `pyproject.toml`
+(`[scripts] test = "pytest"`) for future unit tests targeting the
+model building blocks.
 
 # References
 
