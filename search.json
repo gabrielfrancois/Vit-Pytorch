@@ -103,5 +103,110 @@
     "title": "Vit-Pytorch: Hierarchical Feature Distillation — Reproducibility & Deployment",
     "section": "6.2 Tests",
     "text": "6.2 Tests\nThe src/test/ directory acts as a small integration-test suite that can be run manually after training:\n\nparameters_computing.py — loads both checkpoints and computes the exact FLOPs, MACs and parameter counts with calflops.\ncompare_st-te.py — evaluates Teacher and Student on the ImageNet-1k test split, then regenerates the performance and confusion-matrix figures displayed above.\ntest_SSLteacher.py — reports MSE, MAE and PSNR for the MAE Teacher and re-renders the ssl_reconstruction_*.png visualisations.\n\nA light-weight pytest entry point is declared in pyproject.toml ([scripts] test = \"pytest\") for future unit tests targeting the model building blocks."
+  },
+  {
+    "objectID": "slides_VIT.html#main-objective",
+    "href": "slides_VIT.html#main-objective",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Main Objective",
+    "text": "Main Objective\n\nBuild a lightweight and high-performing ViT model for ImageNet-1k\nThree progressive stages:\n\nSSL pre-training (MAE): local structures\nSemantic alignment (REPA): global features\nCompression & distillation: optimized DynamicViT\n\nPreserve accuracy while reducing computation"
+  },
+  {
+    "objectID": "slides_VIT.html#general-architecture",
+    "href": "slides_VIT.html#general-architecture",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "General Architecture",
+    "text": "General Architecture\nStage 1: SSL Pre-training (MAE)\n- 75% patch masking\n- Reconstruction of normalized patches\n- ViT-Base Teacher\n\nStage 2: Semantic Alignment (REPA)\n- Supervised fine-tuning\n- DINO feature distillation\n- Enriched Teacher\n\nStage 3: Compression & Distillation\n- DynamicViT Student\n- Dynamic token pruning (rho = 0.7)\n- Lightweight & efficient model"
+  },
+  {
+    "objectID": "slides_VIT.html#reconstruction-visualizations-mae",
+    "href": "slides_VIT.html#reconstruction-visualizations-mae",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Reconstruction Visualizations (MAE)",
+    "text": "Reconstruction Visualizations (MAE)\n\nMAE Reconstruction - Example"
+  },
+  {
+    "objectID": "slides_VIT.html#objective-methodology",
+    "href": "slides_VIT.html#objective-methodology",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Objective & Methodology",
+    "text": "Objective & Methodology\n\n\nObjective\n\nLocal visual structures\nMasked patch reconstruction\nMasking ratio: 75%\n\n\nParameters\n\nArchitecture: ViT-Base\nEpochs: 100-200\nLR: decreasing decay\nInput: 128x128"
+  },
+  {
+    "objectID": "slides_VIT.html#teacher-training-curves",
+    "href": "slides_VIT.html#teacher-training-curves",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Teacher Training Curves",
+    "text": "Teacher Training Curves\n\n\nLoss & Accuracy\n\n\n\nLoss Curve\n\n\n\nAccuracy Curve\n\n\n\nAccuracy Curve"
+  },
+  {
+    "objectID": "slides_VIT.html#learning-rate-schedule",
+    "href": "slides_VIT.html#learning-rate-schedule",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Learning Rate Schedule",
+    "text": "Learning Rate Schedule\n\nLearning Rate Decay"
+  },
+  {
+    "objectID": "slides_VIT.html#confusion-matrix---teacher",
+    "href": "slides_VIT.html#confusion-matrix---teacher",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Confusion Matrix - Teacher",
+    "text": "Confusion Matrix - Teacher\n\nConfusion Matrix"
+  },
+  {
+    "objectID": "slides_VIT.html#teacher-fine-tuning",
+    "href": "slides_VIT.html#teacher-fine-tuning",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Teacher Fine-tuning",
+    "text": "Teacher Fine-tuning\n\n\nProcess\n\nFine-tuning MAE on ImageNet labels\nDistillation: frozen DINO v2/v3\nIncreasing LR decay\n50-100 epochs\n\n\nBenefits\n\nGlobal semantic features\nPreserved local structures\nRobust and rich Teacher"
+  },
+  {
+    "objectID": "slides_VIT.html#token-pruning-visualizations",
+    "href": "slides_VIT.html#token-pruning-visualizations",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Token Pruning Visualizations",
+    "text": "Token Pruning Visualizations\n\n\n\n\n\nPruning Visualization 1\n\n\n\n\n\n\nPruning Visualization 2"
+  },
+  {
+    "objectID": "slides_VIT.html#dynamic-token-pruning",
+    "href": "slides_VIT.html#dynamic-token-pruning",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Dynamic Token Pruning",
+    "text": "Dynamic Token Pruning\n\n\nStudent Architecture\n\nReduced DynamicViT\nPruning at layers 4, 7, 10\nRatio: rho = 0.7 (70% tokens kept)\n\n\nAdvantages\n\nFeature-level distillation\nAdaptive pruning\nUltra-compact model"
+  },
+  {
+    "objectID": "slides_VIT.html#performance-comparison",
+    "href": "slides_VIT.html#performance-comparison",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Performance Comparison",
+    "text": "Performance Comparison\n\nPerformance Comparison"
+  },
+  {
+    "objectID": "slides_VIT.html#comparative-results",
+    "href": "slides_VIT.html#comparative-results",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Comparative Results",
+    "text": "Comparative Results\n\n\n\nMetric\nTeacher\nStudent\nReduction\n\n\n\n\nAccuracy\n82.1%\n79.8%\n-2.3%\n\n\nParameters\n86M\n45M\n-47.7%\n\n\nFLOPs\n17.6B\n8.9B\n-49.4%\n\n\nLatency\n45ms\n22ms\n-51.1%\n\n\nThroughput\n22.2 img/s\n45.5 img/s\n+104.9%"
+  },
+  {
+    "objectID": "slides_VIT.html#key-insights",
+    "href": "slides_VIT.html#key-insights",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Key Insights",
+    "text": "Key Insights\n1. SSL pre-training is crucial\n\nMAE captures essential visual structures\n\n2. REPA improves alignment\n\nCombines local structures with semantics\n\n3. Highly effective compression\n\nToken pruning: -51% latency, -2.3% accuracy\n\n4. Practical applicability\n\n+100% throughput, production-ready"
+  },
+  {
+    "objectID": "slides_VIT.html#generated-artifacts",
+    "href": "slides_VIT.html#generated-artifacts",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Generated Artifacts",
+    "text": "Generated Artifacts\nlogs/imagenet/\n- ssl_teacher/\n  - visualizations/\n- teacher/\n  - Teacher_ViT_imagenet1K-graphs/\n    - loss_curve.png\n    - accuracy_curve.png\n    - lr_curve.png\n    - confusion_matrix.png\n- student/\n- pruning_visualizations/\n- evaluation_results/\n  - compare_performance.png\n  - compare_confusion_matrices.png"
+  },
+  {
+    "objectID": "slides_VIT.html#technical-references",
+    "href": "slides_VIT.html#technical-references",
+    "title": "Multi-Stage Pipeline for Vision Transformer Compression",
+    "section": "Technical References",
+    "text": "Technical References\n\nSSL: MAE - “Masked Autoencoders Are Scalable Vision Learners”\nREPA: Alignment via bottleneck representations\nDINO: “Emerging Properties in Self-Supervised Vision Transformers”\nViT: “An Image is Worth 16x16 Words”\nDynamicViT: Adaptive layer-wise token pruning"
   }
 ]

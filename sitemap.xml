@@ -2,6 +2,10 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://gabrielfrancois.github.io/Vit-Pytorch/index.html</loc>
-    <lastmod>2026-04-18T14:50:07.176Z</lastmod>
+    <lastmod>2026-04-18T15:33:03.452Z</lastmod>
+  </url>
+  <url>
+    <loc>https://gabrielfrancois.github.io/Vit-Pytorch/slides_VIT.html</loc>
+    <lastmod>2026-04-18T15:33:03.503Z</lastmod>
   </url>
 </urlset>
