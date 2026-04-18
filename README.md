@@ -153,4 +153,4 @@ If you use this implementation, please cite the original DynamicViT paper and th
 }
 ```
 
-For a full technical report on this specific implementation, see [**Projet_ViT.pdf**](Projet_ViT.pdf).
+For a full technical report on on our previous implementation (without REPA), see [**Projet_ViT.pdf**](Projet_ViT.pdf).
