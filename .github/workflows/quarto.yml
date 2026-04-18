@@ -1,9 +1,9 @@
 name: Quarto publish
 
 on:
-  push: 
-    branches: [reprod] #continuous integration
-    
+  push:
+    branches: [reprod]
+
 permissions:
   contents: write
   pages: write
@@ -16,23 +16,33 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5 #other git hub actions on the web
-      
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2 #actions from quarto
-      
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync 
-          source .venv/bin/activate
-          pip install -r requirements.txt
+        uses: actions/checkout@v5
 
-      #- name: Render Quarto website
-      #  run: uv run quarto render
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The website only executes a handful of Python cells at render time
+      # (reading config files, displaying pre-computed plots). We therefore
+      # skip the heavy training-time requirements.txt (which also contains
+      # macOS-only pyobjc packages) and install only what the .qmd imports,
+      # plus jupyter so Quarto can spin up the kernel.
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            jupyter \
+            matplotlib \
+            numpy \
+            pandas \
+            pillow
 
       - name: Deploy to GitHub Pages
-        uses: quarto-dev/quarto-actions/publish@v2 #it also renders actually
+        uses: quarto-dev/quarto-actions/publish@v2
         with:
           target: gh-pages
           render: true
