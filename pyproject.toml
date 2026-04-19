@@ -17,7 +17,6 @@ dependencies = [
     "pytest",
     "black",
     "pylint",
-    "caffeinate",
     "dotenv>=0.9.9",
 ]
 
