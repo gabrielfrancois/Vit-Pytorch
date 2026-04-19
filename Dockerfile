@@ -30,6 +30,7 @@ COPY src ./src
 COPY configs ./configs
 COPY helper_function ./helper_function
 COPY checkpoints ./checkpoints
+COPY data ./data
 
 
 # For the container to use the 'uv' virtual environment
