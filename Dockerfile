@@ -26,15 +26,15 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync
 
-COPY . .
+COPY src ./src
+COPY configs ./configs
+COPY helper_function ./helper_function
+COPY checkpoints ./checkpoints
 
 
 # For the container to use the 'uv' virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
-
-ENV PYTHONPATH="/app"
-ENV MPLCONFIGDIR="/tmp/matplotlib"
-
+ENV PYTHONPATH="${PYTHONPATH}:/app"
 
 # Run the forward pass
 CMD ["uv", "run", "python", "-m", "src.forward_pass_ex"]
