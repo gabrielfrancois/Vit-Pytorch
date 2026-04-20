@@ -11,7 +11,7 @@ We utilize a **Masked Autoencoder (MAE)** objective to force the model to unders
 
 **Strategic Innovation**: Unlike standard Layer-wise Learning Rate Decay (LLRD) which typically increases towards the head, we employ a **decreasing LLRD** during this stage. This prioritizes the optimization of early layers to capture fine-grained local textures.
 
-![MAE Reconstruction](logs/imagenet/ssl_teacher/visualizations/ssl_reconstruction_0.png)
+![MAE Reconstruction](logs/imagenet/ssl_teacher/visualizations/ssl_reconstruction_3.png)
 *Left: Original Image | Center: 75% Masked Input | Right: Model Reconstruction*
 
 ---
