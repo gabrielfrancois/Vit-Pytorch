@@ -269,12 +269,12 @@ Hugging Face hub dataset `benjamin-paine/imagenet-1k-128x128` through
    a fixed seed (`generator=torch.Generator().manual_seed(50)`), so the
    split is deterministic across machines.
 
-A few samples are bundled under `data/images/` so the site can render
-thumbnails without touching the Hugging Face hub:
+A few CIFAR sample exports are bundled under `data/images/` so the site can
+render thumbnails without touching the Hugging Face hub:
 
 ```{python}
 #| label: fig-samples
-#| fig-cap: "A few training samples from `data/images/`. The number in the filename is the integer ImageNet class id."
+#| fig-cap: "CIFAR sample exports stored in `data/images/` for local visualisation only. The number in the filename is the CIFAR label id."
 sample_files = sorted(DATA_IMAGES.glob("sample_*.png"))
 
 if sample_files:
@@ -284,17 +284,17 @@ if sample_files:
     for ax, img_path in zip(axes, sample_files):
         ax.imshow(Image.open(img_path))
         label = img_path.stem.replace("sample_", "")
-        ax.set_title(f"class id: {label}", fontsize=9)
+        ax.set_title(f"CIFAR label: {label}", fontsize=9)
         ax.axis("off")
-    plt.suptitle("ImageNet-1k 128×128 — a few samples", fontweight="bold")
+    plt.suptitle("CIFAR samples bundled in the repository", fontweight="bold")
     plt.show()
 else:
     print("No sample image found in data/images/")
 ```
 
-To make the tokenisation step tangible, we can split one of these samples
-into the same 16×16 patch grid that the ViT actually sees, and then display
-what a random 75 % MAE mask looks like:
+To make tokenisation tangible, we use one of these local CIFAR sample exports
+as a purely illustrative input, split it into the same 16×16 patch grid used
+by the ViT, and display what a random 75 % MAE mask looks like:
 
 ```{python}
 #| label: fig-patch-mask
