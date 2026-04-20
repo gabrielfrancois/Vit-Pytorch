@@ -324,7 +324,7 @@ if img_path is not None:
         i, j = divmod(k, nw)
         masked[i * patch : (i + 1) * patch, j * patch : (j + 1) * patch] = 128
 
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4), constrained_layout=True)
     for ax, im, title in zip(
         axes,
         [img, grid, masked],
@@ -333,7 +333,7 @@ if img_path is not None:
         ax.imshow(im)
         ax.set_title(title)
         ax.axis("off")
-    plt.tight_layout()
+    fig.suptitle("Tokenisation example with a random 75 % patch mask", y=1.02, fontsize=12, fontweight="bold")
     plt.show()
 ```
 
@@ -356,6 +356,14 @@ The pipeline is a three-stage *hierarchical feature distillation* scheme:
    Predictor modules at layers 4, 7, 10 learn which tokens to drop so that
    the per-image compute decreases while classification accuracy is
    preserved as much as possible.
+
+The layer-wise learning-rate policy is intentionally asymmetric across stages.
+For the supervised ViT phase (Teacher with REPA, then Student distillation),
+we use an **increasing** layer-wise schedule: deeper blocks and the head get
+larger updates, which helps adapt high-level semantic features to the target
+classes. For the SSL MAE Teacher stage, we use a **decreasing** schedule so
+earlier layers receive comparatively larger updates, encouraging robust local
+texture and patch-level representations before semantic fine-tuning.
 
 Running the full pipeline from the project root:
 
@@ -416,7 +424,7 @@ evolution across training is logged separately:
 ```{python}
 #| label: fig-student-curves
 #| fig-cap: "Stage 3: Student training curves. Top row: total loss and accuracy. Middle row: KL divergence with the Teacher logits (left) and feature-distillation loss on surviving tokens (right). Bottom row: ratio (sparsity) loss and the *effective* cumulative keep rate ρ produced by the Predictor-LG modules."
-student_graphs = LOGS / "student" / "graphs"
+student_graphs = LOGS / "student" / "Student_ViT_imagenet1k-graphs"
 
 panels = [
     ("student_loss_curve.png",      "Total student loss"),
@@ -551,7 +559,7 @@ artefacts = [
     ("Stage 2 — Teacher", "checkpoint",   "checkpoints/public/imagenet/d128patch16/teacher/teacher_d128patch16.pth"),
     ("Stage 2 — Teacher", "training curves", "logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs/*.png"),
     ("Stage 3 — Student", "checkpoint",   "checkpoints/public/imagenet/d128patch16/student/student_epoch_120.pth"),
-    ("Stage 3 — Student", "training curves", "logs/imagenet/student/graphs/student_*.png"),
+    ("Stage 3 — Student", "training curves", "logs/imagenet/student/Student_ViT_imagenet1k-graphs/student_*.png"),
     ("Stage 3 — Student", "pruning maps", "logs/imagenet/pruning_visualizations/pruning_vis_*.png"),
     ("Evaluation",        "Teacher vs Student", "logs/imagenet/evaluation_results/compare_*.png"),
 ]
@@ -637,6 +645,15 @@ print(list(zip(top5_i[0].tolist(), top5_p[0].tolist())))
 
 The returned `keep_masks` can be overlaid on the input to reproduce the
 style of visualisation shown in @fig-pruning.
+
+## Running the same inference in Docker
+
+Docker packages the code, Python dependencies and runtime setup in an
+isolated container, so the forward-pass demo runs the same way across machines
+without local environment drift. In this repository, `Dockerfile` and
+`compose.yaml` are configured to execute the Student inference workflow
+reproducibly from a clean environment, which is useful for quick validation
+or sharing the demo setup with teammates.
 
 # CI/CD
 
