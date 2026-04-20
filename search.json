@@ -1,12 +1,5 @@
 [
   {
-    "objectID": "README.Docker.html",
-    "href": "README.Docker.html",
-    "title": "Dynamic Vision Transformer",
-    "section": "",
-    "text": "Building and running your application\nWhen you’re ready, start your application by running: docker compose up --build.\nYour application will be available at http://localhost:8000.\n\n\nDeploying your application to the cloud\nFirst, build your image, e.g.: docker build -t myapp .. If your cloud uses a different CPU architecture than your development machine (e.g., you are on a Mac M1 and your cloud provider is amd64), you’ll want to build the image for that platform, e.g.: docker build --platform=linux/amd64 -t myapp ..\nThen, push it to your registry, e.g. docker push myregistry.com/myapp.\nConsult Docker’s getting started docs for more detail on building and pushing.\n\n\nReferences\n\nDocker’s Python guide"
-  },
-  {
     "objectID": "slides_VIT.html#main-objective",
     "href": "slides_VIT.html#main-objective",
     "title": "Multi-Stage Pipeline for Vision Transformer Compression",
