@@ -1,9 +1,15 @@
 project: 
   type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - slides_VIT.qmd
 
 website: 
   title: "Dynamic Vision Transformer"
   navbar: 
     left:
       - href: index.qmd
-        text: Home
+        text: Rapport
+      - href: slides_VIT.qmd
+        text: Slides
