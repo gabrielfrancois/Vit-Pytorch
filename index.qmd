@@ -333,6 +333,7 @@ if img_path is not None:
         ax.imshow(im)
         ax.set_title(title)
         ax.axis("off")
+    plt.tight_layout()
     plt.show()
 ```
 
