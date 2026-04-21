@@ -1,3 +1,8 @@
+---
+
+⚠️ To see our work about reproducibility, check the branch ```reprod```. It will later be merged to ```main```. ⚠️
+---
+
 # Dynamic Vision Transformers: Multi-Stage Compression Pipeline
 
 This repository implements a high-performance, multi-stage pipeline for training and compressing Vision Transformers (ViT). By combining Self-Supervised Learning (SSL), Representation Bottlenecks (REPA), and Dynamic Token Pruning, we achieve a **TINY DynamicViT** that maintains high accuracy on ImageNet-1k (128x128) while significantly reducing computational overhead.
