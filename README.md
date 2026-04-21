@@ -1,136 +1,161 @@
-# Vit-Pytorch: Custom Implementation of Dynamic Vision Transformers
+---
+
+⚠️ To see our work about reproducibility, check the branch ```reprod```. It will later be merged to ```main```. ⚠️
+---
+
+# Dynamic Vision Transformers: Multi-Stage Compression Pipeline
+
+This repository implements a high-performance, multi-stage pipeline for training and compressing Vision Transformers (ViT). By combining Self-Supervised Learning (SSL), Representation Bottlenecks (REPA), and Dynamic Token Pruning, we achieve a **TINY DynamicViT** that maintains high accuracy on ImageNet-1k (128x128) while significantly reducing computational overhead.
+
+---
+
+## Feature Learning & Reconstruction
+
+### Stage 1: Local Feature Extraction (MAE)
+We utilize a **Masked Autoencoder (MAE)** objective to force the model to understand local image structures. By masking 75% of input patches, the Teacher ViT learns to reconstruct the missing data, building a robust foundation of local spatial features.
+
+**Strategic Innovation**: Unlike standard Layer-wise Learning Rate Decay (LLRD) which typically increases towards the head, we employ a **decreasing LLRD** during this stage. This prioritizes the optimization of early layers to capture fine-grained local textures.
+
+![MAE Reconstruction](logs/imagenet/ssl_teacher/visualizations/ssl_reconstruction_3.png)
+*Left: Original Image | Center: 75% Masked Input | Right: Model Reconstruction*
+
+---
+
+## The Three-Stage Pipeline
+
+### 1. Self-Supervised Pre-training (MAE)
+- **Goal**: Capture local structural information.
+- **Method**: Train a Teacher ViT to reconstruct normalized pixel patches.
+- **Optimization**: Decreasing LLRD to anchor early-layer representations.
+
+### 2. Semantic Alignment (REPA + Supervised)
+- **Goal**: Capture global and semantic features.
+- **Method**: Fine-tune the Teacher with labels and **REPA** (Representation Bottleneck). We distill high-level semantic knowledge from a frozen DINO model (DINOv2/v3 features) to ensure a superior feature representation and classification accuracy.
+- **Optimization**: Increasing LLRD to refine deep semantic layers and classification heads.
+
+### 3. Compression & Distillation (DynamicViT)
+- **Goal**: Create a lightweight, "TINY" inference model with a small bunch of weights.
+- **Method**: Distill a Student DynamicViT from the optimized Teacher.
+- **Pruning**: The student learns to dynamically drop less informative tokens at layers 4, 7, and 10.
+- **Result**: A compressed model with significantly fewer GFLOPs and competitive accuracy.
 
 ![Pruning Evolution](logs/imagenet/student/pruning/pruning_evolution.jpeg)
+*Evolution of token pruning masks across transformer layers.*
 
-**Dynamic Token Pruning: Overcoming the computational cost of Transformers to enable high-performance inference on CPU-limited devices by dynamically selecting only the most informative image tokens.**
+---
 
-This repository contains a PyTorch implementation of Vision Transformers (ViT) and Dynamic Vision Transformers (DynamicViT) for datasets such as ImageNet-1K, STL-10, and CIFAR-10.
-For more details on the theory and implementation, please refer to the project report "**Projet_ViT.pdf**".
+## Installation & Configuration
 
-DynamicViT was originally proposed in:  
-*"Dynamic Vision Transformers for Efficient Image Recognition", 2021* [arXiv link](https://arxiv.org/abs/2106.02034). This repository is an independent implementation featuring adaptive pruning schedules and knowledge distillation strategies.
-
-## Table of Contents
-
-1. [Installation](#installation)  
-2. [Project Structure](#project-structure)  
-3. [How the model works](#how-the-model-works)  
-4. [Usage](#usage)  
-5. [Citation](#citation)
-
-## Installation
-
-1. Clone the repository:
+### Prerequisites
+- Python 3.10+
+- Recommended: `uv` for lightning-fast dependency management.
 
 ```bash
+# Clone the repository
 git clone <repo_url>
 cd Vit-Pytorch
-```
 
-2. Set up a virtual environment and install dependencies:
+# Using uv (recommended)
+uv sync && source .venv/bin/activate
 
-```bash
-# Create a virtual environment
-python -m venv .venv
-
-# Activate it (MacOS/Linux)
-source .venv/bin/activate
-
-# Install requirements
+# Using pip
 pip install -r requirements.txt
 ```
 
-Alternatively, if you use `uv`:
+### Environment Setup
+Create a `.env` file in the root directory to specify your dataset cache location. See `.env.example` for details:
 ```bash
-uv sync
+HF_DATASETS_CACHE=path/to/your/data/cache
 ```
 
-## Project Structure
+---
+
+## Core Usage (ImageNet 128x128)
+
+All scripts must be run as modules from the project root using the `-m` flag.
+
+**1. SSL Pre-training**
+```bash
+python -m src.train.train_teacher_SSL --dataset imagenet --mask_ratio 0.75
+```
+
+**2. Teacher Fine-tuning (with REPA)**
+```bash
+python -m src.train.train_teacher --dataset imagenet --resume-from checkpoints/imagenet/ssl_teacher/ssl_teacher_best.pth
+```
+
+**3. Student Distillation & Pruning**
+```bash
+python -m src.train.train_student --dataset imagenet --rho 0.7 --run_name tiny_dynamic_vit
+```
+
+**4. Evaluation & Benchmarking**
+```bash
+# Compare Teacher vs Student performance
+python -m src.test.compare_st-te --test-teacher --test-student
+
+# Calculate GFLOPs/Parameters
+python -m src.test.parameters_computing --dataset imagenet
+```
+
+---
+
+## 📊 Evaluation Metrics
+
+| Metric | Description |
+|--------|-------------|
+| **Top-1 Accuracy** | Percentage of correct class predictions on the test set. |
+| **MSE / MAE** | Mean Squared Error and Mean Absolute Error for SSL reconstruction quality. |
+| **PSNR** | Peak Signal-to-Noise Ratio (dB) measuring reconstruction fidelity. |
+| **GFLOPs / GMACs** | Billion floating point operations and multiply-accumulate operations per image. |
+| **Throughput** | Inference speed measured in images per second (img/sec). |
+| **Pruning Ratio ($\rho$)** | The target percentage of tokens retained at each pruning stage. |
+
+---
+
+## 📁 Project Structure
 
 ```text
 Vit-Pytorch/
-├── src/
-│   ├── models/           # Architecture: ViT, DynamicViT, Patch Embedding, Predictor LG
-│   ├── train/            # Training loops for Teacher and Student (CIFAR & ImageNet)
-│   ├── test/             # Evaluation scripts and parameter computing
-│   └── finetuning/       # LoRA fine-tuning scripts for STL-10
-├── configs/              # Hyperparameters and data paths per dataset
-├── data/                 # Data loading logic and raw data storage
-├── logs/                 # TensorBoard events and generated plots
-├── checkpoints/          # Saved model weights (.pth)
-├── helper_function/      # Utility functions for printing and formatting
-├── pyproject.toml        # Project dependencies and metadata
-└── requirements.txt      # Traditional pip requirements
+├── checkpoints/           # Trained model weights (.pth)
+│   └── imagenet/          # ImageNet-1k checkpoints (SSL, Teacher, Student)
+├── configs/               # Hyperparameters for training & fine-tuning
+├── data/                  # Data loading and preprocessing logic
+│   ├── load/              # Dataset loaders (ImageNet, STL, CIFAR)
+│   └── images/            # Sample visualization images
+├── helper_function/       # Utilities (LLRD, print, MAE tools, model loaders)
+├── logs/                  # Training logs, plots, and visualizations
+│   └── imagenet/          # ImageNet-specific results (results, pruning, SSL)
+├── src/                   # Main source code
+│   ├── finetuning/        # LoRA fine-tuning logic
+│   ├── models/            # Architecture (ViT, DynamicViT, Predictor, Embeddings)
+│   ├── test/              # Evaluation and analysis scripts
+│   └── train/             # Multi-stage training pipeline (SSL, REPA, Student)
+├── .env                   # Local configuration (e.g. data paths)
+├── pyproject.toml         # Dependency management (uv)
+└── README.md              # Project documentation
 ```
 
-## How the model works
+---
 
-### Dynamic Vision Transformer (DynamicViT)
-Dynamic ViT extends the standard ViT with dynamic token pruning to reduce FLOPs and memory usage. Since not all image patches contribute equally to classification, the model learns to prune less informative tokens in deeper layers.
+## Citation & References
 
-**Adaptive pruning ratio (rho)**: To stabilize training, we implement a sigmoid-based pruning schedule. In early epochs, the model retains most tokens to learn robust features. The pruning intensity gradually increases towards a target ratio (`rho_final`) in the middle of training before stabilizing in the final epochs.
-
-### Loss Function
-The training objective combines four components:
-1. **Classification Loss**: Standard cross-entropy for the target task.
-2. **Knowledge Distillation**: Matching the student's features to a frozen teacher model.
-3. **KL Divergence**: Aligning the probability distributions of the student and teacher.
-4. **Ratio Loss**: Enforcing the target token keep-ratio at each pruning stage.
-
-## Usage
-
-All scripts must be executed from the project root using the `-m` flag to ensure proper module resolution.
-
-### 1. Training a Teacher Model
-Train a standard Vision Transformer to serve as a teacher:
-```bash
-python -m src.train.train_teacher_cifar
-# or for ImageNet
-python -m src.train.train_teacher_imagenet
-```
-
-### 2. Training a Student Model (DynamicViT)
-Train a student model with dynamic pruning, distilling knowledge from a pretrained teacher:
-```bash
-python -m src.train.train_student_cifar
-# or for ImageNet
-python -m src.train.train_student_imagenet
-```
-
-### 3. Evaluation
-Evaluate model performance, compute FLOPs/Parameters, and generate confusion matrices:
-```bash
-python -m src.test.test_cifar
-python -m src.test.test_imagenet
-```
-
-### 4. Fine-tuning
-Fine-tune a pretrained model on a new dataset (e.g., STL-10) using LoRA:
-```bash
-python -m src.finetuning.finetune_model
-```
-
-## Citation
-
-If you use this implementation, please cite this repository and the original DynamicViT paper:
+If you use this implementation, please cite the original DynamicViT paper and the REPA methodology:
 
 ```text
-@article{DBLP:journals/corr/abs-2106-02034,
-  author       = {Yongming Rao and
-                  Wenliang Zhao and
-                  Benlin Liu and
-                  Jiwen Lu and
-                  Jie Zhou and
-                  Cho{-}Jui Hsieh},
-  title        = {DynamicViT: Efficient Vision Transformers with Dynamic Token Sparsification},
-  journal      = {CoRR},
-  volume       = {abs/2106.02034},
-  year         = {2021},
-  url          = {https://arxiv.org/abs/2106.02034},
-  eprinttype    = {arXiv},
-  eprint       = {2106.02034},
-  timestamp    = {Thu, 10 Jun 2021 16:34:18 +0200},
-  biburl       = {https://dblp.org/rec/journals/corr/abs-2106-02034.bib},
-  bibsource    = {dblp computer science bibliography, https://dblp.org}
+@article{rao2021dynamicvit,
+  title={DynamicViT: Efficient Vision Transformers with Dynamic Token Sparsification},
+  author={Rao, Yongming and Zhao, Wenliang and Liu, Benlin and Lu, Jiwen and Zhou, Jie and Hsieh, Cho-Jui},
+  journal={arXiv preprint arXiv:2106.02034},
+  year={2021}
+}
+
+@article{hsu2023repa,
+  title={Revisiting Feature Prediction for Learning Visual Representations},
+  author={Hsu, Chih-Hui and others},
+  journal={arXiv preprint arXiv:2303.11111},
+  year={2023}
 }
 ```
+
+For a full technical report on on our previous implementation (without REPA), see [**Projet_ViT.pdf**](Projet_ViT.pdf).

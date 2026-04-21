@@ -269,12 +269,12 @@ Hugging Face hub dataset `benjamin-paine/imagenet-1k-128x128` through
    a fixed seed (`generator=torch.Generator().manual_seed(50)`), so the
    split is deterministic across machines.
 
-A few samples are bundled under `data/images/` so the site can render
-thumbnails without touching the Hugging Face hub:
+A few CIFAR sample exports are bundled under `data/images/` so the site can
+render thumbnails without touching the Hugging Face hub:
 
 ```{python}
 #| label: fig-samples
-#| fig-cap: "A few training samples from `data/images/`. The number in the filename is the integer ImageNet class id."
+#| fig-cap: "CIFAR sample exports stored in `data/images/` for local visualisation only. The number in the filename is the CIFAR label id."
 sample_files = sorted(DATA_IMAGES.glob("sample_*.png"))
 
 if sample_files:
@@ -284,17 +284,17 @@ if sample_files:
     for ax, img_path in zip(axes, sample_files):
         ax.imshow(Image.open(img_path))
         label = img_path.stem.replace("sample_", "")
-        ax.set_title(f"class id: {label}", fontsize=9)
+        ax.set_title(f"CIFAR label: {label}", fontsize=9)
         ax.axis("off")
-    plt.suptitle("ImageNet-1k 128×128 — a few samples", fontweight="bold")
+    plt.suptitle("CIFAR samples bundled in the repository", fontweight="bold")
     plt.show()
 else:
     print("No sample image found in data/images/")
 ```
 
-To make the tokenisation step tangible, we can split one of these samples
-into the same 16×16 patch grid that the ViT actually sees, and then display
-what a random 75 % MAE mask looks like:
+To make tokenisation tangible, we use one of these local CIFAR sample exports
+as a purely illustrative input, split it into the same 16×16 patch grid used
+by the ViT, and display what a random 75 % MAE mask looks like:
 
 ```{python}
 #| label: fig-patch-mask
@@ -305,7 +305,26 @@ patch = 16
 img_path = sample_files[0] if sample_files else None
 
 if img_path is not None:
-    img = np.asarray(Image.open(img_path).convert("RGB").resize((128, 128)))
+    raw = np.asarray(Image.open(img_path).convert("RGB"))
+
+    # Some sample_*.png were generated via matplotlib and may include
+    # white margins/title text ("Label: ..."). We crop back to the
+    # dense image area before tokenisation visualisation.
+    non_white = (raw < 245).any(axis=2)
+    row_density = non_white.mean(axis=1)
+    col_density = non_white.mean(axis=0)
+
+    dense_rows = np.where(row_density > 0.50)[0]
+    dense_cols = np.where(col_density > 0.50)[0]
+
+    if dense_rows.size > 0 and dense_cols.size > 0:
+        y0, y1 = dense_rows[0], dense_rows[-1] + 1
+        x0, x1 = dense_cols[0], dense_cols[-1] + 1
+        cropped = raw[y0:y1, x0:x1]
+        if cropped.size > 0:
+            raw = cropped
+
+    img = np.asarray(Image.fromarray(raw).resize((128, 128)))
     H, W, _ = img.shape
     nh, nw = H // patch, W // patch
 
@@ -333,6 +352,7 @@ if img_path is not None:
         ax.imshow(im)
         ax.set_title(title)
         ax.axis("off")
+    plt.tight_layout()
     plt.show()
 ```
 
@@ -355,6 +375,14 @@ The pipeline is a three-stage *hierarchical feature distillation* scheme:
    Predictor modules at layers 4, 7, 10 learn which tokens to drop so that
    the per-image compute decreases while classification accuracy is
    preserved as much as possible.
+
+The layer-wise learning-rate policy is intentionally asymmetric across stages.
+For the supervised ViT phase (Teacher with REPA, then Student distillation),
+we use an **increasing** layer-wise schedule: deeper blocks and the head get
+larger updates, which helps adapt high-level semantic features to the target
+classes. For the SSL MAE Teacher stage, we use a **decreasing** schedule so
+earlier layers receive comparatively larger updates, encouraging robust local
+texture and patch-level representations before semantic fine-tuning.
 
 Running the full pipeline from the project root:
 
@@ -415,7 +443,7 @@ evolution across training is logged separately:
 ```{python}
 #| label: fig-student-curves
 #| fig-cap: "Stage 3: Student training curves. Top row: total loss and accuracy. Middle row: KL divergence with the Teacher logits (left) and feature-distillation loss on surviving tokens (right). Bottom row: ratio (sparsity) loss and the *effective* cumulative keep rate ρ produced by the Predictor-LG modules."
-student_graphs = LOGS / "student" / "graphs"
+student_graphs = LOGS / "student" / "Student_ViT_imagenet1k-graphs"
 
 panels = [
     ("student_loss_curve.png",      "Total student loss"),
@@ -550,7 +578,7 @@ artefacts = [
     ("Stage 2 — Teacher", "checkpoint",   "checkpoints/public/imagenet/d128patch16/teacher/teacher_d128patch16.pth"),
     ("Stage 2 — Teacher", "training curves", "logs/imagenet/teacher/Teacher_ViT_imagenet1K-graphs/*.png"),
     ("Stage 3 — Student", "checkpoint",   "checkpoints/public/imagenet/d128patch16/student/student_epoch_120.pth"),
-    ("Stage 3 — Student", "training curves", "logs/imagenet/student/graphs/student_*.png"),
+    ("Stage 3 — Student", "training curves", "logs/imagenet/student/Student_ViT_imagenet1k-graphs/student_*.png"),
     ("Stage 3 — Student", "pruning maps", "logs/imagenet/pruning_visualizations/pruning_vis_*.png"),
     ("Evaluation",        "Teacher vs Student", "logs/imagenet/evaluation_results/compare_*.png"),
 ]
@@ -636,6 +664,15 @@ print(list(zip(top5_i[0].tolist(), top5_p[0].tolist())))
 
 The returned `keep_masks` can be overlaid on the input to reproduce the
 style of visualisation shown in @fig-pruning.
+
+## Running the same inference in Docker
+
+Docker packages the code, Python dependencies and runtime setup in an
+isolated container, so the forward-pass demo runs the same way across machines
+without local environment drift. In this repository, `Dockerfile` and
+`compose.yaml` are configured to execute the Student inference workflow
+reproducibly from a clean environment, which is useful for quick validation
+or sharing the demo setup with teammates.
 
 # CI/CD
 
