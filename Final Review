@@ -1,1 +1,10 @@
+Revue de code - Guy DELLOYE
 
+Cette revue analyse l'implémentation du pipeline du projet Dynamic Vision Tranformer.
+
+Checklist des bonnes pratiques de développement :
+- Le gitignore est bien configuré et évite le versionnement des fichiers lourds. Les commits sont fréquents et les messages de commit informatifs.
+- Le code suit la convention snake case et respecte les normes PEP8. Le projet évite le "code spaghetti". Chaque composant du Transformer est isolé (patch_embed.py, attention_head.py).
+- La structure est très lisible, avec une séparation claire entre les scripts d'exécution (src) et la documentation.
+- Le projet adopte une architecture moderne en privilégiant l'ingestion de données via des APIs qui évite le stockage local massif et respecte le principe de séparation entre calcul et stockage. Pour l'analyse des logs, l'usage d'Apache Parquet plutôt que du CSV permettrait même des analyses statistiques (OLAP) plus efficientes sur les métriques d'entraînement.
+- La portabilité est assurée par une gestion rigoureuse des dépendances via le fichier pyproject.toml.
