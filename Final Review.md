@@ -1,4 +1,4 @@
-###### Revue de code - Guy DELLOYE ######
+#### Revue de code - Guy DELLOYE
 
 Cette revue analyse l'implémentation du pipeline du projet Dynamic Vision Tranformer.
 
