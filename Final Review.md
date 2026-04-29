@@ -1,9 +1,9 @@
-## Revue de code - Guy DELLOYE
+# Revue de code - Guy DELLOYE
 
 Cette revue analyse l'implémentation du pipeline du projet Dynamic Vision Tranformer.
 
 
-### Checklist des bonnes pratiques de développement :
+## Checklist des bonnes pratiques de développement :
 * **Travail collaboratif :** le gitignore est bien configuré et évite le versionnement des fichiers lourds.
 Les commits sont fréquents et les messages de commit informatifs.
 
@@ -20,19 +20,20 @@ Pour l'analyse des logs, l'usage d'Apache Parquet plutôt que du CSV permettrait
 L'application peut ainsi être réexécutée de manière identique sur n'importe quel environnement sans "adhérences" locales.
 
 
-### Publication reproductible
+## Publication reproductible
 
-Le projet est de très haute qualité et utilise un écosystème Quarto intégrant texte, code et visualisations interactives au sein d'un site web automatisé par GitHub Actions.
-Les slides au format quarto-revealjs sont très claires : elles résument bien le projet et ses principaux résultats.
+* **Automatisation CI/CD :** la mise en place d'un workflow GitHub Actions (ruff.yml) dédié au linting sécurise l'intégrité du code source et garantit une base saine pour la génération du rapport Quarto.
+
+* **Restitution :** le projet est de très haute qualité et utilise un écosystème Quarto intégrant texte, code et visualisations interactives au sein d'un site web automatisé par GitHub Actions. Les slides au format quarto-revealjs sont très claires : elles résument bien le projet et ses principaux résultats.
 
 
-### Améliorations suggérées
+## Améliorations suggérées
 
 * **Optimisation du calcul :** généraliser la détection du `device` pour inclure `mps` et renforcer la portabilité multi-OS.
 * **Format de persistance :** migrer les logs de performance du CSV vers le format Parquet pour gagner en efficience de stockage et de lecture.
 
 
-### Conclusion
+## Conclusion
 
 Le projet est très bien structuré dans un pipeline automatisé, transparent et parfaitement documenté.
 
